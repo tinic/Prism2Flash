@@ -174,6 +174,16 @@ Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
   };
   const auto result = perform();
   report.error = result ? P2_OK : result.error();
+  // The final word read leaves NV selected. On Gayle that can obscure
+  // CONTROL and CIS, so complete the read before the caller's full capture.
+  // This is scratch-register cleanup, never a flash command or reset.
+  if (bus.present(bus.ctx)) {
+    bus.write16(bus.ctx, P2_AUXOFFSET, 0);
+    if (!bus.present(bus.ctx) && !report.error)
+      report.error = P2_E_REMOVED;
+  }
+  if (report.error && report.erase_command_attempted)
+    report.recovery_required = true;
   return report;
 }
 } // namespace p2::flash

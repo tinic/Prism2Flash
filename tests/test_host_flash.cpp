@@ -93,7 +93,12 @@ struct FlashModel {
   ~FlashModel() { p2_mock_free(&mock); }
   auto run() {
     p2::Card card{mock.bus};
-    return p2::flash::program_sst(card, mock.bus, before, desired);
+    const auto result = p2::flash::program_sst(card, mock.bus, before, desired);
+    // NvCapture reads CONTROL first; a completed word verification must not
+    // leave the NV selector obscuring normal registers on the Amiga.
+    if (mock.present)
+      assert(mock.aux_space == 0);
+    return result;
   }
 };
 } // namespace
