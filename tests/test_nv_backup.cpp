@@ -61,6 +61,7 @@ static void transfer_tests(void) {
   uint8_t b[260];
   unsigned ops;
   init_nv(&m);
+  m.min_nv_gap = 1;
   m.nv_selector_hides_control = true;
   m.regs[P2_CONTROL / 2] = 0xc000;
   CHECK(!code(p2::Card{m.bus}.read_nv(126, b)));

@@ -96,6 +96,16 @@ private:
       for (; attempt < 20; ++attempt) {
         if (auto result = within_deadline(); !result)
           return result;
+        if (attempt) {
+          const auto control = card_.aux_control();
+          if (!control)
+            return std::unexpected{control.error()};
+          if (!(*control & 0xc000)) {
+            ++report_.aux_reenables;
+            if (auto result = card_.enable_aux(true); !result)
+              return result;
+          }
+        }
         auto bytes = attempt ? std::span{next} : out.subspan(page, next.size());
         if (auto result =
                 card_.read_nv(address + static_cast<uint32_t>(page), bytes);
@@ -117,8 +127,10 @@ private:
       }
       // Two consecutive whole pages; never vote or repair individual bytes.
       if (attempt == 20) {
-        p2_fprintf(stderr, "NV page unstable at 0x%06lx after 20 reads\n",
-                   static_cast<unsigned long>(address + page));
+        p2_fprintf(stderr,
+                   "NV page unstable at 0x%06lx after 20 reads; CONTROL=%04x\n",
+                   static_cast<unsigned long>(address + page),
+                   bus_.read16(bus_.ctx, P2_CONTROL));
         return std::unexpected{P2_E_VERIFY};
       }
     }
