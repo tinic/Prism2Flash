@@ -31,7 +31,10 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
     *bus = p->mock.bus;
   return rc;
 }
-void p2_platform_close(struct p2_platform *p) { delete p; }
+void p2_platform_close(struct p2_platform *p) {
+  if (p)
+    p2::DestroyObject<p2_platform>{}(p);
+}
 const char *p2_platform_description(void) {
   return "SIMULATION ONLY - no hardware access";
 }
