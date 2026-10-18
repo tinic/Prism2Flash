@@ -19,6 +19,14 @@ static auto payload_hash(const Image &image) {
   return hash.hex();
 }
 int main(int argc, char **argv) {
+  const bool dos = argc > 1 && std::string_view{argv[argc - 1]} == "--dos";
+  if (dos)
+    --argc;
+  const char *before_path = nullptr;
+  if (argc > 2 && std::string_view{argv[argc - 2]} == "--before") {
+    before_path = argv[argc - 1];
+    argc -= 2;
+  }
   assert(argc == 4 || argc == 5);
   auto image = load(argv[1]);
   assert(image);
@@ -48,7 +56,8 @@ int main(int argc, char **argv) {
   }
   auto prepared = PreparedImage::create(
       {*image, basename(argv[1])}, image->entry() ? Mode::Ram : Mode::Flash,
-      *card, bytes, source);
+      dos ? *derived : *card, bytes, source,
+      dos ? PlugPolicy::DosOptionalDefaults : PlugPolicy::RequireAll);
   assert(prepared);
   assert(before == payload_hash(*image) && original_pda == bytes);
   assert(!primary || primary_before == payload_hash(*primary));
@@ -57,6 +66,14 @@ int main(int argc, char **argv) {
     assert(before_flash);
     for (std::size_t i = 0; i < before_flash.size(); ++i)
       before_flash.bytes()[i] = static_cast<uint8_t>(i * 37);
+    if (before_path) {
+      auto before_file = p2::File::open(before_path, "rb");
+      assert(before_file &&
+             fread(before_flash.bytes().data(), 1, before_flash.size(),
+                   before_file.get()) == before_flash.size());
+      assert(std::equal(bytes.begin(), bytes.end(),
+                        before_flash.bytes().begin() + 0x10000));
+    }
     auto plan = p2::flash::Plan::create(before_flash.bytes(), *prepared);
     assert(plan);
     for (std::size_t offset = 0; offset < p2::flash::Bytes; ++offset) {
@@ -67,6 +84,9 @@ int main(int argc, char **argv) {
       assert(plan->desired()[offset] == expected);
       assert(plan->before()[offset] == before_flash.bytes()[offset]);
     }
+    p2::Sha256 hash;
+    hash.update(plan->desired());
+    printf("PLAN SHA256=%s\n", hash.hex().data());
   }
   puts("CANONICAL");
   printf("I %lu\n", static_cast<unsigned long>(prepared->entry()));
