@@ -4,9 +4,10 @@ Native Amiga utilities for Intersil Prism II/2.5/3 PCMCIA cards, developed
 alongside AmiNetXDuo. The project starts with Genesis recovery and will then
 add a regular firmware flasher using the same programming engine.
 
-**Status: first Genesis probe implemented, host checks passing, native 68000
-binary built. No real card or Amiga has been tested.** The A1200 is currently
-in use by another project; hardware testing is deferred.
+**Status: first Genesis probe implemented; host checks and native executable
+smoke tests pass in Amiberry and Copperline. No real card or physical Amiga
+has been tested.** The A1200 is currently in use by another project; hardware
+testing is deferred.
 
 ## First executable: Prism2Genesis
 
@@ -77,6 +78,35 @@ readback errors, removal/cancellation, and rejection of flash commands.
 See [docs/HARDWARE-TESTING.md](docs/HARDWARE-TESTING.md) for the deferred test
 procedure, [docs/PROTOCOL.md](docs/PROTOCOL.md) for the implementation contract,
 and [docs/SOURCES.md](docs/SOURCES.md) for provenance and research.
+
+## Emulator smoke tests
+
+The actual native executable passed 12 command-line/startup checks on each of
+Amiberry 8.4.1 and Copperline 1.0.0 with A600/68000/Kickstart 2.05 and
+A1200/68020/Kickstart 3.1 profiles. Each command used a 4096-byte Shell stack.
+These checks cover help, invalid arguments, no-card exits and subsequent
+commands. No Prism hardware is emulated or validated by these results.
+
+The smoke test caught an unnecessary Newlib double-math library dependency
+that prevented startup on a bare system. The native CLI now uses integer-only
+formatting, and the build rejects that dependency if it reappears.
+
+`tests/emulator_smoke.py` creates a fresh isolated drive and records exit
+codes, output and binary/ROM hashes. It uses Copperline's direct executable
+launch interface, or a bare boot drive in Amiberry. Supply your existing ROM
+assets; none are copied into the repository. FS-UAE is not used by this runner.
+
+```sh
+python3 tests/emulator_smoke.py --emulator copperline \
+  --emulator-path /path/to/copperline --model A600 --cpu 68000 \
+  --rom /path/to/matching-a600-kickstart.rom
+python3 tests/emulator_smoke.py --emulator amiberry \
+  --emulator-path /path/to/Amiberry --model A1200 --cpu 68020 \
+  --rom /path/to/matching-a1200-kickstart.rom
+```
+
+See [docs/EMULATOR-RESULTS.md](docs/EMULATOR-RESULTS.md) for the recorded result
+and its limits. Physical card testing remains deferred.
 
 ## License
 

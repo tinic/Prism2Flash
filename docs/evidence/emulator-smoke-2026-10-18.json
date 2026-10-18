@@ -1,0 +1,403 @@
+{
+  "date": "2026-10-18",
+  "binary": "build-amiga/Prism2Genesis",
+  "binary_sha256": "9a2a0759a92028102948bbe0e955c7b820f1c73c5ee832183850282da7240960",
+  "binary_bytes": 57536,
+  "guest_stack_bytes": 4096,
+  "real_card_tested": false,
+  "physical_amiga_accessed": false,
+  "profiles": [
+    {
+      "emulator": "amiberry",
+      "emulator_version": "8.4.1",
+      "model": "A1200",
+      "cpu": "68020",
+      "kickstart": "3.1 (40.68)",
+      "rom_sha256": "6d43840d4099a74170ea0f0425b6257c3891ebcaa39c4d1840075a9ab22b5707",
+      "passed": true,
+      "run_token": "860906915f5d440097accb890811cb89",
+      "full_report": "build-emulator/amiberry-A1200-68020-86090691/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        },
+        {
+          "name": "no_args",
+          "args": "",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "invalid_sram",
+          "args": "probe --sram 32",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "missing_sram",
+          "args": "probe",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe8",
+          "args": "probe --sram 8",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe16",
+          "args": "probe --sram 16",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info_again",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect_again",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        }
+      ],
+      "no_card_output": "Prism2Genesis 0.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+    },
+    {
+      "emulator": "amiberry",
+      "emulator_version": "8.4.1",
+      "model": "A600",
+      "cpu": "68000",
+      "kickstart": "2.05 (37.350)",
+      "rom_sha256": "8d57d6e9d976df42d91ff9d10a5eedaede1a00e3b4b34cad750ca5ff7229f28a",
+      "passed": true,
+      "run_token": "1263d116b3f649fca84b56f7fd829c76",
+      "full_report": "build-emulator/amiberry-A600-68000-1263d116/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        },
+        {
+          "name": "no_args",
+          "args": "",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "invalid_sram",
+          "args": "probe --sram 32",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "missing_sram",
+          "args": "probe",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe8",
+          "args": "probe --sram 8",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe16",
+          "args": "probe --sram 16",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info_again",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect_again",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        }
+      ],
+      "no_card_output": "Prism2Genesis 0.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+    },
+    {
+      "emulator": "copperline",
+      "emulator_version": "1.0.0",
+      "model": "A1200",
+      "cpu": "68020",
+      "kickstart": "3.1 (40.68)",
+      "rom_sha256": "6d43840d4099a74170ea0f0425b6257c3891ebcaa39c4d1840075a9ab22b5707",
+      "passed": true,
+      "run_token": "9416d257cfe54cd0b4e52c72d0d0a325",
+      "full_report": "build-emulator/copperline-A1200-68020-9416d257/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        },
+        {
+          "name": "no_args",
+          "args": "",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "invalid_sram",
+          "args": "probe --sram 32",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "missing_sram",
+          "args": "probe",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe8",
+          "args": "probe --sram 8",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe16",
+          "args": "probe --sram 16",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info_again",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect_again",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        }
+      ],
+      "no_card_output": "Prism2Genesis 0.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+    },
+    {
+      "emulator": "copperline",
+      "emulator_version": "1.0.0",
+      "model": "A600",
+      "cpu": "68000",
+      "kickstart": "2.05 (37.350)",
+      "rom_sha256": "8d57d6e9d976df42d91ff9d10a5eedaede1a00e3b4b34cad750ca5ff7229f28a",
+      "passed": true,
+      "run_token": "7b24839bb25947368e2bdc17cef903be",
+      "full_report": "build-emulator/copperline-A600-68000-7b24839b/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        },
+        {
+          "name": "no_args",
+          "args": "",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "invalid_sram",
+          "args": "probe --sram 32",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "missing_sram",
+          "args": "probe",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe8",
+          "args": "probe --sram 8",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "probe16",
+          "args": "probe --sram 16",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "info_again",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "inspect_again",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true
+        }
+      ],
+      "no_card_output": "Prism2Genesis 0.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+    }
+  ]
+}

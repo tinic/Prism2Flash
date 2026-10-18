@@ -8,6 +8,7 @@
 - Implement Genesis tooling first; a normal flasher follows it. See ROADMAP.md.
 - Keep image processing, the card protocol and the Amiga backend separate.
 - Never describe simulated results or cross compilation as hardware validation.
+- Use Amiberry and Copperline for emulator smoke tests. Do not use FS-UAE.
 - Preserve source provenance and GPL notices. Do not redistribute firmware
   images without establishing their distribution terms.
 - Test byte order, alignment, bounds, timeouts and failure cleanup. Never use

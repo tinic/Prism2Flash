@@ -9,6 +9,8 @@
 - [x] Deadline-based commands, AUX transfers and validated PDA reads.
 - [x] Explicit x8/x16 Genesis RAM-access probe and normal-mode return.
 - [x] Host tests and native 68000 cross build.
+- [x] Native startup, argument handling and empty-slot exits in Amiberry and
+      Copperline on A600/68000 and A1200/68020 profiles.
 - [ ] A600/A1200 validation of CIS layout, register/payload byte order, timing,
       entry/readback/exit, cancellation, and firmware restart.
 

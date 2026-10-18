@@ -12,6 +12,11 @@ if(PRISM2_AMIGA)
   target_include_directories(Prism2Genesis PRIVATE third_party/pccard/include)
   target_link_libraries(Prism2Genesis PRIVATE prism2_core)
   target_compile_options(Prism2Genesis PRIVATE -Wall -Wextra -Werror)
+  add_custom_command(TARGET Prism2Genesis POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" "-DBINARY=$<TARGET_FILE:Prism2Genesis>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check-no-float.cmake")
+  add_executable(emulator_env tests/emulator_env.c)
+  target_compile_options(emulator_env PRIVATE -Wall -Wextra -Werror)
   install(TARGETS Prism2Genesis RUNTIME DESTINATION C)
 else()
   add_library(prism2_mock tests/mock.c)

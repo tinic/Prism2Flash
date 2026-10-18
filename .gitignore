@@ -3,3 +3,5 @@
 *.lha
 !third_party/*/*.lha
 *.log
+__pycache__/
+*.py[cod]

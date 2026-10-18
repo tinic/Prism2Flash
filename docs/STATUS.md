@@ -1,4 +1,4 @@
-# Initial implementation baseline — 2026-10-18
+# Implementation and emulator baseline — 2026-10-18
 
 Implemented the first Genesis probe milestone in the separate Prism2Flash
 repository. There has been no A1200 connection, deployment or hardware test.
@@ -14,8 +14,15 @@ repository. There has been no A1200 connection, deployment or hardware test.
 - Native cross build: m68k-amigaos GCC 16.2.0, `-m68000 -O2`, warnings treated
   as errors. `file` identifies the output as an AmigaOS loadseg executable.
 - Every retained third-party artifact matches third_party/SHA256SUMS.
+- Native executable: 48 smoke checks passed across Amiberry 8.4.1 and
+  Copperline 1.0.0, each with A600/68000/Kickstart 2.05 and
+  A1200/68020/Kickstart 3.1 profiles and a 4096-byte Shell stack.
+- Fixed a pre-main startup failure by using Newlib integer-only formatting;
+  a native build guard rejects the unwanted IEEE double-library dependency.
+  See [EMULATOR-RESULTS.md](EMULATOR-RESULTS.md) for evidence and reproduction.
 
-These results establish compilation and modeled protocol behavior only.
+These results establish compilation, modeled protocol behavior, native startup
+and clean no-card failure handling.
 Native timing, Gayle mappings/byte lanes, exact card compatibility, and actual
 Genesis entry/exit remain unverified until the hardware gate in ROADMAP.md.
 

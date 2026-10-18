@@ -14,7 +14,7 @@
 #include <libraries/pccard.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
-#include <stdio.h>
+#include "p2_stdio.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -172,10 +172,10 @@ int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
     struct p2_platform *p = calloc(1, sizeof(*p));
     struct CardHandle *owner;
     UBYTE tuple[263];
-    if (!p) { snprintf(error, size, "Out of memory"); return P2_E_IO; }
+    if (!p) { p2_snprintf(error, size, "Out of memory"); return P2_E_IO; }
     *out = NULL;
     card_resource = OpenResource((CONST_STRPTR)CARDRESNAME);
-    if (!card_resource) { snprintf(error, size, "No card.resource; use an A600/A1200"); goto fail; }
+    if (!card_resource) { p2_snprintf(error, size, "No card.resource; use an A600/A1200"); goto fail; }
     p->handle.cah_CardNode.ln_Name = (char *)"Prism2Genesis";
     p->handle.cah_CardFlags = CARDF_IFAVAILABLE;
     p->removed.is_Data = p;
@@ -185,17 +185,17 @@ int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
     active_platform = p;
     owner = own_card(&p->handle);
     if (owner) {
-        snprintf(error, size, "Cannot own PCMCIA card: absent or held by a driver");
+        p2_snprintf(error, size, "Cannot own PCMCIA card: absent or held by a driver");
         goto fail;
     }
     p->owned = 1;
     p->map = card_map();
     if (!p->map || !p->map->cmm_AttributeMemory || !p->map->cmm_IOMemory) {
-        snprintf(error, size, "PCMCIA attribute/I/O mapping is unavailable"); goto fail;
+        p2_snprintf(error, size, "PCMCIA attribute/I/O mapping is unavailable"); goto fail;
     }
     memset(tuple, 0, sizeof(tuple));
     if (!copy_tuple(&p->handle, tuple, PCCARD_TPL_MANFID) || tuple[1] < 4) {
-        snprintf(error, size, "Cannot read MANFID tuple; damaged CIS recovery is a later milestone"); goto fail;
+        p2_snprintf(error, size, "Cannot read MANFID tuple; damaged CIS recovery is a later milestone"); goto fail;
     }
     p->info.manufacturer = (uint16_t)(tuple[2] | ((uint16_t)tuple[3] << 8));
     p->info.product = (uint16_t)(tuple[4] | ((uint16_t)tuple[5] << 8));
@@ -214,13 +214,13 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
     ULONG *bases, *lengths, count, i;
     int found = 0;
     if (!supported_cis(p->info.manufacturer, p->info.product)) {
-        snprintf(error, size, "CIS ID is outside the initial Prism2 PC Card allowlist");
+        p2_snprintf(error, size, "CIS ID is outside the initial Prism2 PC Card allowlist");
         return P2_E_UNSUPPORTED;
     }
     UtilityBase = (struct UtilityBase *)OpenLibrary((CONST_STRPTR)"utility.library", 37);
     p->pccard = OpenLibrary((CONST_STRPTR)PCCARDNAME, 2);
     if (!UtilityBase || !p->pccard || (p->pccard->lib_Version == 2 && p->pccard->lib_Revision < 2)) {
-        snprintf(error, size, "Need utility.library and pccard.library 2.2 or newer"); return P2_E_IO;
+        p2_snprintf(error, size, "Need utility.library and pccard.library 2.2 or newer"); return P2_E_IO;
     }
     memset(tuple, 0, sizeof(tuple));
     if (!p->present || !copy_tuple(&p->handle, tuple, PCCARD_TPL_CONFIG)) goto bad_cis;
@@ -256,13 +256,13 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
     p->timer_port = CreateMsgPort();
     if (p->timer_port) p->timer = (struct timerequest *)CreateIORequest(p->timer_port, sizeof(*p->timer));
     if (!p->timer || OpenDevice((CONST_STRPTR)TIMERNAME, UNIT_MICROHZ, (struct IORequest *)p->timer, 0)) {
-        snprintf(error, size, "Cannot open timer.device"); return P2_E_IO;
+        p2_snprintf(error, size, "Cannot open timer.device"); return P2_E_IO;
     }
     p->timer_open = 1;
     p->config = p->map->cmm_AttributeMemory + p->info.config_base;
     p->io = p->map->cmm_IOMemory + p->info.io_base;
-    if (!p->present) { snprintf(error, size, "Card removed during configuration"); return P2_E_REMOVED; }
-    printf("Mapping: attribute offset=0x%08lx I/O offset=0x%08lx index=%u\n",
+    if (!p->present) { p2_snprintf(error, size, "Card removed during configuration"); return P2_E_REMOVED; }
+    p2_printf("Mapping: attribute offset=0x%08lx I/O offset=0x%08lx index=%u\n",
            (unsigned long)p->info.config_base, (unsigned long)p->info.io_base,
            (unsigned)p->info.config_index);
     p->configured = 1;
@@ -275,7 +275,7 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
                            delay_us, now_us, present, cancelled};
     return P2_OK;
 bad_cis:
-    snprintf(error, size, "Unsupported CIS configuration; first CFTABLE entry must contain a 64-byte I/O window");
+    p2_snprintf(error, size, "Unsupported CIS configuration; first CFTABLE entry must contain a 64-byte I/O window");
     return P2_E_UNSUPPORTED;
 }
 void p2_platform_close(struct p2_platform *p)
