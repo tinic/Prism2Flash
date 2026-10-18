@@ -58,7 +58,7 @@ def valid_output(name, text, suite="genesis"):
         if name == "version":
             return text.strip() == f"Prism2Flash {VERSION}"
         if name in ("program_missing_files", "verify_missing_files"):
-            return not text.strip() or "Native programming admission remains disabled; no card access." in text
+            return "Cannot open firmware file:" in text
         return f"Prism2Flash {VERSION}" in text and "Fresh full before/after captures" in text
     if suite == "firmware":
         if name == "initial_bootstrap":

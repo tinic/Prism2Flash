@@ -1,5 +1,7 @@
 # Native MA401 firmware update
 
+**Start here: [six-step quick start](QUICKSTART.md).**
+
 `Prism2Flash` is a native Amiga command. `Prism2Flash --help` and
 `Prism2Flash --version` do not access the card. Use `Stack 16384` for hardware
 operations. Firmware files are not distributed with this project.
@@ -9,7 +11,13 @@ V2.5 / PD5LMWP200: exact MA401RA/ISL37300P CIS, NIC 800c/0/1/0, x16 SRAM
 configuration and runtime SST BF:D5 identification. A matching product name
 alone does not approve another card. Generic dead-card recovery is not exposed.
 
-## Commands
+## Simple commands
+
+Use `--backup-dir EXISTING_DRAWER --utc-offset MINUTES_EAST` to generate a
+short timestamped subdrawer and UTC timestamp automatically from the Amiga
+clock. Both `program` and `verify` accept this form. The guide uses it.
+
+## Explicit timestamp commands
 
 ```text
 Stack 16384
@@ -19,7 +27,7 @@ Prism2Flash verify --primary pk010101.hex --station sf010704.hex --output Work:P
 
 Replace `TIMESTAMP` with current UTC in `YYYYMMDDTHHMMSSZ` form and use a new
 directory for each operation. Its persistent parent must already exist. Reserve
-at least 34 MiB plus filesystem overhead per transaction. `MINUTES_EAST` is the
+at least 20 MiB per transaction. `MINUTES_EAST` is the
 offset of the **Amiga's clock** from UTC; for example, -300 means UTC minus five
 hours. The tool checks the clock at phase boundaries. Do not copy an old date.
 
@@ -28,7 +36,9 @@ image includes this card's own PDA, CIS and unchanged gaps, so its hash is
 card-specific. The option is accepted by both commands; saved hashes never
 authorize another insertion or replace fresh captures.
 
-The native executable checks these exact input SHA-256 hashes:
+The initial bootstrap hash is required. The PRI/STA hashes below identify the
+tested pair; other compatible PRI/STA images pass the same metadata, platform,
+interface, PDA and address checks. Their hashes are recorded automatically:
 
 | Input | Component | SHA-256 |
 |---|---|---|
@@ -38,8 +48,9 @@ The native executable checks these exact input SHA-256 hashes:
 
 ## What programming does
 
-The utility claims the slot exclusively and takes two complete 8 MiB AUX NV
-captures. It closes, reopens and hashes the saved files before any Genesis or
+The utility claims the slot exclusively and takes one complete 8 MiB AUX NV
+capture. It checks all 128 KiB aliases for exact equality, then closes, reopens
+and hashes the saved file before any Genesis or
 flash work. Preparation uses the PDA from that same fresh capture. It overlays
 only validated image segments onto the complete old 128 KiB image, preserves
 the CIS/PDA interval and every other gap, saves the intended image, reopens it
@@ -52,7 +63,7 @@ SST identification and programming. Only BF:D5 is accepted. The engine checks
 the complete old flash, issues one erase, programs each non-FF byte once and
 compares every physical flash byte with the intended image. Polling is bounded.
 
-It then takes two full 8 MiB after-captures, reopens and hashes them, and
+It then takes one full 8 MiB after-capture, reopens and hashes it, and
 compares the entire exposed interval with the intended image repeated across
 the card's 128 KiB aliases. All phases retain the same insertion ownership.
 
@@ -62,8 +73,8 @@ contents. Use it after a cold boot to establish that the updated firmware runs.
 
 ## Results and recovery
 
-Keep `before-read-1.bin`, `before-read-2.bin`, `after-read-1.bin`,
-`after-read-2.bin`, both phase manifests and `transaction.json`. Programming
+Keep `before-read-1.bin`, `after-read-1.bin`, both phase manifests and
+`transaction.json`. Programming
 also saves `planned-flash.bin` and `flash-plan.txt`. These files contain private
 card identity/calibration data; do not publish raw captures as example files.
 
@@ -76,4 +87,4 @@ cleanup. Never cold-boot an unverified partial flash.
 
 See [hardware results](HARDWARE-TESTING.md) and the
 [original DOS derivation](DOS-REFERENCE.md). The release supports this narrow
-qualified path; other cards, firmware pairs and restoration remain separate work.
+qualified path; other cards and restoration remain separate work.

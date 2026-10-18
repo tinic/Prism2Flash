@@ -12,6 +12,8 @@ struct Clock {
 // Offset is explicitly supplied minutes EAST of UTC. It is not guessed from
 // the host, locale, or a DateStamp; matching checks consistency, not NTP truth.
 [[nodiscard]] CardResult<int64_t> utc_seconds(std::string_view utc);
+[[nodiscard]] CardResult<std::array<char, 17>> format_clock(Clock,
+                                                            int offset_east);
 [[nodiscard]] CardResult<int64_t> check_clock(Clock local, int offset_east,
                                               std::string_view supplied_utc);
 struct Volume {

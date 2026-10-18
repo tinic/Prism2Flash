@@ -1,4 +1,6 @@
-# Installing the experimental Amiga utility
+# Installation
+
+Start with [the short flashing guide](QUICKSTART.md).
 
 Download the `Prism2Flash-<version>-amiga-68000.lha` asset from
 [GitHub Releases](https://github.com/tinic/Prism2Flash/releases). Obtain the

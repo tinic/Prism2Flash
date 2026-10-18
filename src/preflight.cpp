@@ -41,6 +41,12 @@ CardResult<std::array<char, 17>> format_utc(int64_t seconds) {
   return result;
 }
 } // namespace
+CardResult<std::array<char, 17>> format_clock(Clock local, int offset_east) {
+  const auto seconds = clock_seconds(local, offset_east);
+  return seconds ? format_utc(*seconds)
+                 : CardResult<std::array<char, 17>>{
+                       std::unexpected{seconds.error()}};
+}
 CardResult<int64_t> utc_seconds(std::string_view utc) {
   if (!backup::valid_utc(utc))
     return std::unexpected{P2_E_ARGUMENT};

@@ -6,12 +6,14 @@
 #include "flash_plan.h"
 #include "operation.h"
 #include "p2_stdio.h"
+#include "preflight.h"
 #include "sha256.h"
 #include "version.h"
 #include <algorithm>
 #include <charconv>
 #include <cstring>
 #include <dos/dos.h>
+#include <proto/dos.h>
 #include <proto/exec.h>
 
 namespace {
@@ -20,6 +22,7 @@ struct Options {
   bool verify = false;
   const char *initial = nullptr, *primary = nullptr, *station = nullptr;
   const char *directory = nullptr, *utc = nullptr;
+  const char *backup_parent = nullptr;
   const char *expected_plan = nullptr;
   int east = 10000;
 };
@@ -37,6 +40,7 @@ std::optional<Options> parse(int argc, char **argv) {
                         : key == "--primary"           ? &options.primary
                         : key == "--station"           ? &options.station
                         : key == "--output"            ? &options.directory
+                        : key == "--backup-dir"        ? &options.backup_parent
                         : key == "--utc"               ? &options.utc
                         : key == "--expected-plan-sha" ? &options.expected_plan
                                                        : nullptr;
@@ -54,8 +58,9 @@ std::optional<Options> parse(int argc, char **argv) {
     } else
       return {};
   }
-  if (!options.primary || !options.station || !options.directory ||
-      !options.utc || options.east == 10000 ||
+  if (!options.primary || !options.station ||
+      (bool(options.directory) == bool(options.backup_parent)) ||
+      (options.directory && !options.utc) || options.east == 10000 ||
       (!options.verify && !options.initial))
     return {};
   if (options.expected_plan) {
@@ -71,12 +76,16 @@ std::optional<Options> parse(int argc, char **argv) {
 template <typename Image>
 std::optional<Image> load(const char *path, std::string_view expected) {
   auto file = File::open(path, "rb");
-  if (!file)
+  if (!file) {
+    p2_fprintf(stderr, "Cannot open firmware file: %s\n", path);
     return {};
+  }
   auto image = Image::read(*file);
   if (!image || !file.close() ||
-      (!expected.empty() && image->source_sha256() != expected))
+      (!expected.empty() && image->source_sha256() != expected)) {
+    p2_fprintf(stderr, "Invalid or unsupported firmware input: %s\n", path);
     return {};
+  }
   return std::move(*image);
 }
 struct Context {
@@ -245,25 +254,54 @@ int main(int argc, char **argv) {
     puts("Prism2Flash " P2_VERSION);
     return 0;
   }
-  const auto options = parse(argc, argv);
+  auto options = parse(argc, argv);
   if (!options) {
     puts("Prism2Flash " P2_VERSION "\n"
          "  Prism2Flash program --initial ID010001.HEX --primary pk010101.hex "
          "--station sf010704.hex\n"
-         "    --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ --utc-offset "
+         "    --backup-dir EXISTING_DRAWER --utc-offset "
          "MINUTES_EAST\n"
          "  Prism2Flash verify --primary pk010101.hex --station sf010704.hex\n"
-         "    --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ --utc-offset "
+         "    --backup-dir EXISTING_DRAWER --utc-offset "
          "MINUTES_EAST\n"
          "Fresh full before/after captures are mandatory; no skip/force "
          "option.");
-    puts("Use Stack 16384. Optional: --expected-plan-sha SHA256 checks the "
-         "exact prepared image.");
+    puts("Use Stack 16384. Supply your compatible PRI/STA files. One full "
+         "before and one full after capture.\n"
+         "Timestamped backup drawers are automatic; set the Amiga clock "
+         "correctly. Offset is minutes east of UTC (0 for a UTC clock).\n"
+         "Optional: --expected-plan-sha SHA256; advanced: --output NEW_DRAWER "
+         "--utc YYYYMMDDTHHMMSSZ instead of --backup-dir.");
     return argc == 2 && (std::string_view{argv[1]} == "--help" ||
                          std::string_view{argv[1]} == "help")
                ? 0
                : 20;
   }
+  std::array<char, 17> generated_utc{};
+  std::array<char, 384> generated_directory{};
+  if (!options->utc) {
+    struct DateStamp stamp {};
+    DateStamp(&stamp);
+    const auto utc = preflight::format_clock(
+        {stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick}, options->east);
+    if (!utc) {
+      p2_fprintf(stderr,
+                 "Set the Amiga clock and UTC offset before flashing.\n");
+      return 20;
+    }
+    generated_utc = *utc;
+    options->utc = generated_utc.data();
+  }
+  if (options->backup_parent) {
+    const auto count =
+        p2_snprintf(generated_directory.data(), generated_directory.size(),
+                    "%s/P2-%s", options->backup_parent, options->utc);
+    if (count <= 0 ||
+        static_cast<std::size_t>(count) >= generated_directory.size())
+      return 20;
+    options->directory = generated_directory.data();
+  }
+  p2_printf("Backups: %s\n", options->directory);
   if (!options->verify && !profile::programming_approved()) {
     p2_fprintf(
         stderr,
@@ -274,22 +312,29 @@ int main(int argc, char **argv) {
   auto station = load<firmware::Image>(options->station, {});
   if (!primary || !station)
     return 20;
+  const auto pri = primary->component(), sta = station->component();
+  p2_printf("Target PRI %u.%u.%u / STA %u.%u.%u\n", pri.major, pri.minor,
+            pri.variant, sta.major, sta.minor, sta.variant);
   auto context = make_owned<Context>(std::move(*primary), std::move(*station));
   if (!context)
     return 20;
   context->primary_name = options->primary;
   context->station_name = options->station;
   context->expected_plan = options->expected_plan;
-  if (options->verify)
-    return operation::run_native(options->directory, options->utc,
-                                 "verify-current", verify, context.get(),
-                                 options->east, {compare, context.get()});
+  if (options->verify) {
+    const auto result = operation::run_native(
+        options->directory, options->utc, "verify-current", verify,
+        context.get(), options->east, {compare, context.get()});
+    if (!result)
+      puts("SUCCESS: running firmware and full flash contents verified.");
+    return result;
+  }
   context->initial = load<firmware::InitialImage>(
       options->initial,
       "1d326cee5887005e9b755e74e5578ccfbd74ae5e7ebc19c1af23e61b7a76c018");
   if (!context->initial)
     return 20;
-  return operation::run_native(
+  const auto result = operation::run_native(
       options->directory, options->utc, "flash-sst", program, context.get(),
       options->east, {compare, context.get()},
       {[](void *c, const operation::Report &r) {
@@ -300,4 +345,7 @@ int main(int argc, char **argv) {
                   r.readback_error || r.comparison_error));
        },
        hold});
+  if (!result)
+    puts("SUCCESS: target firmware and full flash readback verified.");
+  return result;
 }

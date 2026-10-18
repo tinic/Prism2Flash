@@ -115,7 +115,7 @@ def main():
         'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
         'hardware_test_scope': 'Exact MA401 Genesis/bootstrap/program/readback hardware builds and results are recorded in docs/HARDWARE-TESTING.md; this flag does not claim every release binary or card is hardware-tested',
-        'scope': 'Native MA401 x16 Genesis/bootstrap and SST BF:D5 flashing with full before/after captures; offline firmware validation/preparation. Exact pinned inputs and card profile only; no generic dead-card recovery',
+        'scope': 'Native MA401 x16 Genesis/bootstrap and SST BF:D5 flashing with full before/after captures; offline firmware validation/preparation. Compatible image validation and qualified card profile only; no generic dead-card recovery',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()
     (output / 'build-info.json').write_bytes(info_bytes)
@@ -124,7 +124,7 @@ def main():
     include = ['README.md', 'COPYING', 'CHANGELOG.md', 'ROADMAP.md', 'VERSION', 'RELEASE_DATE',
                'docs/INSTALL.md', 'docs/HARDWARE-TESTING.md', 'docs/PROTOCOL.md', 'docs/SOURCES.md',
                'docs/EMULATOR-RESULTS.md', 'docs/OFFLINE-FIRMWARE.md', 'docs/FIRMWARE-FINDINGS.md',
-               'docs/DOS-REFERENCE.md', 'docs/OPERATION-TRANSACTION.md', 'docs/NATIVE-FLASH.md',
+               'docs/DOS-REFERENCE.md', 'docs/OPERATION-TRANSACTION.md', 'docs/NATIVE-FLASH.md', 'docs/QUICKSTART.md',
                'third_party/NOTICES', 'third_party/AmiNetXDuo-LICENSE',
                'third_party/pccard/GPL', 'third_party/pccard/LGPL', 'third_party/pccard/pccard.lha',
                'third_party/pccard/Libs/pccard.library']

@@ -36,6 +36,24 @@ int main(int argc, char **argv) {
             bus->read_cfg(bus->ctx, P2_CFG_CCSR), bus->read16(bus->ctx, P2_CMD),
             bus->read16(bus->ctx, P2_CONTROL));
   p2::Card card{*bus};
+  const auto original_control = bus->read16(bus->ctx, P2_CONTROL);
+  if (!card.ensure_aux_enabled())
+    return 20;
+  p2_printf("AUX enabled CONTROL=%04x\n", bus->read16(bus->ctx, P2_CONTROL));
+  std::array<uint8_t, 128> page{}, previous{};
+  for (unsigned i = 0; i < 5; ++i) {
+    if (!card.read_nv(0, page))
+      return 20;
+    p2::Sha256 hash;
+    hash.update(page);
+    unsigned differences = 0;
+    for (std::size_t j = 0; j < page.size(); ++j)
+      differences += page[j] != previous[j];
+    p2_printf("NV page0 sample=%u differences=%u SHA256=%s\n", i, differences,
+              hash.hex().data());
+    previous = page;
+    bus->delay_us(bus->ctx, 100000);
+  }
   if (!card.read_nv(0x7f0000, words.bytes()))
     return 20;
   for (uint32_t i = 0; i < P2_PDA_SIZE; ++i) {
@@ -64,5 +82,7 @@ int main(int argc, char **argv) {
             p2_validate_pda(words.bytes().data()), word_hash.hex().data());
   p2_printf("Byte PDA validation=%d SHA256=%s\n",
             p2_validate_pda(bytes.bytes().data()), byte_hash.hex().data());
+  if (!(original_control & 0xc000) && !card.enable_aux(false))
+    return 20;
   return slot->finish_backup() ? 20 : 0;
 }

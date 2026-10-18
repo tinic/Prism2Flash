@@ -92,6 +92,8 @@ public:
       return std::unexpected{P2_E_ARGUMENT};
     attempted_[index] = true;
     auto &result = captures_[index];
+    if (native_)
+      p2_printf("Saving full %s capture...\n", index ? "after" : "before");
     const auto started = bus.now_us(bus.ctx);
     std::array<char, 17> started_utc{}, ended_utc{};
     int timestamp_error = 0;

@@ -28,6 +28,9 @@ int main() {
   CHECK(check_clock(stamp(*reference), 0, "20261018T120000Z"));
   CHECK(check_clock(stamp(*reference - 420 * 60), -420, "20261018T120000Z"));
   CHECK(check_clock(stamp(*reference + 330 * 60), 330, "20261018T120000Z"));
+  auto automatic = format_clock(stamp(*reference - 300 * 60), -300);
+  CHECK(automatic && std::string_view{automatic->data()} == "20261018T120000Z");
+  CHECK(!format_clock(stamp(*reference), 841));
   for (int delta : {-121, 121, 86400})
     CHECK(!check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
   for (int delta : {-120, 120})
