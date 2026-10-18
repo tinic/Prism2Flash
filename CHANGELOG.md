@@ -16,12 +16,12 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 - Implement native MA401 x16 Genesis/bootstrap and SST BF:D5 programming,
   derived from original DOS ILHOPFW.EXE 0.5e and independently reviewed by
-  DeepSeek. Pin the initial image and PRI 1.1.1 / STA 1.7.4 input hashes.
+  DeepSeek. Pin the initial image; validate compatible user-supplied PRI/STA images and record their hashes.
 - Add `Prism2Flash program|verify` and built-in help. Build the intended image
   from the same insertion's fresh PDA, preserve CIS/PDA and all gaps, save/reopen
   it and optionally check an independently prepared expected-image hash.
 - Retain persistent destination locks, checked UTC/clock offset, one exclusive
-  claim and four complete saved/reopened 8 MiB captures for each transaction.
+  claim and one full saved/reopened 8 MiB capture before and after each transaction, checking all 128 KiB aliases.
   Compare the whole exposed interval with the intended image after programming.
 - Qualify actual A1200 Genesis double latch, both true byte-write lanes,
   initial-code loading and BF:D5 identification with unchanged full captures.
@@ -42,10 +42,13 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 ### Scope
 
-Qualified MA401 V2.5 / PD5LMWP200 and exact pinned inputs only. Other card
+Qualified MA401 V2.5 / PD5LMWP200, pinned initial and validated compatible PRI/STA inputs. Other card
 profiles, generic dead-card recovery and a running-primary regular-flash path
 remain separate work. Exact hardware runs and their limitations are recorded
 in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
+
+- Put a concise quick start first in README/docs. Generate UTC timestamps and
+  short backup subdrawers from the checked Amiga clock with `--backup-dir`.
 
 ## [0.7.0-alpha.1] - 2026-10-18
 

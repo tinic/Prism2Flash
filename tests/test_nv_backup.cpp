@@ -130,7 +130,7 @@ static void single_capture_tests() {
     init_nv(&m);
     m.nv_selector_hides_control = true;
     if (!corrupt_alias)
-      m.nv_unstable_until = m.clock + 300000;
+      m.nv_unstable_until = m.clock + 600000;
     if (corrupt_alias)
       m.nv_memory[0xe8258] ^= 0x20;
     FILE *file = tmpfile();

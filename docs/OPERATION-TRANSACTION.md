@@ -4,7 +4,7 @@
 
 `include/operation.h` and `src/operation_runner.cpp` share the owned session
 ordering. `src/operation.cpp` implements persistent model/native journals.
-Native admission permits the qualified MA401 x16 probe/bootstrap, pinned SST
+Native admission permits the qualified MA401 x16 probe/bootstrap, validated SST
 programming and content/RID verification paths. Standalone legacy inspection,
 x8 probing and other cards remain refused. See [native commands](NATIVE-FLASH.md).
 
@@ -25,15 +25,18 @@ capability, including in actual native records.
    are refused, including a previously successful operation's directory.
 2. Claim once and configure the non-reset acquisition path. Never call regular
    configuration, release/reclaim, initialize or reset before the backup gate.
-3. Acquire two full before captures with bounded consecutive whole-page reads.
+3. Native: acquire one full before capture, checking every 128 KiB alias against
+   the first physical image. The host model retains two full captures. Use
+   bounded consecutive whole-page reads in both paths.
    Compare passes, check AUX cleanup, flush/close, reopen and verify both exact
    lengths and SHA-256 hashes. Save, close and reopen-verify the before manifest.
 4. Check sticky removal and cancellation again after filesystem verification.
    Only then call the operation, retaining the same exclusive slot claim.
-5. After the operation, including failure, acquire two full after captures if
+5. After the operation, including failure, acquire one full native after capture
+   (two in the host model) if
    the insertion remains accessible. Mask Ctrl-C for this evidence readback;
    preserve the operation's cancellation error and never mask removal.
-6. Verify saved after files/manifest, recheck all four raw files against their
+6. Verify saved after files/manifest, recheck every raw file against its
    acquisition hashes and compare every before/after byte. RAM operations
    require unchanged NV data. An unexpected difference is a failure.
 7. Finish non-reset acquisition configuration, record separate phase errors,
@@ -47,8 +50,8 @@ the regular configure/close path, which resets a native card.
 
 ## Evidence and errors
 
-Each new directory contains `before-read-1.bin`, `before-read-2.bin`,
-`after-read-1.bin`, `after-read-2.bin`, `before.json`, `after.json` and
+Each native directory contains `before-read-1.bin`, `after-read-1.bin`,
+`before.json`, `after.json` and
 `transaction.json`. The parent directory contains the supplied UTC string;
 before/after names separate phases. Partial/empty files remain on failures.
 
@@ -132,7 +135,7 @@ and its aliases, unknown filesystem types, write-protected/validating disks,
 invalid disk statistics and insufficient space are refused. The conservative
 filesystem allowlist is AmigaDOS DOS0–DOS8. Other filesystems require review
 before inclusion; their rejection is not a claim that they are volatile.
-Space must cover four 8 MiB acquisition files plus 64 KiB of journal allowance.
+Space must cover two 8 MiB capture files, intended-image buffers and journal allowance.
 The leaf must be new and consist of letters, digits, hyphens or underscores.
 
 The experimental `backup` command also uses the resolved-volume check before

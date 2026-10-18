@@ -42,7 +42,7 @@ and pccard.library 2.2 or later. Install the included pccard.library into
 library. The library source and notices accompany the executable.
 
 The native flasher is restricted to the exact MA401 V2.5 / PD5LMWP200 profile
-and pinned original initial / PRI 1.1.1 / STA 1.7.4 inputs. Read
+with pinned initial code and validated compatible PRI/STA inputs. Read
 [NATIVE-FLASH.md](NATIVE-FLASH.md) before hardware use. It describes the fresh
 full captures, persistent storage, clock offset, command syntax and recovery
 hold. No firmware, Kickstart ROM or DOS utility is included. General dead-card
