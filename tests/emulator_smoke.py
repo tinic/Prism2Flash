@@ -102,6 +102,27 @@ def copperline_run(args):
               "real_card_tested": False, "mode": "direct executable launch per case",
               "cases": [], "failures": []}
     print(f"Booting Copperline {args.model}/{args.cpu}: {run}", flush=True)
+    # Check RC17 startup/allocator and C++ RAII on the actual 4 KiB guest stack.
+    helper_dir = run / "runtime-helper"
+    helper_dir.mkdir()
+    helper = helper_dir / "smoke-env"
+    shutil.copy2(args.env_helper, helper)
+    cmd = [str(args.emulator_path.resolve()), "--config", str(config),
+           "--model", args.model, "--run", str(helper), "--run-args", "--runtime",
+           "--run-stack", "4096", "--exit-on-return", "--noaudio"]
+    with (helper_dir / "emulator.log").open("wb") as log:
+        proc = subprocess.Popen(cmd, cwd=helper_dir, stdout=log, stderr=subprocess.STDOUT,
+                                start_new_session=True)
+        try:
+            helper_exit = proc.wait(timeout=args.timeout)
+        except subprocess.TimeoutExpired:
+            helper_exit = 124
+        finally:
+            stop_child(proc)
+    report["runtime_helper"] = {"sha256": digest(args.env_helper),
+                                "exit": helper_exit, "passed": helper_exit == 0}
+    if helper_exit:
+        report["failures"].append(f"runtime helper: exit {helper_exit}")
     for name, command, expected in CASES:
         case_dir = run / name
         case_dir.mkdir()
@@ -183,7 +204,7 @@ def main():
     for path in (args.emulator_path, args.rom, args.binary):
         if not path.is_file():
             parser.error(f"missing file: {path}")
-    if args.emulator == "amiberry" and not args.env_helper.is_file():
+    if not args.env_helper.is_file():
         parser.error(f"missing environment helper: {args.env_helper}")
     if args.timeout <= 0:
         parser.error("timeout must be positive")
@@ -224,6 +245,7 @@ def main():
         "cpu": args.cpu, "binary_sha256": digest(args.binary),
         "rom_sha256": digest(rom), "command": cmd,
         "guest_stack_bytes": 4096, "real_card_tested": False,
+        "runtime_helper_sha256": digest(args.env_helper),
     }
     print(f"Booting {args.emulator} {args.model}/{args.cpu}: {run}", flush=True)
     completed = False

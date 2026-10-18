@@ -4,17 +4,17 @@
 #include "prism2.h"
 struct p2_platform;
 struct p2_card_info {
-    uint16_t manufacturer, product;
-    uint32_t config_base, io_base;
-    uint8_t config_index;
+  uint16_t manufacturer, product;
+  uint32_t config_base, io_base;
+  uint8_t config_index;
 };
-int p2_platform_open(struct p2_platform **, struct p2_card_info *,
-                     char *error, size_t error_size);
-int p2_platform_configure(struct p2_platform *, struct p2_bus *,
-                         char *error, size_t error_size);
+int p2_platform_open(struct p2_platform **, struct p2_card_info *, char *error,
+                     size_t error_size);
+int p2_platform_configure(struct p2_platform *, struct p2_bus *, char *error,
+                          size_t error_size);
 /* Strict MA401RA acquisition path: no INIT, reset, audio/pin or CCSR writes. */
 int p2_platform_configure_backup(struct p2_platform *, struct p2_bus *,
-                                char *error, size_t error_size);
+                                 char *error, size_t error_size);
 int p2_platform_backup_directory(const char *path);
 int p2_platform_finish_backup(struct p2_platform *);
 void p2_platform_close(struct p2_platform *);

@@ -111,7 +111,7 @@ are on the heap. Native smoke tests use a 4096-byte Shell stack.
 
 ```sh
 tools/ci.sh host
-CC=clang tools/ci.sh sanitize
+CXX=clang++ tools/ci.sh sanitize
 tools/ci.sh native
 ```
 

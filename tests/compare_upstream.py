@@ -77,10 +77,10 @@ def main():
     with tempfile.TemporaryDirectory(prefix='upstream-', dir=build) as tmp:
         tmp = Path(tmp)
         (tmp / 'reference.c').write_text(source)
-        (tmp / 'current.c').write_text(current)
+        (tmp / 'current.cpp').write_text(current)
         compiler = os.environ.get('CC', 'cc')
         subprocess.run([compiler, '-std=gnu99', '-w', str(tmp / 'reference.c'), '-o', str(tmp / 'reference')], check=True)
-        subprocess.run([compiler, '-std=c99', '-I'+str(ROOT / 'include'), str(tmp / 'current.c'),
+        subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++23', '-I'+str(ROOT / 'include'), str(tmp / 'current.cpp'),
                         str(build / 'libprism2_firmware.a'), str(build / 'libprism2_data.a'),
                         '-o', str(tmp / 'current')], check=True)
         for image in pins:

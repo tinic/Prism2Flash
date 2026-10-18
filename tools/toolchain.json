@@ -1,11 +1,20 @@
 {
-  "asset_version": "16.2.9",
-  "gcc_version": "16.2.0b",
-  "repository": "tinic/gcc",
-  "tag": "toolchain-m68k-amigaos-gcc-16.2.9",
+  "asset_version": "16.2-rc17",
+  "gcc_version": "16.2.1",
+  "repository": "AmigaPorts/m68k-amigaos-gcc",
+  "tag": "v16.2-rc17",
   "platforms": {
-    "Linux-x86_64": {"name": "linux-x86_64", "sha256": "adf6daa38acb5fef21ad692178be21e57ee7cd84d87615876d850e4fd07da431"},
-    "Darwin-arm64": {"name": "darwin-arm64", "sha256": "99f2e4ccd38add25a066df18a75ec363ae261708317c54c7263a17efe2ed3e2d"}
+    "Linux-x86_64": {
+      "asset": "m68k-amigaos-gcc-16.2-rc17-x86_64-linux.tar.xz",
+      "sha256": "6dee26f8e012804fea0ed3f630084e785ae4af7275687f42f9c6d05d32db8633"
+    },
+    "Darwin-arm64": {
+      "asset": "m68k-amigaos-gcc-16.2-rc17-arm64-darwin.tar.xz",
+      "sha256": "a273cd37ac23cfdb4bb3f4aff9fda2f9511807ec76da5660d3b8e930ec7e4383"
+    }
   },
-  "repair_source": "https://github.com/tinic/AmiNetXDuo/tree/438b6b1d8e24bde04d8ceec2539c74d432b32968/tools"
+  "repair_source": "https://github.com/tinic/AmiNetXDuo/tree/438b6b1d8e24bde04d8ceec2539c74d432b32968/tools",
+  "archive_root": "m68k-amigaos-gcc-16.2",
+  "gcc_source_tag": "m68k-amigaos-gcc-v16.2-rc17",
+  "gcc_source_commit": "02e276f976146d6fdcb9fa426b831e94c6bf228d"
 }
