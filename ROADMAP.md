@@ -5,8 +5,12 @@
 - [x] Refuse native active inspection/probing before slot access while full
       backup support is unavailable; retain the host simulation for development.
 - [ ] Independently review AUX NV addressing and exact physical flash maps.
-- [ ] Implement non-resetting acquisition/cleanup, full repeated reads, persistent
-      timestamped raw dump plus identity/map/SHA-256 manifest, and file verification.
+- [x] Implement experimental non-resetting AUX address-space acquisition, repeated
+      reads, timestamped raw files, SHA-256 manifests and saved-file verification.
+- [x] Verify two complete repeated AUX NV captures and saved files on MA401RA,
+      with bounded consecutive page agreement and retained failure evidence.
+- [ ] Independently establish complete physical flash coverage/profile. The
+      verified AUX capture does not yet authorize active operations.
 - [ ] Require a fresh verified full backup before every impactful operation and
       timestamped full readback afterward; reject partial/failed/stale backups.
 - [ ] Verify failure/removal/storage handling and operation gating offline, then

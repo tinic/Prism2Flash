@@ -57,3 +57,30 @@ The model checks protocol sequencing and fault handling. It cannot establish
 Gayle byte lanes, the real CCSR interpretation, electrical compatibility,
 firmware execution, or recovery after an interrupted flash. Host tests and a
 native build must not be used as substitutes for those hardware checks.
+
+## Experimental NV acquisition
+
+The separate `backup` path uses AUXOFFSET selector 1 (`0x1000`), a 16-bit
+AUXPAGE and explicit 128-byte page boundaries. It reads all 23 address bits
+twice into distinct files and compares the entire address space. Each 128-byte page requires two consecutive identical whole-page reads,
+with at most twenty reads per page per pass and the same total deadline.
+Disagreements are counted in the manifest. No bytes are voted on or repaired;
+only a complete raw page that matched its immediately preceding read is saved.
+The two independently acquired full files must also match byte-for-byte.
+Persistent instability fails the capture. Inter-word timer pacing was removed
+after it slowed real acquisition without reducing errors.
+
+This path never calls INIT, Genesis, AUX payload writes, or DOWNLOAD. Exclusive
+card.resource ownership and exact MA401RA CIS strings are required. It refuses
+a COR reset bit or a different active I/O configuration; a temporary COR
+selection is restored and checked without CardResetCard. AUX remains enabled
+if it was already enabled. Clear AUXOFFSET while accessible, then disable only
+an AUX session opened here, using PARAM0/1/2 zero as Host AP does. Do not replay
+old AUXPAGE/OFFSET or PARAM values: pointer-register readback may be 0xffff and
+is not evidence of a restorable setting. Before/after values are diagnostic.
+
+A 240-second acquisition deadline, sticky removal and cancellation checks
+bound the protocol. Cleanup ignores cancellation while still honoring removal.
+Files are flushed, closed and independently reopened for exact size/SHA-256
+verification. The manifest always withholds physical coverage and authorization
+for impactful operations until the card profile and backup gate are verified.

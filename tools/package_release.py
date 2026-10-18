@@ -113,7 +113,8 @@ def main():
         'binaries': {name: {'sha256': sha(data), 'bytes': len(data)} for name, data in binaries.items()},
         'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
-        'scope': 'Native active operations blocked pending mandatory full-flash backups; offline firmware validation; no flash programming',
+        'hardware_test_scope': 'Limited A1200 CIS/offline and experimental NV acquisition; complete physical backup and active operations unverified; see docs/HARDWARE-TESTING.md',
+        'scope': 'Experimental AUX NV capture and offline firmware validation; active operations blocked pending verified physical full-flash backups; no flash programming',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()
     (output / 'build-info.json').write_bytes(info_bytes)
@@ -143,7 +144,7 @@ def main():
         f'## Downloads\n\n- `{native.name}`: Amiga executables, pccard.library and documentation.\n'
         f'- `{source.name}`: complete corresponding source and build tools.\n'
         '- `SHA256SUMS`: download integrity checks.\n- `build-info.json`: compiler, source and binary metadata.\n\n'
-        f'Commit: `{commit}`. This release has not been tested with a real card.\n')
+        f'Commit: `{commit}`. Hardware validation is incomplete; see docs/HARDWARE-TESTING.md.\n')
     assets = [native, source, output / 'build-info.json', output / 'RELEASE-NOTES.md']
     (output / 'SHA256SUMS').write_text(''.join(f'{sha(p.read_bytes())}  {p.name}\n' for p in assets))
     print(f'Packaged {version}: {native.name}, {source.name}')

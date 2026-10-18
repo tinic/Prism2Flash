@@ -1,6 +1,7 @@
 # Sources and findings
 
-Research and source inspection: 2026-10-18. Hardware validation: not performed.
+Research and source inspection: 2026-10-18. Limited A1200 acquisition checks
+are recorded in HARDWARE-TESTING.md; complete hardware validation is pending.
 
 - [Host AP utilities 0.4.7](https://w1.fi/releases/hostap-utils-0.4.7.tar.gz):
   `prism2_srec.c`, `util.c`, `util.h`, `hostap_common.h`, README and COPYING.
@@ -53,3 +54,26 @@ separately and verify their hashes before extraction.
 Flash's corrected 2026-10-18 firmware analysis and our independent parser
 comparison are summarized in FIRMWARE-FINDINGS.md. Metadata/payload hashes are
 retained under docs/evidence; proprietary firmware payloads are excluded.
+
+
+## NV acquisition and PDA CRC correction
+
+Host AP `prism2_enable_aux_port` zeroes PARAM0/1/2 for AUX disable and checks
+CONTROL bits 15:14; it does not restore arbitrary prior scratch values.
+The linux-wlan-ng `src/prism2/driver/hfa384x.c` reference (AbsoluteValue
+Systems, GPL v2 or MPL 1.1) ends `hfa384x_copy_from_aux` by clearing AUXOFFSET
+while AUX remains enabled. These sequences inform the experimental reader's
+cleanup; pointer register readback is diagnostic, not a restorable setting.
+
+The retained Host AP 0.4.7 `util.c` CRC table starts 0000,c0c1,c181,0140;
+`parse_wlan_pda` checks a zero full-PDA residue. This is CRC-16/ARC reflected
+polynomial 0xa001, initial zero. The former 0x8408 code and fixtures were wrong.
+The independent fixed synthetic vector in test_nv_backup.c prevents a shared
+parser/fixture error. Prior S-record metadata/payload comparisons did not
+validate PDA CRC behavior.
+
+DeepSeek's private offline analysis was independently repeated against the
+raw 8 MiB MA401RA capture. Aliasing suggests a 128 KiB window; geometry and
+complete firmware contents remain unverified. The majority-derived image is
+separate evidence and never changes the original raw capture. Private data
+and firmware images are not distributed with the project.

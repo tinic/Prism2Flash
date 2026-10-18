@@ -17,7 +17,7 @@ int p2_validate_pda(const uint8_t data[P2_PDA_SIZE])
                 unsigned bit;
                 crc ^= data[i];
                 for (bit = 0; bit < 8; ++bit)
-                    crc = (uint16_t)((crc >> 1) ^ ((crc & 1) ? 0x8408 : 0));
+                    crc = (uint16_t)((crc >> 1) ^ ((crc & 1) ? 0xa001 : 0));
             }
             return crc == 0 ? P2_OK : P2_E_PDA;
         }

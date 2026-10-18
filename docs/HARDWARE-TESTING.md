@@ -46,10 +46,12 @@ and restores. Offline file inspection/validation and CIS-only `info` do not
 change firmware or reset the card and need no flash backup.
 
 **Current enforcement:** native `inspect` and `probe` refuse before opening the
-slot because full-flash export is not implemented. The host protocol simulator
+slot because physical full-flash backup coverage and its operation gate are
+not verified. Experimental AUX address-space capture is separate from that gate. The host protocol simulator
 can still exercise the modeled sequences. Versions through 0.2.0-alpha.1 do
 not enforce this new requirement; do not use their active commands on cards.
-Only the read-only baseline above has run; active tests remain blocked.
+The baseline above and experimental acquisition below have run; active tests
+remain blocked.
 
 The full-backup milestone must implement all of the following before these
 native operations are enabled again:
@@ -64,8 +66,9 @@ native operations are enabled again:
 2. Acquire the initial backup without initialization, reset, Genesis entry or
    loading firmware first. Only the minimum configuration/AUX register access
    needed for a verified nonvolatile read is allowed during acquisition, with
-   documented cleanup that does not reset the card. The current configuring
-   backend resets on close and must be adapted before reuse for backups. If a
+   documented cleanup that does not reset the card. The regular configuring
+   backend resets on close; the separate acquisition backend must not use that
+   cleanup path. If a
    card cannot be read in its current state, refuse the impactful operation;
    there is no force/skip-backup path or automatic recovery exception.
 3. Read the full flash twice and require identical bytes. Stream bounded chunks
@@ -147,3 +150,87 @@ until a matching RAM bootstrap executes and answers primary-firmware RIDs.
 Later sessions should cover the other SRAM width on appropriate hardware,
 older card.resource versions, cancellation and driver-ownership conflicts.
 Do not deliberately pull the card during a write as a routine test.
+
+## Experimental AUX NV capture — 0.3.0-alpha.1 development
+
+The user explicitly requested a real backup. The acquisition command matches
+both MANFID 000b:7300 and all four MA401RA/ISL37300P VERS_1 strings. It reads
+AUX NV selector 1 without INIT, Genesis, AUX payload writes or flash commands.
+It does not require adding ambiguous NICID 800c to the active-card allowlist.
+The observed mapping is attribute offset 0x3e0, I/O offset 0, index 1.
+
+The first capture at 20261018T104136Z saved 8,388,608 raw bytes, SHA-256
+`c37ba9bb1294f89fbbf62cea6c65cc839f145f97ba8d08df024c47e6b9221588`.
+The native hash matched the downloaded Mac file. The second-pass comparison
+and scratch-register cleanup verification failed. A subsequent attempt could
+not read MANFID and stopped before configuring or accessing AUX. Preserve the
+raw capture and failure manifests; this is not a verified physical-flash backup.
+
+Offline analysis independently repeated by DeepSeek found 64 near-aliases of a
+128 KiB window. Each alias differs from byte consensus by 23–71 bytes; 59/64
+PDA copies pass the actual PDA CRC. A separately retained majority-derived
+128 KiB analysis image has SHA-256
+`5f63f69147433e26210a9a91ed2938a6913e1491bae0a4ecf0a8483db4707b8f`.
+It is derived evidence, not an untouched successful acquisition. Geometry is
+inferred from aliasing; neither flash JEDEC/CFI identity nor complete physical
+coverage has been established. Firmware strings identify PK010007.HEX and
+SF010306.HEX; alignment and strings alone do not verify every firmware byte.
+Actual dumps, CIS/PDA contents and MAC/calibration stay outside public source.
+
+This exposed an earlier PDA parser defect: the polynomial must be reflected
+0xa001 (CRC-16/ARC, initial zero), not 0x8408. The retained Host AP util.c table
+and linux-wlan-ng implementation agree; the real PDA stores CRC 0x82a2 and its
+full-record residue is zero. The old synthetic fixtures shared the defect.
+An independently pinned original synthetic CRC vector now catches it.
+
+The user approved a one-time restart exception after the failed initial
+verification. The existing flush wrapper selected SYS:Unpacked/SyncReboot;
+its ICMP readiness check reported not_back, while separate HTTP Shell access,
+a fresh RAM drawer and a successful CIS recheck established machine recovery.
+No power-cycle command was used. This exception does not change the backup
+contract or add a CLI override. CIS again reports 000b:7300.
+
+The reader now clears AUXOFFSET before closing AUX, disables only a port it
+opened itself, and never replays opaque scratch-register values after disable.
+AUXPAGE/OFFSET read back 0xffff on this card and cannot be treated as restorable
+settings. On the fresh boot CONTROL already reported AUX enabled; the reader
+leaves that enable state intact under exclusive card.resource ownership.
+PARAM scratch values are zeroed only by the normal AUX disable sequence.
+Cleanup status, backend COR restoration and raw register diagnostics are
+recorded separately. The paced attempt at 20261018T105630Z saved another full 8 MiB raw pass
+(SHA-256 `1b739b7271f8e0856c8861dbef7c35a78fb60077ebfe05ac2f363cdf76a1d702`)
+and 1,011,712 bytes of pass two before the 240-second deadline. There were 723
+comparison differences. Both cleanup checks passed and subsequent CIS remained
+readable. The new raw pass reconstructs to exactly the same analysis-only
+128 KiB consensus as before the restart. Two-microsecond inter-word pacing did
+not reduce errors and was removed. The current reader instead requires two
+consecutive identical whole-page reads, at most twenty reads per 128-byte page,
+and still compares both complete files. It counts disagreement/retry evidence
+and refuses persistent instability rather than voting on bytes. All attempts remain timestamped
+and retain their partial files. The A1200 remains reserved for this project.
+
+
+### Successful repeated NV acquisition — 20261018T110206Z
+
+The bounded page-agreement reader completed in 182.050 seconds, including
+saved-file verification. Both complete 8,388,608-byte passes are byte-identical,
+SHA-256 `f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f`.
+Each saved file was reopened and verified on the A1200; downloaded Mac files
+also match that hash. There were 271,975 page reads and 9,831 disagreement
+comparisons; no byte voting/repair was used. The acquisition and both cleanup
+statuses are zero. A subsequent CIS-only read again returned 000b:7300.
+
+All 64 captured 128 KiB windows are now exactly identical. An unaltered slice
+at NV 0x7e0000–0x7fffff hashes to
+`5f63f69147433e26210a9a91ed2938a6913e1491bae0a4ecf0a8483db4707b8f`,
+exactly matching both earlier offline consensus reconstructions. The successful
+raw files and all earlier failed/partial attempts remain on persistent Amiga
+storage and the Mac. DeepSeek received a private hash-verified copy for offline
+analysis. [Sanitized acquisition evidence](evidence/nv-capture-0.3.0-alpha.1.json)
+contains source/binary hashes, manifests and limitations, without dump payloads.
+
+This verifies the complete exposed AUX NV address-space capture on this card.
+Physical geometry/map coverage is still inferred. It does not satisfy the
+remaining independent physical-map/operation-gate requirements and does not
+authorize INIT, reset, Genesis, bootstrap, flashing or restore. No further
+reset was used after the approved recovery exception.

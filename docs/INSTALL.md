@@ -34,7 +34,7 @@ Emulator smoke tests use a 4096-byte Shell stack. Allow 8192 bytes for initial
 hardware sessions to leave additional headroom for OS/library calls that have
 not been exercised with a real card.
 
-`info` uses card.resource. `inspect` and `probe` also require utility.library
+`info` uses card.resource. `backup`, `inspect` and `probe` also require utility.library
 and pccard.library 2.2 or later. Install the included pccard.library into
 `LIBS:` only if no suitable version is already installed. Keep any newer
 library. The library source and notices accompany the executable.
@@ -56,3 +56,19 @@ firmware flasher and dead-card Genesis bootstrap are future milestones.
 The offline utility needs no pccard.library or network driver. Start with
 `C/Prism2Firmware --help`; validation uses existing saved files and performs no
 card operation. Both executables have independent `$VER` identifiers.
+
+## Experimental NV capture
+
+```text
+Stack 16384
+C/Prism2Genesis backup --output Work:Prism2Backups/MA401RA-20261018T120000Z --utc 20261018T120000Z
+```
+
+Supply the actual current UTC timestamp from a trusted clock; the example is
+only syntax. The parent drawer must already exist. The final drawer must be
+new, contain the timestamp, and be on persistent storage (RAM: and T: are
+refused). Reserve at least 17 MiB plus filesystem overhead. Keep both raw files
+and the manifest, including failed or partial captures. The command targets the
+exact MA401RA/ISL37300P CIS only and does not certify the physical flash map.
+No active command is enabled by this capture. See HARDWARE-TESTING.md for the
+actual hardware results and unresolved limitations.

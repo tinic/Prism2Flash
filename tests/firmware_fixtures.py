@@ -56,7 +56,7 @@ def crc16(data):
     for byte in data:
         crc ^= byte
         for _ in range(8):
-            crc = (crc >> 1) ^ (0x8408 if crc & 1 else 0)
+            crc = (crc >> 1) ^ (0xa001 if crc & 1 else 0)
     return crc
 
 

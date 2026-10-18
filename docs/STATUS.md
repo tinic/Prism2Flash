@@ -95,3 +95,36 @@ reset, Genesis execution or programming was tested. Full backup acquisition
 remains unimplemented and active operations remain blocked. The AmigaOS
 Version command's date rendering also needs investigation; its full semantic
 version is correct. See HARDWARE-TESTING.md and the retained detailed evidence.
+
+
+## Experimental NV acquisition — 0.3.0-alpha.1 development
+
+A new native `backup` command saves two raw 8 MiB AUX NV address-space captures
+and a SHA-256 manifest, retaining failures without enabling active operations.
+The real MA401RA was accessed without INIT, Genesis or flash programming.
+The first full raw pass transferred correctly to the Mac, but its comparison
+and cleanup verification failed; it remains unverified as a physical backup.
+DeepSeek received the private capture for offline analysis. Both analyses found
+128 KiB aliasing, sparse differences and a CRC-valid PDA with NIC tuple 800c/0/1/0.
+The derived consensus image is retained separately; geometry remains inferred.
+
+Corrected PDA CRC from the retained upstream table and replaced unsupported
+scratch-register replay with canonical AUX cleanup. The user approved one
+recovery restart through the existing flush wrapper; subsequent HTTP and CIS
+checks passed. See HARDWARE-TESTING.md for exact limitations and evidence.
+The ordinary inspect/probe gate and programming prohibition remain in place.
+
+The post-restart paced capture again produced sparse differences and hit the
+240-second deadline during pass two. Its independent consensus exactly matches
+the original analysis image. Canonical cleanup and the post-capture CIS recheck
+passed. The reader now uses bounded whole-page agreement, with failure tests
+for both a transient bad read and persistent alternating pages.
+
+
+The page-agreement acquisition at 20261018T110206Z succeeded: two complete
+8 MiB files match byte-for-byte and were reopened/SHA-256 verified on the
+A1200, then hash-verified on the Mac. Acquisition and cleanup passed; CIS
+remains readable. Every 128 KiB alias is now identical to the earlier offline
+consensus. Exact hashes and sanitized manifests are in HARDWARE-TESTING.md.
+This is a verified exposed AUX NV capture; physical geometry/coverage remains
+inferred and does not enable active operations. All failed attempts are kept.

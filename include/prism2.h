@@ -45,6 +45,8 @@ struct p2_probe_result {
 const char *p2_error_string(int);
 int p2_aux_enable(struct p2_bus *, int enable);
 int p2_aux_read(struct p2_bus *, uint32_t, uint8_t *, size_t);
+/* Nonvolatile address space, AUXOFFSET selector 1; never writes AUXDATA. */
+int p2_aux_read_nv(struct p2_bus *, uint32_t, uint8_t *, size_t);
 int p2_aux_write(struct p2_bus *, uint32_t, const uint8_t *, size_t);
 int p2_initialize(struct p2_bus *);
 int p2_identity(struct p2_bus *, uint16_t rid, struct p2_identity *);

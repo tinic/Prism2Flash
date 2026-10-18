@@ -34,7 +34,7 @@ const char *p2_error_string(int rc)
 {
     static const char *const names[] = {
         "OK", "invalid argument", "card removed", "hardware timeout",
-        "I/O failure", "unsupported card", "RAM readback mismatch",
+        "I/O failure", "unsupported card", "readback mismatch",
         "cancelled", "card command failed", "invalid PDA"
     };
     return rc >= 0 && (unsigned)rc < sizeof(names)/sizeof(names[0])
@@ -61,7 +61,7 @@ static int aux_bounds(uint32_t addr, size_t len)
         || len > UINT32_C(0x800000) - addr ? P2_E_ARGUMENT : P2_OK;
 }
 static int aux_transfer(struct p2_bus *b, uint32_t addr, uint8_t *read_buf,
-                        const uint8_t *write_buf, size_t len)
+                        const uint8_t *write_buf, size_t len, uint16_t space)
 {
     int rc = aux_bounds(addr, len);
     if (rc) return rc;
@@ -71,7 +71,7 @@ static int aux_transfer(struct p2_bus *b, uint32_t addr, uint8_t *read_buf,
         if (rc) return rc;
         if (n > len) n = len;
         b->write16(b->ctx, P2_AUXPAGE, (uint16_t)(addr >> 7));
-        b->write16(b->ctx, P2_AUXOFFSET, (uint16_t)(addr & 127));
+        b->write16(b->ctx, P2_AUXOFFSET, (uint16_t)((addr & 127) | space));
         b->delay_us(b->ctx, 5);
         for (i = 0; i < n; i += 2) {
             uint16_t v;
@@ -95,12 +95,17 @@ static int aux_transfer(struct p2_bus *b, uint32_t addr, uint8_t *read_buf,
 int p2_aux_read(struct p2_bus *b, uint32_t a, uint8_t *p, size_t n)
 {
     if (!p && n) return P2_E_ARGUMENT;
-    return aux_transfer(b, a, p, NULL, n);
+    return aux_transfer(b, a, p, NULL, n, 0);
+}
+int p2_aux_read_nv(struct p2_bus *b, uint32_t a, uint8_t *p, size_t n)
+{
+    if (!p && n) return P2_E_ARGUMENT;
+    return aux_transfer(b, a, p, NULL, n, 0x1000);
 }
 int p2_aux_write(struct p2_bus *b, uint32_t a, const uint8_t *p, size_t n)
 {
     if (!p && n) return P2_E_ARGUMENT;
-    return aux_transfer(b, a, NULL, p, n);
+    return aux_transfer(b, a, NULL, p, n, 0);
 }
 static int command(struct p2_bus *b, uint16_t cmd, uint16_t param)
 {

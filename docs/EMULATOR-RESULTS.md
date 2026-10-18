@@ -1,5 +1,18 @@
 # Native emulator smoke results — 2026-10-18
 
+## Experimental NV capture and corrected PDA CRC — 0.3.0-alpha.1
+
+All **56 native guest checks passed** at 4096-byte Shell stack: Genesis 15/15
+and Firmware 13/13 on each of Amiberry A600/68000/Kickstart 2.05 and Copperline
+A1200/68020/Kickstart 3.1. Genesis adds bad-UTC rejection and the new backup
+command's native directory/manifest/empty-slot failure path. Firmware uses
+corrected CRC-16/ARC fixtures. The native helper independently checks SHA-256
+of abc. These checks do not simulate the real card's NV data or timing.
+
+[Exact outputs and hashes](evidence/emulator-smoke-0.3.0-alpha.1.json) retain
+which binaries ran. Real A1200 acquisition outcomes are recorded separately
+in HARDWARE-TESTING.md; emulator success does not certify physical backups.
+
 ## Mandatory-backup gate 0.2.1-alpha.1
 
 All **52 native guest checks passed**, using a 4096-byte Shell stack.

@@ -17,9 +17,17 @@ static uint16_t read16(void *ctx, uint16_t reg)
     if (reg == P2_CMD && m->stuck_command) return 0x8000;
     if (reg == P2_AUXDATA) {
         uint16_t v;
+        const uint8_t *source=m->aux_space==1?m->nv_memory:m->memory;
+        if (!source) return 0xffff;
         if (m->aux_address >= 0x800000 - 1) return 0xffff;
-        v = (uint16_t)(m->memory[m->aux_address] | ((uint16_t)m->memory[m->aux_address+1] << 8));
+        v = (uint16_t)(source[m->aux_address] | ((uint16_t)source[m->aux_address+1] << 8));
         m->aux_address += 2;
+        if(m->aux_space==1){
+            ++m->nv_reads;
+            if(m->unstable_nv && (((m->nv_reads-1)/64)&1))return v^1;
+            if((m->corrupt_nv_after && m->nv_reads>m->corrupt_nv_after)
+               || m->nv_reads==m->corrupt_nv_once_at)return v^1;
+        }
         if ((m->ccsr == 0x1f || m->ccsr == 0x0f) &&
             (m->cor & 0x80) == 0 &&
             (m->corrupt_readback || (m->sram_bits && m->ccsr != (m->sram_bits == 8 ? 0x1f : 0x0f))))
@@ -41,7 +49,12 @@ static void write16(void *ctx, uint16_t reg, uint16_t value)
 {
     struct p2_mock *m = ctx;
     if (!touch(m) || reg >= 0x40) return;
+    if(m->aux_disabled_by_host && (reg==P2_PARAM0 || reg==P2_PARAM1 ||
+       reg==P2_PARAM2 || reg==P2_AUXPAGE || reg==P2_AUXOFFSET))
+        ++m->scratch_writes_after_disable;
+    if(reg==P2_CONTROL)m->aux_disabled_by_host=(value&0xc000)==0x4000;
     if (reg == P2_CMD) {
+        ++m->command_writes;
         if ((value & 0x3f) == 0x22) ++m->flash_commands;
         m->regs[P2_EVSTAT/2] |= P2_EV_CMD;
         m->regs[P2_STATUS/2] = m->command_failure ? 0x0100 : 0;
@@ -56,7 +69,8 @@ static void write16(void *ctx, uint16_t reg, uint16_t value)
     } else if (reg == P2_SELECT0 || reg == P2_OFFSET0) m->data_index = 0;
     m->regs[reg/2] = value;
     if (reg == P2_AUXPAGE || reg == P2_AUXOFFSET)
-        m->aux_address = ((uint32_t)m->regs[P2_AUXPAGE/2] << 7) + m->regs[P2_AUXOFFSET/2];
+        m->aux_address = ((uint32_t)m->regs[P2_AUXPAGE/2] << 7) + (m->regs[P2_AUXOFFSET/2]&127);
+    if (reg == P2_AUXOFFSET)m->aux_space=(value>>12)&15;
 }
 static uint8_t read_cfg(void *ctx, uint8_t reg)
 {
@@ -87,7 +101,7 @@ void p2_mock_fix_pda(uint8_t data[P2_PDA_SIZE])
     for (i = 0; i < 10; ++i) {
         unsigned b;
         crc ^= data[i];
-        for (b = 0; b < 8; ++b) crc = (uint16_t)((crc >> 1) ^ ((crc & 1) ? 0x8408 : 0));
+        for (b = 0; b < 8; ++b) crc = (uint16_t)((crc >> 1) ^ ((crc & 1) ? 0xa001 : 0));
     }
     data[10] = (uint8_t)crc; data[11] = (uint8_t)(crc >> 8);
 }
@@ -105,4 +119,4 @@ int p2_mock_init(struct p2_mock *m, unsigned bits)
                              delay_us, now_us, present, cancelled};
     return P2_OK;
 }
-void p2_mock_free(struct p2_mock *m) { free(m->memory); m->memory = NULL; }
+void p2_mock_free(struct p2_mock *m) { free(m->memory);free(m->nv_memory);m->memory=NULL;m->nv_memory=NULL; }

@@ -2,6 +2,7 @@
 #include "platform.h"
 #include "p2_stdio.h"
 #include "version.h"
+#include "backup.h"
 #include <string.h>
 
 /* Retained for AmigaOS Version, including when --version is never called. */
@@ -12,12 +13,14 @@ static void usage(void)
 {
     puts("Prism2Genesis " P2_VERSION " - experimental Genesis RAM probe\n"
          "  Prism2Genesis --version\n"
+         "  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n"
          "  Prism2Genesis info\n"
          "  Prism2Genesis inspect\n"
          "  Prism2Genesis probe --sram 8|16\n"
          "info reads CIS only; inspect initializes the card and reads firmware/PDA.\n"
          "probe resets the card and writes four RAM bytes, then restores normal mode.\n"
          "Native inspect/probe are blocked until verified full-flash backup is available.\n"
+         "backup reads all AUX NV addresses twice; it never initializes or resets the card.\n"
          "Select SRAM width from the exact card's hardware documentation.\n"
          "No firmware loading or flash programming is implemented in this milestone.");
 }
@@ -48,6 +51,8 @@ int main(int argc, char **argv)
     if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "help"))) {
         usage(); return 0;
     }
+    if (argc == 6 && !strcmp(argv[1], "backup") && !strcmp(argv[2], "--output")
+        && !strcmp(argv[4], "--utc")) return p2_backup_command(argv[3], argv[5]);
     if (probing && argc == 4 && !strcmp(argv[2], "--sram")) {
         if (!strcmp(argv[3], "8")) bits = 8;
         else if (!strcmp(argv[3], "16")) bits = 16;
