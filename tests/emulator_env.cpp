@@ -2,6 +2,7 @@
  * Bare-drive environment for native executable smoke tests.
  */
 #include "owned_buffer.h"
+#include "preflight.h"
 #include "sha256.h"
 #include "storage.h"
 #include <algorithm>
@@ -72,8 +73,27 @@ static bool check_storage() {
   return true;
 }
 
+static bool check_preflight() {
+  const char *utc = "20261018T104000Z";
+  const auto direct =
+      p2::preflight::native("RAM:probe-20261018T104000Z", utc, 0);
+  if (direct || direct.error() != P2_E_UNSUPPORTED)
+    return false;
+  BPTR lock = Lock((CONST_STRPTR) "RAM:", SHARED_LOCK);
+  if (!lock)
+    return false;
+  if (!AssignLock((CONST_STRPTR) "P2RAM", lock)) {
+    UnLock(lock);
+    return false;
+  }
+  const auto alias =
+      p2::preflight::native("P2RAM:probe-20261018T104000Z", utc, 0);
+  const bool removed = AssignLock((CONST_STRPTR) "P2RAM", 0);
+  return removed && !alias && alias.error() == P2_E_UNSUPPORTED;
+}
+
 int main(int argc, char **argv) {
-  if (!check_allocator() || !check_storage())
+  if (!check_allocator() || !check_storage() || !check_preflight())
     return RETURN_FAIL;
   static const char *const names[] = {"ENV",   "ENVARC", "T",
                                       "CLIPS", "LIBS",   "DEVS"};

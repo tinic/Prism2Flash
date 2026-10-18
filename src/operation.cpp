@@ -11,39 +11,43 @@
 
 namespace p2::operation {
 namespace {
-int code(const CardStatus &status) { return status ? P2_OK : status.error(); }
-int available(p2_bus &bus, bool cancellation = true) {
-  if (!bus.present(bus.ctx))
-    return P2_E_REMOVED;
-  if (cancellation && bus.cancelled && bus.cancelled(bus.ctx))
-    return P2_E_CANCELLED;
-  return P2_OK;
-}
 // Explicitly a synthetic profile. The actual MA401 profile has no native
 // approval and cannot be selected through this journal or any CLI option.
-class ModelJournal final : public Journal {
+class CaptureJournal final : public Journal {
 public:
-  ModelJournal(const char *directory, const char *utc,
-               const char *operation) noexcept
-      : directory_(directory), utc_(utc), operation_(operation) {}
+  CaptureJournal(const char *directory, const char *utc, const char *operation,
+                 bool native = false) noexcept
+      : directory_(directory), utc_(utc), operation_(operation),
+        native_(native) {}
   CardStatus prepare() override {
+    // A candidate observation cannot grant a physical operation. Refuse before
+    // creating outputs or opening the slot until independent approval exists.
+    if (native_)
+      return std::unexpected{P2_E_UNSUPPORTED};
     if (!backup::valid_utc(utc_) || !std::strstr(directory_, utc_) ||
         std::strlen(directory_) > 320)
       return std::unexpected{P2_E_ARGUMENT};
     if (p2_platform_backup_directory(directory_))
       return std::unexpected{P2_E_IO};
+    created_ = true;
     constexpr std::array names{"before-read-1.bin", "before-read-2.bin",
                                "after-read-1.bin",  "after-read-2.bin",
                                "before.json",       "after.json",
                                "transaction.json"};
     // Preflight all outputs before claiming the card. A later write/close can
     // still fail; such errors remain failures and preserve partial evidence.
-    for (std::size_t i = 0; i < paths_.size(); ++i) {
+    for (std::size_t step = 0; step < paths_.size(); ++step) {
+      // Reserve the failure record first, so later output-open failures can
+      // still be recorded without claiming a slot.
+      const std::size_t i = step ? step - 1 : 6;
       p2_snprintf(paths_[i].data(), paths_[i].size(), "%s/%s", directory_,
                   names[i]);
       files_[i] = File::open(paths_[i].data(), "w+b");
-      if (!files_[i])
+      if (!files_[i]) {
+        for (std::size_t raw = 0; raw < 6; ++raw)
+          (void)files_[raw].close();
         return std::unexpected{P2_E_IO};
+      }
     }
     return {};
   }
@@ -78,6 +82,7 @@ public:
         text.data(), text.size(),
         "{\n  \"format\": \"Prism2 model transaction capture 1\",\n"
         "  \"tool_version\": \"" P2_VERSION "\",\n"
+        "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
         "  \"simulation_only\": true,\n  \"hardware_authorization\": false,\n"
         "  \"profile\": \"protocol-model-nv-linear-8m-v1\",\n"
         "  \"operation\": \"%s\",\n  \"phase\": \"%s\",\n"
@@ -134,12 +139,15 @@ public:
     return equal ? CardStatus{} : CardStatus{std::unexpected{P2_E_VERIFY}};
   }
   CardStatus finish(const Report &result) override {
+    if (!created_)
+      return {};
     if (!files_[6])
       return std::unexpected{P2_E_IO};
     std::array<char, 2048> text;
     const auto count = p2_snprintf(
         text.data(), text.size(),
         "{\n  \"format\": \"Prism2 model transaction 1\",\n"
+        "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
         "  \"simulation_only\": true,\n  \"hardware_authorization\": false,\n"
         "  \"operation\": \"%s\",\n  \"utc_supplied\": \"%s\",\n"
         "  \"preparation_error\": %d,\n  \"acquisition_error\": %d,\n"
@@ -175,6 +183,7 @@ private:
     return backup::verify_file(paths_[index].data(), expected.data(), count);
   }
   const char *directory_, *utc_, *operation_;
+  bool native_ = false, created_ = false;
   std::array<std::array<char, 384>, 7> paths_{};
   std::array<File, 7> files_;
   std::array<backup::CaptureReport, 2> captures_;
@@ -182,60 +191,13 @@ private:
 };
 } // namespace
 
-Report run(Journal &journal, Work work, void *context) {
-  Report result;
-  if (!work) {
-    result.preparation_error = P2_E_ARGUMENT;
-    return result;
-  }
-  result.preparation_error = code(journal.prepare());
-  if (result.preparation_error)
-    return result;
-  // Slot destruction cannot perform a regular configure/close reset: this
-  // session only ever uses configure_backup and finish_backup.
-  {
-    auto slot = Slot::open();
-    if (!slot)
-      result.acquisition_error = slot.error().code;
-    else {
-      auto bus = slot->configure(true);
-      if (!bus)
-        result.acquisition_error = bus.error().code;
-      else {
-        result.acquisition_error = available(*bus);
-        if (!result.acquisition_error)
-          result.acquisition_error =
-              code(journal.capture(*bus, Phase::Before, slot->info()));
-        // Removal/cancellation during slow file verification cannot authorize
-        // work. The backend's removal flag stays sticky for this whole claim.
-        if (!result.acquisition_error)
-          result.acquisition_error = available(*bus);
-        if (!result.acquisition_error) {
-          Card card{*bus};
-          result.operation_started = true;
-          result.operation_error = code(work(card, context));
-          if (available(*bus, false))
-            result.readback_error = P2_E_REMOVED;
-          else {
-            // A user's Ctrl-C stops the operation, but does not suppress the
-            // required evidence readback. Never mask sticky removal.
-            auto recovery_bus = *bus;
-            recovery_bus.cancelled = nullptr;
-            result.readback_attempted = true;
-            result.readback_error =
-                code(journal.capture(recovery_bus, Phase::After, slot->info()));
-            if (!result.readback_error)
-              result.readback_error = available(recovery_bus, false);
-            if (!result.readback_error)
-              result.comparison_error = code(journal.compare());
-          }
-        }
-      }
-      result.cleanup_error = slot->finish_backup();
-    }
-    result.journal_error = code(journal.finish(result));
-  }
-  return result;
+#if !defined(PRISM2_AMIGA) && !defined(PRISM2_NATIVE_TRANSACTION_TEST)
+Owned<Journal> make_model_journal(const char *directory, const char *utc,
+                                  const char *operation) {
+  if (!directory || !utc || !operation)
+    return {};
+  auto journal = make_owned<CaptureJournal>(directory, utc, operation);
+  return Owned<Journal>{journal.release()};
 }
 
 int run_model(const char *directory, const char *utc, const char *operation,
@@ -246,7 +208,7 @@ int run_model(const char *directory, const char *utc, const char *operation,
        std::strcmp(operation, "probe-x16")))
     return 20;
   // No journal implementation or CLI profile can enable physical hardware.
-  auto journal = make_owned<ModelJournal>(directory, utc, operation);
+  auto journal = make_model_journal(directory, utc, operation);
   if (!journal)
     return 20;
   const auto result = run(*journal, work, context);
@@ -262,4 +224,21 @@ int run_model(const char *directory, const char *utc, const char *operation,
         "No physical-card approval is implied.");
   return result.success() ? 0 : 20;
 }
+#else
+int run_native(const char *directory, const char *utc, const char *operation,
+               Work work, void *context) {
+  if (!directory || !utc || !operation || !work)
+    return 20;
+  auto journal = make_owned<CaptureJournal>(directory, utc, operation, true);
+  if (!journal)
+    return 20;
+  const auto result = run(*journal, work, context);
+  p2_fprintf(stderr,
+             "Operation blocked: a verified timestamped full-flash backup is "
+             "required.\n"
+             "Physical profile and native transaction are not approved; "
+             "no card access was attempted.\n");
+  return result.success() ? 0 : 20;
+}
+#endif
 } // namespace p2::operation

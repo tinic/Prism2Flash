@@ -61,6 +61,19 @@ with tempfile.TemporaryDirectory(prefix='p2-operation-') as temp:
     assert not report['readback_attempted'] and report['acquisition_error']
     assert (limited / 'before-read-1.bin').stat().st_size == 4096
     assert (limited / 'after-read-1.bin').stat().st_size == 0
+    # Real descriptor exhaustion after mkdir: a failure journal must survive,
+    # and no acquisition or operation may have started.
+    def restrict_descriptors():
+        resource.setrlimit(resource.RLIMIT_NOFILE, (5, 5))
+    limited_open = root / f'open-failure-{stamp}'
+    run = subprocess.run([binary, 'inspect', '--output', str(limited_open),
+                          '--utc', stamp], capture_output=True, text=True,
+                         preexec_fn=restrict_descriptors)
+    assert run.returncode == 20, run
+    report = json.loads((limited_open / 'transaction.json').read_text())
+    assert report['preparation_error'] and not report['operation_started']
+    assert not report['readback_attempted'] and not report['success']
+    assert (limited_open / 'before-read-1.bin').stat().st_size == 0
     changed = root / f'changed-nv-{stamp}'
     run = subprocess.run([binary, 'probe', '--sram', '16', '--output', str(changed),
                           '--utc', stamp], capture_output=True, text=True,
