@@ -8,10 +8,12 @@ Native Amiga utilities for Intersil Prism II/2.5/3 PCMCIA cards, developed
 alongside AmiNetXDuo. The project starts with Genesis recovery and will then
 add a regular firmware flasher using the same programming engine.
 
-**Status: Genesis probe plus offline firmware parser/validator implemented; host checks and native executable
-smoke tests pass in Amiberry and Copperline. No real card or physical Amiga
-has been tested.** The A1200 is currently in use by another project; hardware
-testing is deferred.
+**Status: Genesis protocol model and offline firmware parser/validator
+implemented. Native startup, offline synthetic-file checks and CIS-only
+identification passed on the real A1200, alongside Amiberry/Copperline checks.**
+Active card inspection, AUX/full-flash access, Genesis and programming remain
+unvalidated and blocked pending verified full backups. The user has reserved
+the A1200 for this project. See [the hardware record](docs/HARDWARE-TESTING.md).
 
 ## Downloads and project workflow
 
