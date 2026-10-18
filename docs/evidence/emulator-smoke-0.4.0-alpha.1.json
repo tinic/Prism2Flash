@@ -1,0 +1,1001 @@
+{
+  "version": "0.4.0-alpha.1",
+  "language": "C++23",
+  "compiler": "AmigaPorts v16.2-rc17 (GCC 16.2.1)",
+  "date_utc": "2026-10-18",
+  "guest_stack_bytes": 4096,
+  "real_card_accessed": false,
+  "profiles": [
+    {
+      "timeout_seconds": 45,
+      "result": {
+        "token": "d6e904ea21c14bf5a47d32e37f0e2eba",
+        "emulator": "amiberry",
+        "suite": "genesis",
+        "model": "A600",
+        "cpu": "68000",
+        "binary_sha256": "78e2dc011f51156a665181c7c07c6112d7508a79765d81443ede43528f07d096",
+        "rom_sha256": "8d57d6e9d976df42d91ff9d10a5eedaede1a00e3b4b34cad750ca5ff7229f28a",
+        "command": [
+          "/Applications/Amiberry.app/Contents/MacOS/Amiberry",
+          "--log",
+          "-f",
+          "/Users/turo/ai/Prism2Flash/build-emulator/amiberry-A600-68000-d6e904ea/smoke.uae"
+        ],
+        "guest_stack_bytes": 4096,
+        "real_card_tested": false,
+        "runtime_helper_sha256": "b5adfa3997d464de6b713e755d8571f7bb3eec3f4dfcbbc16dbe5fa8f6e48e50",
+        "completion_flushed_on_stop": false,
+        "cases": [
+          {
+            "name": "help",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+          },
+          {
+            "name": "version",
+            "args": "--version",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1\n"
+          },
+          {
+            "name": "no_args",
+            "args": "",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+          },
+          {
+            "name": "invalid_sram",
+            "args": "probe --sram 32",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+          },
+          {
+            "name": "missing_sram",
+            "args": "probe",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+          },
+          {
+            "name": "reject_flash",
+            "args": "flash",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+          },
+          {
+            "name": "info",
+            "args": "info",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+          },
+          {
+            "name": "inspect",
+            "args": "inspect",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n"
+          },
+          {
+            "name": "probe8",
+            "args": "probe --sram 8",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n"
+          },
+          {
+            "name": "probe16",
+            "args": "probe --sram 16",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n"
+          },
+          {
+            "name": "info_again",
+            "args": "info",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+          },
+          {
+            "name": "inspect_again",
+            "args": "inspect",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n"
+          },
+          {
+            "name": "backup_bad_utc",
+            "args": "backup --output RAM:invalid --utc invalid",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Use a new persistent directory containing the supplied YYYYMMDDTHHMMSSZ UTC timestamp.\n"
+          },
+          {
+            "name": "backup_no_card",
+            "args": "backup --output DH0:backup-20261018T104000Z --utc 20261018T104000Z",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "NV capture failed: I/O failure; Cannot own PCMCIA card: absent or held by a driver. Keep partial files and manifest.\n"
+          },
+          {
+            "name": "help_after_errors",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+          }
+        ],
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "timeout_seconds": 45,
+      "result": {
+        "token": "448d4ddba81447668212bd616c464e92",
+        "emulator": "copperline",
+        "suite": "genesis",
+        "model": "A1200",
+        "cpu": "68020",
+        "binary_sha256": "78e2dc011f51156a665181c7c07c6112d7508a79765d81443ede43528f07d096",
+        "rom_sha256": "6d43840d4099a74170ea0f0425b6257c3891ebcaa39c4d1840075a9ab22b5707",
+        "guest_stack_bytes": 4096,
+        "real_card_tested": false,
+        "mode": "direct executable launch per case",
+        "cases": [
+          {
+            "name": "help",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/help/Prism2Genesis",
+              "--run-args",
+              "--help >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "version",
+            "args": "--version",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/version/Prism2Genesis",
+              "--run-args",
+              "--version >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "no_args",
+            "args": "",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/no_args/Prism2Genesis",
+              "--run-args",
+              ">RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "invalid_sram",
+            "args": "probe --sram 32",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/invalid_sram/Prism2Genesis",
+              "--run-args",
+              "probe --sram 32 >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "missing_sram",
+            "args": "probe",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/missing_sram/Prism2Genesis",
+              "--run-args",
+              "probe >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "reject_flash",
+            "args": "flash",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/reject_flash/Prism2Genesis",
+              "--run-args",
+              "flash >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "info",
+            "args": "info",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/info/Prism2Genesis",
+              "--run-args",
+              "info >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "inspect",
+            "args": "inspect",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/inspect/Prism2Genesis",
+              "--run-args",
+              "inspect >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "probe8",
+            "args": "probe --sram 8",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/probe8/Prism2Genesis",
+              "--run-args",
+              "probe --sram 8 >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "probe16",
+            "args": "probe --sram 16",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/probe16/Prism2Genesis",
+              "--run-args",
+              "probe --sram 16 >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "info_again",
+            "args": "info",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/info_again/Prism2Genesis",
+              "--run-args",
+              "info >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "inspect_again",
+            "args": "inspect",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Operation blocked: a verified timestamped full-flash backup is required.\nFull-flash backup is not implemented; no card access was attempted.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/inspect_again/Prism2Genesis",
+              "--run-args",
+              "inspect >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "backup_bad_utc",
+            "args": "backup --output RAM:invalid --utc invalid",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Use a new persistent directory containing the supplied YYYYMMDDTHHMMSSZ UTC timestamp.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/backup_bad_utc/Prism2Genesis",
+              "--run-args",
+              "backup --output RAM:invalid --utc invalid >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "backup_no_card",
+            "args": "backup --output RunProg:backup-20261018T104000Z --utc 20261018T104000Z",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "NV capture failed: I/O failure; Cannot own PCMCIA card: absent or held by a driver. Keep partial files and manifest.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/backup_no_card/Prism2Genesis",
+              "--run-args",
+              "backup --output RunProg:backup-20261018T104000Z --utc 20261018T104000Z >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "help_after_errors",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Genesis 0.4.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nNative inspect/probe are blocked until verified full-flash backup is available.\nbackup reads all AUX NV addresses twice; it never initializes or resets the card.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-448d4ddb/help_after_errors/Prism2Genesis",
+              "--run-args",
+              "--help >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          }
+        ],
+        "failures": [],
+        "runtime_helper": {
+          "sha256": "b5adfa3997d464de6b713e755d8571f7bb3eec3f4dfcbbc16dbe5fa8f6e48e50",
+          "exit": 0,
+          "passed": true
+        },
+        "passed": true
+      }
+    },
+    {
+      "timeout_seconds": 90,
+      "result": {
+        "token": "82aaf33e32df4780bb469812b9dced9b",
+        "emulator": "amiberry",
+        "suite": "firmware",
+        "model": "A600",
+        "cpu": "68000",
+        "binary_sha256": "27c05f818ae7208935a228d5fd1f565a4605714746712d355b2bd85ff1d3b6c6",
+        "rom_sha256": "8d57d6e9d976df42d91ff9d10a5eedaede1a00e3b4b34cad750ca5ff7229f28a",
+        "command": [
+          "/Applications/Amiberry.app/Contents/MacOS/Amiberry",
+          "--log",
+          "-f",
+          "/Users/turo/ai/Prism2Flash/build-emulator/amiberry-A600-68000-82aaf33e/smoke.uae"
+        ],
+        "guest_stack_bytes": 4096,
+        "real_card_tested": false,
+        "runtime_helper_sha256": "b5adfa3997d464de6b713e755d8571f7bb3eec3f4dfcbbc16dbe5fa8f6e48e50",
+        "completion_flushed_on_stop": false,
+        "cases": [
+          {
+            "name": "help",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+          },
+          {
+            "name": "version",
+            "args": "--version",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1\n"
+          },
+          {
+            "name": "inspect_flash",
+            "args": "inspect DH0:station.hex",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: flash; entry=0x00000000 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+          },
+          {
+            "name": "inspect_ram",
+            "args": "inspect DH0:ram.hex",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: RAM; entry=0x003f0c01 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+          },
+          {
+            "name": "validate_flash",
+            "args": "validate DH0:station.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+          },
+          {
+            "name": "validate_ram",
+            "args": "validate DH0:ram.hex --mode ram --card DH0:card.txt --pda DH0:pda.bin",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+          },
+          {
+            "name": "validate_pair",
+            "args": "validate DH0:station.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin --primary DH0:primary.hex",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+          },
+          {
+            "name": "reject_wrong_mode",
+            "args": "validate DH0:ram.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Offline validation rejected: Image RAM/flash class differs from selected mode\n"
+          },
+          {
+            "name": "bad_checksum",
+            "args": "inspect DH0:bad.hex",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Image rejected: DH0:bad.hex (line 2): S-record length or checksum mismatch\n"
+          },
+          {
+            "name": "missing_image",
+            "args": "inspect DH0:missing.hex",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Cannot open image: DH0:missing.hex\n"
+          },
+          {
+            "name": "missing_args",
+            "args": "validate",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+          },
+          {
+            "name": "reject_flash",
+            "args": "flash",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+          },
+          {
+            "name": "help_after_errors",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+          }
+        ],
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "timeout_seconds": 45,
+      "result": {
+        "token": "783880cc988446f2b0a6b02df489905a",
+        "emulator": "copperline",
+        "suite": "firmware",
+        "model": "A1200",
+        "cpu": "68020",
+        "binary_sha256": "27c05f818ae7208935a228d5fd1f565a4605714746712d355b2bd85ff1d3b6c6",
+        "rom_sha256": "6d43840d4099a74170ea0f0425b6257c3891ebcaa39c4d1840075a9ab22b5707",
+        "guest_stack_bytes": 4096,
+        "real_card_tested": false,
+        "mode": "direct executable launch per case",
+        "cases": [
+          {
+            "name": "help",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/help/Prism2Firmware",
+              "--run-args",
+              "--help >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "version",
+            "args": "--version",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/version/Prism2Firmware",
+              "--run-args",
+              "--version >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "inspect_flash",
+            "args": "inspect RunProg:station.hex",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: flash; entry=0x00000000 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/inspect_flash/Prism2Firmware",
+              "--run-args",
+              "inspect RunProg:station.hex >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "inspect_ram",
+            "args": "inspect RunProg:ram.hex",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: RAM; entry=0x003f0c01 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/inspect_ram/Prism2Firmware",
+              "--run-args",
+              "inspect RunProg:ram.hex >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "validate_flash",
+            "args": "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/validate_flash/Prism2Firmware",
+              "--run-args",
+              "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "validate_ram",
+            "args": "validate RunProg:ram.hex --mode ram --card RunProg:card.txt --pda RunProg:pda.bin",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/validate_ram/Prism2Firmware",
+              "--run-args",
+              "validate RunProg:ram.hex --mode ram --card RunProg:card.txt --pda RunProg:pda.bin >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "validate_pair",
+            "args": "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin --primary RunProg:primary.hex",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/validate_pair/Prism2Firmware",
+              "--run-args",
+              "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin --primary RunProg:primary.hex >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "reject_wrong_mode",
+            "args": "validate RunProg:ram.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Offline validation rejected: Image RAM/flash class differs from selected mode\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/reject_wrong_mode/Prism2Firmware",
+              "--run-args",
+              "validate RunProg:ram.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "bad_checksum",
+            "args": "inspect RunProg:bad.hex",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Image rejected: RunProg:bad.hex (line 2): S-record length or checksum mismatch\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/bad_checksum/Prism2Firmware",
+              "--run-args",
+              "inspect RunProg:bad.hex >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "missing_image",
+            "args": "inspect RunProg:missing.hex",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Cannot open image: RunProg:missing.hex\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/missing_image/Prism2Firmware",
+              "--run-args",
+              "inspect RunProg:missing.hex >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "missing_args",
+            "args": "validate",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/missing_args/Prism2Firmware",
+              "--run-args",
+              "validate >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "reject_flash",
+            "args": "flash",
+            "exit": 20,
+            "expected_exit": 20,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/reject_flash/Prism2Firmware",
+              "--run-args",
+              "flash >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          },
+          {
+            "name": "help_after_errors",
+            "args": "--help",
+            "exit": 0,
+            "expected_exit": 0,
+            "passed": true,
+            "output": "Prism2Firmware 0.4.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n",
+            "command": [
+              "/Users/turo/ai/tools/copperline/copperline",
+              "--config",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/copperline.toml",
+              "--model",
+              "A1200",
+              "--run",
+              "/Users/turo/ai/Prism2Flash/build-emulator/copperline-A1200-68020-783880cc/help_after_errors/Prism2Firmware",
+              "--run-args",
+              "--help >RunProg:stdout.txt",
+              "--run-stack",
+              "4096",
+              "--exit-on-return",
+              "--noaudio"
+            ]
+          }
+        ],
+        "failures": [],
+        "runtime_helper": {
+          "sha256": "b5adfa3997d464de6b713e755d8571f7bb3eec3f4dfcbbc16dbe5fa8f6e48e50",
+          "exit": 0,
+          "passed": true
+        },
+        "passed": true
+      }
+    }
+  ],
+  "initial_runs": [
+    {
+      "run": "amiberry-A600-68000-f3ae704b",
+      "failures": [
+        "guest did not write this run's completion token"
+      ],
+      "cli_cases_passed": 15,
+      "timeout_seconds": 45
+    },
+    {
+      "run": "amiberry-A600-68000-162ff80a",
+      "failures": [
+        "guest did not write this run's completion token",
+        "env_after: environment helper failed"
+      ],
+      "cli_cases_passed": 13,
+      "timeout_seconds": 45
+    }
+  ],
+  "harness_notes": [
+    "Unique completion token is checked after shutdown flush as well as during polling. All per-case/helper checks remain required.",
+    "Expanded Amiberry firmware suite needed a 90-second bound including both allocator helpers; its initial 45-second run remains recorded."
+  ]
+}

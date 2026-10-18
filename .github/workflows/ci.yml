@@ -11,19 +11,29 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
+  format:
+    name: LLVM formatting
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m venv build-format-env
+      - run: build-format-env/bin/python -m pip install clang-format==18.1.8
+      - run: CLANG_FORMAT=build-format-env/bin/clang-format tools/ci.sh format-check
   host:
-    name: Host (${{ matrix.os }}, ${{ matrix.cc }})
+    name: Host (${{ matrix.os }}, ${{ matrix.cxx }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-24.04, cc: gcc}
-          - {os: ubuntu-24.04, cc: clang}
-          - {os: macos-15, cc: clang}
+          - {os: ubuntu-24.04, cxx: g++}
+          - {os: ubuntu-24.04, cxx: clang++}
+          - {os: macos-15, cxx: clang++}
     env:
-      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,7 +46,7 @@ jobs:
         run: brew install lhasa
       - run: tools/ci.sh host
       - name: Address and undefined-behavior sanitizers
-        if: runner.os == 'Linux' && matrix.cc == 'clang'
+        if: runner.os == 'Linux' && matrix.cxx == 'clang++'
         run: tools/ci.sh sanitize
   native:
     name: Amiga 68000 and release package
@@ -49,7 +59,7 @@ jobs:
       - name: Cache pinned compiler
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/prism2flash/toolchain
+          path: ~/ai/toolchain-cache/prism2flash
           key: amiga-linux-${{ hashFiles('tools/toolchain.json', 'tools/*toolchain*.py') }}
       - name: Install independent LHA reader
         run: sudo apt-get update && sudo apt-get install -y lhasa

@@ -5,7 +5,7 @@ The 16.2.2 packages shipped a bootstrap libc despite pinning fixed newlib
 source. For this immutable asset series, compare installed malloc.o bytes
 against the known-good newlib build, in both libc.a and libg.a. A future
 source, compiler, or flag change must deliberately update this map and its
-runtime Enforcer proof; unknown bytes fail closed.
+runtime verification; unknown bytes fail closed.
 """
 
 import hashlib
@@ -17,22 +17,22 @@ import sys
 # Paths are relative to <prefix>/m68k-amigaos/lib. The paired libc/libg
 # archive members must match for each variant. Eight distinct hashes cover
 # eleven multilibs produced by the pinned newlib source's final make step.
-# Asset series 16.2.6 to 16.2.9 (GCC AmigaPorts 0edaa619 + PR #82, 1d4ca5d4, f098a8ef): each installed
-# malloc.o is the object newlib's final build left in newlib/libc/sys/amigaos/,
-# on Linux and macOS.  The newlib source is unchanged from 16.2.5; the bytes
-# moved with the compiler.
+# Official AmigaPorts v16.2-rc17 asset bytes are pinned in toolchain.json.
+# RC17 hashes independently agree in libc.a/libg.a
+# across both hash-verified official Darwin and Linux archives. Startup and
+# allocator runtime checks run in the native emulator helper.
 EXPECTED_MALLOC_SHA256 = {
-    "": "8108818fb83a4641aa355979fc53a5f58d784c1139d0067051ba95b50949f23a",
-    "libm020": "65ec1680da2fadb21f2a863c334944903e748e930e0c24ee3a5bdc2768456111",
-    "libm020/libm881": "65ec1680da2fadb21f2a863c334944903e748e930e0c24ee3a5bdc2768456111",
+    "": "f5d9eb986c1bfa30bda9043c7bed2ae8778268aeb216ceda83a0cb1840015ad2",
+    "libb": "0a082f0d8742a605271fa57be86394d5ec1c6cee7b3310b5e0ff3e09eb8216d0",
+    "libm020": "0ebe5f80cd83149070453ff211eb527540015897ed6ccae7ef6602611b1df216",
     "libm060": "7d6109741ec975d7748364c7e288f40553c545dd19db5e6016711845cbf86dab",
-    "libb": "18417b53615ecd5bb072b62a41a60530b11a9f60571ff3f35ed5ab57393df0fe",
-    "libb/libm020": "8acc5ecfa90b9445eec4b8a2545931492cedd9d3d2d49c101fdf2f9ff50e2ecb",
-    "libb/libm020/libm881": "8acc5ecfa90b9445eec4b8a2545931492cedd9d3d2d49c101fdf2f9ff50e2ecb",
+    "libm020/libm881": "0ebe5f80cd83149070453ff211eb527540015897ed6ccae7ef6602611b1df216",
+    "libb/libm020": "abeffb21330260c509866956f2ccfa5b356404a4c2ac5c70f07d3ac80d478d03",
     "libb/libm060": "885869098305a7bdc89bd7b7740f92ce728a577352ab57f63092689329c0fe9f",
-    "libb32/libm020": "1151be0f4f0d47ca1a0c975523605dc92e3cf7981abfe116e56f9647abc7436f",
-    "libb32/libm020/libm881": "1151be0f4f0d47ca1a0c975523605dc92e3cf7981abfe116e56f9647abc7436f",
+    "libb/libm020/libm881": "abeffb21330260c509866956f2ccfa5b356404a4c2ac5c70f07d3ac80d478d03",
+    "libb32/libm020": "485221a4f8f87b9e1c69fe501f97d8991b52a1b1c2b03600a3544e90bb1b9caf",
     "libb32/libm060": "6e6c9d04fbf03e34a15a9e60adf87f9c22d8c0779dfe5701cee48e1fe917c1cf",
+    "libb32/libm020/libm881": "485221a4f8f87b9e1c69fe501f97d8991b52a1b1c2b03600a3544e90bb1b9caf"
 }
 
 

@@ -5,6 +5,12 @@ cd "$(dirname "$0")/.."
 mkdir -p build-tmp
 export TMPDIR="$PWD/build-tmp"
 case "${1:-}" in
+  format)
+    python3 tools/format.py
+    ;;
+  format-check)
+    python3 tools/format.py --check
+    ;;
   host)
     python3 tools/check_project.py
     cmake -S . -B build-host -DCMAKE_BUILD_TYPE=Debug
@@ -13,7 +19,7 @@ case "${1:-}" in
     ;;
   sanitize)
     cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=Debug \
-      '-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
+      '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
       '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined'
     cmake --build build-sanitize --parallel
     ctest --test-dir build-sanitize --output-on-failure
@@ -31,5 +37,5 @@ case "${1:-}" in
     lha t dist/*-amiga-68000.lha
     python3 tools/verify_release.py dist
     ;;
-  *) echo "usage: $0 host|sanitize|native|package" >&2; exit 2 ;;
+  *) echo "usage: $0 format|format-check|host|sanitize|native|package" >&2; exit 2 ;;
 esac

@@ -107,13 +107,14 @@ def main():
     info = {
         'project': 'Prism2Flash', 'version': version, 'release_date': date.isoformat(),
         'commit': commit, 'source_date_epoch': epoch, 'source_dirty': dirty,
+        'language': 'C++23', 'exceptions': False, 'rtti': False,
         'target': 'm68k-amigaos', 'cpu': '68000', 'minimum_os': 'AmigaOS 2.05',
         'compiler': compiler_version, 'compiler_pin': json.loads((ROOT / 'tools/toolchain.json').read_text()),
         'binary_sha256': sha(binaries['Prism2Genesis']),
         'binaries': {name: {'sha256': sha(data), 'bytes': len(data)} for name, data in binaries.items()},
         'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
-        'hardware_test_scope': 'Limited A1200 CIS/offline and experimental NV acquisition; complete physical backup and active operations unverified; see docs/HARDWARE-TESTING.md',
+        'hardware_test_scope': 'Current C++23 binaries: host/emulator only. Previous C-release A1200 capture evidence is historical; see docs/HARDWARE-TESTING.md',
         'scope': 'Experimental AUX NV capture and offline firmware validation; active operations blocked pending verified physical full-flash backups; no flash programming',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()

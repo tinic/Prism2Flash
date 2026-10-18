@@ -128,3 +128,19 @@ remains readable. Every 128 KiB alias is now identical to the earlier offline
 consensus. Exact hashes and sanitized manifests are in HARDWARE-TESTING.md.
 This is a verified exposed AUX NV capture; physical geometry/coverage remains
 inferred and does not enable active operations. All failed attempts are kept.
+
+
+## C++23 and consistent formatting — 0.4.0-alpha.1
+
+Project-owned sources and tests now compile as C++23 with the official pinned
+AmigaPorts v16.2-rc17 compiler (GCC 16.2.1). LLVM formatting is applied and
+enforced by CI using clang-format 18.1.8. Scoped heap ownership, bounded spans/
+arrays and explicit C++ casts replace implicit C conversions; native byte swaps
+use std::byteswap. Exceptions and RTTI remain disabled.
+
+RC17 already passes the retained startup and inline ABI checks, so the fetcher
+checks rather than patches it. Allocator hashes match across both published
+Linux/Darwin artifacts. The native smoke helper checks realloc preservation,
+alignment and scoped cleanup. Card protocol, output formats and backup gates
+retain their behavior. Earlier physical capture records apply to the previous
+C binaries; this migration has no physical-card testing.

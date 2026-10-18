@@ -1,5 +1,26 @@
 # Native emulator smoke results — 2026-10-18
 
+## C++23 / RC17 migration — 0.4.0-alpha.1
+
+All **56 native CLI checks passed**: Genesis 15/15 and Firmware 13/13 on each
+of Amiberry A600/68000/Kickstart 2.05 and Copperline A1200/68020/Kickstart 3.1.
+The exact RC17 C++23 binaries ran with 4096-byte guest stacks. The runtime
+helper also checks SHA-256 and allocator alignment, reallocation preservation
+and scoped cleanup (1024 rounds across sixteen live slots). Amiberry runs the
+helper before and after the suite; Copperline launches it separately.
+
+The first Amiberry Genesis run completed all cases/helpers and wrote its exact
+unique token, but the host saw that buffered marker only after stopping the
+emulator. The harness now checks the post-flush marker alongside every exit
+code/output. The first firmware run completed all thirteen CLI checks but its
+final helper/marker did not finish or flush within 45 seconds. The expanded
+suite passed with a 90-second bound; initial failures are retained. No result
+or return-code assertion was removed.
+
+[Exact results, initial failures and hashes](evidence/emulator-smoke-0.4.0-alpha.1.json)
+record the new binaries. No physical Amiga/card was accessed; previous C-binary
+hardware results do not validate this migration. FS-UAE was not used.
+
 ## Experimental NV capture and corrected PDA CRC — 0.3.0-alpha.1
 
 All **56 native guest checks passed** at 4096-byte Shell stack: Genesis 15/15

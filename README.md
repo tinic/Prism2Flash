@@ -92,7 +92,9 @@ Preparation, bootstrap loading and actual flashing remain later milestones.
 
 ## Native build
 
-Requires CMake 3.24+ and a `m68k-amigaos-gcc` cross toolchain with Amiga NDK headers.
+Requires CMake 3.24+ and a C++23 `m68k-amigaos-g++` cross toolchain with Amiga NDK headers.
+The pinned native compiler is AmigaPorts v16.2-rc17 (GCC 16.2.1).
+Project sources use LLVM formatting enforced by CI; see [contributing](CONTRIBUTING.md).
 The target is 68000 with AmigaOS 2.05 or later. Hardware compatibility with
 that minimum OS is still to be tested.
 

@@ -34,3 +34,9 @@
 - Until full backup acquisition/export and its operation gate are implemented
   and verified, native inspect/probe must refuse before opening the slot.
   Do not add force/skip-backup options or accept an old backup as authorization.
+
+- Project-owned implementation and native tests use C++23 with exceptions and
+  RTTI disabled. Follow LLVM formatting via pinned clang-format 18.1.8 and
+  tools/ci.sh format/format-check. Do not reformat retained third-party sources.
+- Native builds use the official AmigaPorts GCC v16.2-rc17 pin. Preserve runtime
+  verification gates; do not apply legacy binary repairs to this compiler.

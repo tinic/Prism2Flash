@@ -12,6 +12,25 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.4.0-alpha.1] - 2026-10-18
+
+### Changed
+
+- Build all project-owned implementation and test sources as C++23. Use scoped
+  heap ownership, bounded spans/arrays, constexpr data and C++23 byte swapping.
+- Adopt LLVM formatting, pinned clang-format 18.1.8 and a required CI format check.
+- Use the official AmigaPorts GCC 16.2-rc17 archives (GCC 16.2.1), with SHA-256
+  pins for macOS arm64/Linux x86_64. Validate existing startup and inline fixes
+  without modifying the runtime; check allocator object pins across both assets.
+- Exercise allocator alignment, reallocation/payload preservation and scoped
+  cleanup in the native emulator helper. Keep exceptions and RTTI disabled.
+
+### Scope
+
+This migration does not enable additional card operations. Hardware capture
+results from 0.3.0-alpha.1 remain historical; the new binaries require separate
+hardware validation. No real card is accessed by migration tests.
+
 ## [0.3.0-alpha.1] - 2026-10-18
 
 ### Added

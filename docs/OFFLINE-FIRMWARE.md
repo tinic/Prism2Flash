@@ -111,14 +111,14 @@ are on the heap. Native smoke tests use a 4096-byte Shell stack.
 
 ```sh
 tools/ci.sh host
-CC=clang tools/ci.sh sanitize
+CXX=clang++ tools/ci.sh sanitize
 tools/ci.sh native
 ```
 
 Host CI uses original synthetic records and PDA data. It covers successful
 inspection/validation, entry/load-address distinction, fragmented metadata,
 NIC/MAC binding, modes, interface ranges, missing calibration, signature bounds,
-malformed lines, input limits and 120 deterministic mutated inputs. A C API
+malformed lines, input limits and 120 deterministic mutated inputs. A C++ API
 check verifies exact payload bytes, sorting/coalescing and failure ownership.
 
 With separately obtained, checksum-matching private images, compare parsed

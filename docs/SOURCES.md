@@ -77,3 +77,17 @@ raw 8 MiB MA401RA capture. Aliasing suggests a 128 KiB window; geometry and
 complete firmware contents remain unverified. The majority-derived image is
 separate evidence and never changes the original raw capture. Private data
 and firmware images are not distributed with the project.
+
+
+## C++23 compiler and formatter
+
+The official [AmigaPorts v16.2-rc17 release](https://github.com/AmigaPorts/m68k-amigaos-gcc/releases/tag/v16.2-rc17)
+supplies GCC 16.2.1 and the NDK. tools/toolchain.json pins exact asset hashes
+and the GCC source tag/commit. Both archives have matching allocator objects
+in all eleven libc/libg multilib pairs. Existing startup/inline checks pass
+without binary repairs. These byte-level checks and emulator tests are not a
+complete compiler audit or new physical-card validation.
+
+[LLVM clang-format](https://clang.llvm.org/docs/ClangFormatStyleOptions.html)
+defines the adopted style. tools/format.py requires clang-format 18.1.8 and
+formats only project-owned source/header/test files.

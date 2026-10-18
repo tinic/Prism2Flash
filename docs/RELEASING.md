@@ -25,7 +25,9 @@ Every push to main or a codex branch, pull request, and manual CI run performs:
   downloaded and verified again so artifact-action changes are covered by CI.
 - Upload of binary/source packages as the `prism2flash-release` CI artifact.
 
-CodeQL separately analyzes the portable C implementation on pushes, pull
+A separate LLVM formatting job uses pinned clang-format 18.1.8.
+
+CodeQL separately analyzes the portable C++23 implementation on pushes, pull
 requests and a weekly schedule. It does not analyze the Amiga-specific backend
 through a host compiler. Dependabot proposes pinned-action updates weekly.
 Workflows use read-only repository permissions except the release publication
@@ -37,20 +39,20 @@ Real-card testing stays subject to the hardware gate in ROADMAP.md.
 
 ## Local equivalents
 
-Requires CMake 3.24+, Python 3.9+, a C compiler, curl and tar. Lhasa (`lha`)
+Requires CMake 3.24+, Python 3.9+, a C++23 compiler, curl and tar. Lhasa (`lha`)
 is needed for independent package verification. Install `lhasa` with apt or
 Homebrew. Package generation itself uses Python's standard library.
 
 ```sh
 tools/ci.sh host
-CC=clang tools/ci.sh sanitize
+CXX=clang++ tools/ci.sh sanitize
 tools/ci.sh native
 tools/ci.sh package
 ```
 
-The native stage fetches the compiler into `~/.cache/prism2flash/toolchain`,
-verifies its pinned archive hash, applies/checks the retained startup and NDK
-ABI repairs, and verifies every multilib's allocator. No sibling repository
+The native stage fetches the compiler into `~/ai/toolchain-cache/prism2flash`,
+verifies the official RC17 archive hash, checks the retained startup and NDK
+ABI invariants without patching the runtime, and verifies every multilib's allocator. No sibling repository
 is required. `AMIGA_TOOLCHAIN_ROOT` can select an existing compatible compiler;
 maintainers must run the repair/check tools when supplying one manually.
 `tools/toolchain.json` records upstream asset pins and repair provenance.

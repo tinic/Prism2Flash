@@ -27,7 +27,7 @@ def main():
     if key not in pin['platforms']:
         parser.error(f'no pinned prebuilt for {key}; supply AMIGA_TOOLCHAIN_ROOT manually')
     asset = pin['platforms'][key]
-    cache = Path(os.environ.get('PRISM2_TOOLCHAIN_CACHE', Path.home() / '.cache/prism2flash/toolchain'))
+    cache = Path(os.environ.get('PRISM2_TOOLCHAIN_CACHE', Path.home() / 'ai/toolchain-cache/prism2flash'))
     root = cache.resolve() / asset['sha256'][:12]
     if args.print_root:
         print(root)
@@ -35,7 +35,7 @@ def main():
     compiler = root / 'bin/m68k-amigaos-gcc'
     if not compiler.is_file():
         cache.mkdir(parents=True, exist_ok=True)
-        name = f"m68k-amigaos-gcc-{pin['asset_version']}-ndk3.9-{asset['name']}.tar.xz"
+        name = asset['asset']
         url = f"https://github.com/{pin['repository']}/releases/download/{pin['tag']}/{name}"
         with tempfile.TemporaryDirectory(prefix='prism2-tc-', dir=cache) as temp:
             temp = Path(temp)
@@ -46,20 +46,19 @@ def main():
                 raise RuntimeError('toolchain SHA-256 mismatch; refusing extraction')
             # This exact archive is pinned above; take only the compiler prefix.
             subprocess.run(['tar', 'xf', str(archive), '-C', str(temp),
-                            'opt/m68k-amigaos'], check=True, stdout=sys.stderr)
-            extracted = temp / 'opt/m68k-amigaos'
+                            pin['archive_root']], check=True, stdout=sys.stderr)
+            extracted = temp / pin['archive_root']
             if not (extracted / 'm68k-amigaos/ndk-include/exec/types.h').is_file():
                 raise RuntimeError('toolchain has no NDK headers')
             shutil.move(str(extracted), root)
-    for script, options in [('fix-toolchain-crt0.py', []),
-                            ('fix-toolchain-crt0.py', ['--check']),
-                            ('fix-toolchain-inline-const.py', []),
+    # RC17 already contains the repairs. Validate; never patch a new runtime.
+    for script, options in [('fix-toolchain-crt0.py', ['--check']),
                             ('fix-toolchain-inline-const.py', ['--check']),
                             ('check-toolchain-malloc.py', [])]:
         subprocess.run([sys.executable, str(TOOLS / script), str(root), *options],
                        check=True, stdout=sys.stderr)
-    version = subprocess.check_output([str(compiler), '-dumpversion'], text=True).strip()
-    if version != pin['gcc_version']:
+    version = subprocess.check_output([str(compiler), '-dumpfullversion'], text=True).strip()
+    if version.rstrip('b') != pin['gcc_version']:
         raise RuntimeError(f'expected GCC {pin["gcc_version"]}, got {version}')
     print(root)
 
