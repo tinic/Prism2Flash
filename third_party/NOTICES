@@ -1,0 +1,16 @@
+Prism2Flash is distributed under GNU GPL version 2.
+
+Host AP utilities and driver references retain their original copyrights and
+licenses. The Genesis/AUX implementation is adapted from Host AP source.
+See docs/SOURCES.md and the unmodified source copies/archives in this directory.
+
+pccard.library 2.2 and its developer header are unmodified files from Neil
+Cafferkey's pccard archive. That complete original archive accompanies the
+binary. Individual source files use GPL/LGPL terms; both license texts are
+retained. Some files also credit David A. Hinds. See their original notices.
+
+card.resource call-stub patterns were adapted from AmiNetXDuo's MIT-licensed
+src/netdev/netdev_pcmcia.c. Its complete license notice is retained in
+AmiNetXDuo-LICENSE.
+
+No Intersil firmware image or DOS flash utility is distributed here.

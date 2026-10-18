@@ -1,0 +1,45 @@
+# Sources and findings
+
+Research and source inspection: 2026-10-18. Hardware validation: not performed.
+
+- [Host AP utilities 0.4.7](https://w1.fi/releases/hostap-utils-0.4.7.tar.gz):
+  `prism2_srec.c`, `util.c`, `util.h`, `hostap_common.h`, README and COPYING.
+  Original archive retained in third_party/hostap for the planned parser port.
+  GPL-2.0-only, Jouni Malinen. The Linux socket/ioctl/procfs interface is not
+  needed by a direct Amiga backend.
+- Linux v4.4 Host AP:
+  [hostap_download.c](https://github.com/torvalds/linux/blob/v4.4/drivers/net/wireless/hostap/hostap_download.c),
+  [hostap_cs.c](https://github.com/torvalds/linux/blob/v4.4/drivers/net/wireless/hostap/hostap_cs.c),
+  [hostap_hw.c](https://github.com/torvalds/linux/blob/v4.4/drivers/net/wireless/hostap/hostap_hw.c),
+  [hostap_wlan.h](https://github.com/torvalds/linux/blob/v4.4/drivers/net/wireless/hostap/hostap_wlan.h).
+  The Genesis/AUX sequence is adapted from these GPL sources; unmodified copies
+  are retained in third_party/hostap/linux-v4.4. Upstream authors include
+  SSH Communications Security Corp and Jouni Malinen.
+- [prism2.device 2.9](https://aminet.net/package/driver/net/prism2v2.lha):
+  Neil Cafferkey's `Source/pccard.c`, `unit.c`, `prism2.h`, `io.h`, and manual
+  establish the existing Amiga mapping, byte order and AUX access. GPL-2.0-or-later.
+- [pccard.library 2.2](https://aminet.net/package/util/libs/pccard): unmodified
+  archive, runtime binary and developer header retained in third_party/pccard.
+  Original per-file GPL/LGPL notices apply. Source archive includes the complete
+  library source. Version 2.2 fixed misaligned access on 68000/68010.
+- AmiNetXDuo `src/netdev/netdev_pcmcia.c`: MIT-licensed reference for
+  card.resource call stubs, ownership and removal semantics. Its original MIT
+  license is retained in third_party/AmiNetXDuo-LICENSE.
+- [GetCardMap autodoc](https://d0.se/autodocs/card.resource/GetCardMap),
+  [OwnCard autodoc](https://d0.se/autodocs/card.resource/OwnCard), and
+  [CardResetCard autodoc](https://d0.se/autodocs/card.resource/CardResetCard).
+- [Intersil platform release-ID map](https://junsun.net/linux/intersil-prism/IDtable.html):
+  NICID, SRAM/flash configuration and firmware platform relationships.
+- [Jun Sun flashing guide](https://junsun.net/linux/intersil-prism/): primary/
+  station pairing, compatibility checks, filename conventions and recovery references.
+- [Documented DOS recovery](https://github.com/patters-match/prism2-flashing#-recovering-from-a-bad-flash):
+  a failed MA401RA flash recovered using ILHOPFW and a matching initial firmware.
+  Its suggestion that Host AP disappeared after Linux 2.6.32 is contradicted by
+  the v4.4 source inspected here. Its successful recovery does not validate our
+  Amiga implementation or establish a general failure/recovery rate.
+
+Genesis is chipset behavior, not a DOS-specific feature. The ordinary flash
+path also uses card firmware commands rather than host-driven JEDEC programming.
+Whether each path behaves correctly through Gayle remains an empirical question.
+
+File checksums for retained third-party artifacts are in third_party/SHA256SUMS.
