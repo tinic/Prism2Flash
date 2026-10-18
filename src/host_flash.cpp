@@ -7,12 +7,17 @@
 
 namespace p2::flash {
 CardResult<Identity> identify(Card &card) {
+  if (auto r = card.ensure_aux_enabled(); !r)
+    return std::unexpected{r.error()};
+  bool command_attempted = false;
   const auto read = [&](uint32_t a, uint32_t b) -> CardResult<Identity> {
     for (const auto &[address, value] : std::array{
              std::pair{uint32_t{0}, uint8_t{0xf0}}, std::pair{a, uint8_t{0xaa}},
-             std::pair{b, uint8_t{0x55}}, std::pair{a, uint8_t{0x90}}})
+             std::pair{b, uint8_t{0x55}}, std::pair{a, uint8_t{0x90}}}) {
+      command_attempted = true;
       if (auto r = card.write_nv_byte(0x7e0000 + address, value); !r)
         return std::unexpected{r.error()};
+    }
     const auto manufacturer = card.read_nv_byte(0x7e0000);
     if (!manufacturer)
       return std::unexpected{manufacturer.error()};
@@ -23,11 +28,26 @@ CardResult<Identity> identify(Card &card) {
       return std::unexpected{r.error()};
     return Identity{*manufacturer, *device};
   };
-  auto identity = read(0x555, 0x2aa);
-  if (!identity || (identity->manufacturer == 1 && identity->device == 0x6e) ||
-      (identity->manufacturer == 0x20 && identity->device == 0x23))
-    return identity;
-  return read(0x5555, 0x2aaa);
+  const auto detect = [&]() -> CardResult<Identity> {
+    auto identity = read(0x555, 0x2aa);
+    if (!identity ||
+        (identity->manufacturer == 1 && identity->device == 0x6e) ||
+        (identity->manufacturer == 0x20 && identity->device == 0x23))
+      return identity;
+    return read(0x5555, 0x2aaa);
+  };
+  auto result = detect();
+  if (!result && command_attempted &&
+      card.transport().present(card.transport().ctx)) {
+    // F0 is read-mode cleanup, never an erase/program retry. Ignore Ctrl-C
+    // only here; presence remains the insertion's original sticky callback.
+    auto cleanup_bus = card.transport();
+    cleanup_bus.cancelled = nullptr;
+    Card cleanup{cleanup_bus};
+    if (auto restored = cleanup.write_nv_byte(0x7e0000, 0xf0); !restored)
+      return std::unexpected{restored.error()};
+  }
+  return result;
 }
 Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
                    std::span<const uint8_t> desired) {
@@ -68,8 +88,10 @@ Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
     if (auto r = available(); !r)
       return r;
     const auto identity = identify(card);
-    if (!identity)
+    if (!identity) {
+      report.recovery_required = true;
       return std::unexpected{identity.error()};
+    }
     report.manufacturer = identity->manufacturer;
     report.device = identity->device;
     if (report.manufacturer != 0xbf || report.device != 0xd5)
@@ -97,9 +119,10 @@ Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
       return r;
     if (auto r = write(0x2aaa, 0x55); !r)
       return r;
-    report.erase_started = true;
+    report.erase_command_attempted = true;
     if (auto r = write(0x5555, 0x10); !r)
       return r;
+    report.erase_started = true;
     const auto erased_at = bus.now_us(bus.ctx);
     for (;;) {
       auto value = card.read_nv_byte(0x7e0000);

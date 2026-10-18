@@ -13,6 +13,8 @@ struct FlashModel {
   unsigned stage = 0, erases = 0, programs = 0, commands = 0;
   bool id_mode = false, unknown = false, erase_stuck = false;
   bool program_stuck = false, cancel_after_erase = false;
+  bool cancel_in_id = false, remove_in_id = false,
+       cancel_on_erase_write = false;
   uint32_t unlock_address = 0;
   FlashModel() : before(p2::flash::Bytes, 0xff), desired(before) {
     assert(!p2_mock_init(&mock, 16));
@@ -32,11 +34,16 @@ struct FlashModel {
       assert(m.mock.aux_space == 1 && port == P2_AUXDATA + (offset & 1));
       if (m.cancel_after_erase && m.erases)
         m.mock.cancel = 1;
-      if (m.id_mode)
+      if (m.id_mode) {
+        if (m.cancel_in_id)
+          m.mock.cancel = 1;
+        if (m.remove_in_id)
+          m.mock.present = 0;
         return static_cast<uint8_t>(m.unknown || m.unlock_address != 0x5555
                                         ? 0xff
                                     : offset == 0 ? 0xbf
                                                   : 0xd5);
+      }
       return m.mock.nv_memory[offset];
     };
     mock.bus.write8 = [](void *ctx, uint16_t port, uint8_t value) {
@@ -75,6 +82,8 @@ struct FlashModel {
       } else {
         assert(m.stage == 6 && value == 0x10 && address == 0x5555);
         ++m.erases;
+        if (m.cancel_on_erase_write)
+          m.mock.cancel = 1;
         if (!m.erase_stuck)
           std::fill_n(m.mock.nv_memory, 0x800000, 0xff);
         m.stage = 0;
@@ -89,6 +98,30 @@ struct FlashModel {
 };
 } // namespace
 int main() {
+  {
+    FlashModel m;
+    m.cancel_in_id = true;
+    p2::Card card{m.mock.bus};
+    const auto result = p2::flash::identify(card);
+    assert(!result && result.error() == P2_E_CANCELLED);
+    assert(!m.id_mode && !m.stage && !m.erases && !m.programs);
+    assert(m.mock.cancel && !m.mock.aux_space);
+  }
+  {
+    FlashModel m;
+    m.remove_in_id = true;
+    p2::Card card{m.mock.bus};
+    const auto result = p2::flash::identify(card);
+    assert(!result && result.error() == P2_E_REMOVED);
+    assert(m.commands == 4 && !m.erases && !m.programs);
+  }
+  {
+    FlashModel m;
+    m.cancel_on_erase_write = true;
+    const auto result = m.run();
+    assert(result.error == P2_E_CANCELLED && result.erase_command_attempted);
+    assert(!result.erase_started && result.recovery_required && m.erases == 1);
+  }
   {
     FlashModel m;
     const auto r = m.run();

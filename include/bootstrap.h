@@ -8,6 +8,7 @@ struct Report {
   ProbeReport genesis{};
   uint32_t last_address = 0;
   std::size_t bytes_written = 0, bytes_verified = 0, bytes_skipped = 0;
+  // initial_started means verified-load/low07 handoff, not a RID proof.
   bool recovery_required = false, initial_started = false;
   bool byte_writes_verified = false;
 };

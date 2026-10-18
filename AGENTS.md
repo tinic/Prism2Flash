@@ -53,3 +53,12 @@
 - Human priority, 2026-10-18: focus on real Genesis and firmware upgrade. Do
   not spend active hardware time monitoring, discussing or optimizing CI. Run
   only the targeted local checks needed to use changed hardware code safely.
+
+- Hardware qualification, 2026-10-18 22:21 UTC: exact MA401 native bootstrap
+  transaction fa2f459 / 20261018T221517Z passed both byte-write lanes, all
+  3434 initial bytes, BF:D5 ID and four equal full 8 MiB captures with saved
+  file verification and final CIS. DeepSeek's implementation review confirmed
+  the DOS host algorithm; its remaining cleanup/AUX/diagnostic findings were
+  fixed and tested. Proceed with the user's authorized firmware update using
+  the same exact card profile, pinned images, fresh owned captures and intended
+  image hash. Do not reopen the accepted layout or ask for that permission again.

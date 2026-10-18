@@ -89,6 +89,17 @@ CardStatus Card::enable_aux(bool enable) {
   bus_.delay_us(bus_.ctx, 5);
   return wait_mask(P2_CONTROL, 0xc000, enable ? 0xc000 : 0, 100000);
 }
+CardStatus Card::ensure_aux_enabled() {
+  if (auto r = interrupted(); !r)
+    return r;
+  const auto control = bus_.read16(bus_.ctx, P2_CONTROL);
+  if (auto r = interrupted(); !r)
+    return r;
+  if (control == 0xffff ||
+      ((control & 0xc000) != 0 && (control & 0xc000) != 0xc000))
+    return std::unexpected{P2_E_IO};
+  return (control & 0xc000) == 0xc000 ? CardStatus{} : enable_aux(true);
+}
 CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
                           std::span<const uint8_t> write, uint16_t space,
                           std::optional<uint32_t> started) {
@@ -182,6 +193,8 @@ CardStatus Card::write_nv_byte(uint32_t address, uint8_t value) {
   return alive();
 }
 CardStatus Card::test_ram_byte_access(uint32_t address) {
+  if (!genesis_active_)
+    return std::unexpected{P2_E_UNSUPPORTED};
   if (address & 1)
     return std::unexpected{P2_E_ARGUMENT};
   std::array<uint8_t, 2> original{}, readback{};
@@ -443,6 +456,7 @@ ProbeReport Card::enter_genesis(unsigned bits) {
     if (auto result = reset(report.cor_used, bits == 8 ? 0x1f : 0x0f); !result)
       return result;
     ++report.genesis_latches;
+    genesis_active_ = true;
     const auto written = write_verified(P2_GENESIS_ADDRESS, pattern);
     std::copy_n(written.last_readback.begin(), report.readback.size(),
                 report.readback.begin());
@@ -469,6 +483,8 @@ ProbeReport Card::leave_genesis(ProbeReport report) {
   CardStatus normal;
   if (report.reset_started)
     normal = reset(report.cor_used, bits == 8 ? 0x17 : 0x07);
+  if (report.reset_started && normal)
+    genesis_active_ = false;
   // DOS's literal configuration index 5 can change the Amiga I/O access
   // mode. Restore this insertion's original configuration BEFORE any AUX
   // cleanup, INIT or post-capture word reads. This is not another reset.

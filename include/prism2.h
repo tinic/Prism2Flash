@@ -92,6 +92,7 @@ public:
   Card(const Card &) = delete;
   Card &operator=(const Card &) = delete;
   [[nodiscard]] CardStatus enable_aux(bool enable);
+  [[nodiscard]] CardStatus ensure_aux_enabled();
   [[nodiscard]] CardStatus read_aux(uint32_t address, std::span<uint8_t> data);
   [[nodiscard]] CardStatus read_nv(uint32_t address, std::span<uint8_t> data);
   // True byte cycles, required by the DOS host-flash JEDEC algorithm.
@@ -130,6 +131,7 @@ private:
   [[nodiscard]] CardStatus seek_byte(uint32_t address, uint16_t space);
   [[nodiscard]] CardStatus restore_aux(bool was_enabled);
   p2_bus &bus_;
+  bool genesis_active_ = false;
 };
 } // namespace p2
 const char *p2_error_string(int);

@@ -170,7 +170,7 @@ void p2_mock_fix_pda(uint8_t data[P2_PDA_SIZE]) {
 }
 int p2_mock_init(struct p2_mock *m, unsigned bits) {
   static const uint8_t pda[] = {2, 0, 8, 0, 0x1b, 0x80, 2, 0, 0, 0, 0, 0};
-  memset(m, 0, sizeof(*m));
+  *m = p2_mock{};
   m->memory = static_cast<uint8_t *>(calloc(1, 0x800000));
   if (!m->memory)
     return P2_E_IO;

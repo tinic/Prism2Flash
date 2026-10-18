@@ -23,6 +23,12 @@ auto initial() {
 } // namespace
 int main() {
   const auto image = initial();
+  {
+    Model m;
+    p2::Card card{m.mock.bus};
+    assert(card.test_ram_byte_access(0x7e0070).error() == P2_E_UNSUPPORTED);
+    assert(!m.mock.operations);
+  }
   for (bool skip : {false, true}) {
     Model m;
     if (skip)
@@ -32,6 +38,8 @@ int main() {
     const auto r = p2::bootstrap::load(card, m.mock.bus, image);
     assert(!r.error && r.initial_started && !r.recovery_required);
     assert(r.byte_writes_verified);
+    assert(m.mock.regs[P2_CONTROL / 2] == 0xc000);
+    assert(card.test_ram_byte_access(0x7e0070).error() == P2_E_UNSUPPORTED);
     assert(m.mock.memory[0x7e0070] == 0 && m.mock.memory[0x7e0071] == 0);
     assert(r.bytes_written == (skip ? 4u : 20u));
     assert(r.bytes_verified == r.bytes_written);

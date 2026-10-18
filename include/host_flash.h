@@ -13,7 +13,8 @@ struct Report {
   p2_error error = P2_OK;
   uint8_t manufacturer = 0, device = 0;
   uint32_t last_address = 0, programmed_bytes = 0, verified_bytes = 0;
-  bool erase_started = false, recovery_required = false;
+  bool erase_command_attempted = false, erase_started = false;
+  bool recovery_required = false;
 };
 // DOS ILHOPFW -hf algorithm, with no interactive continuation on timeout.
 // Caller owns the live card, saved full before capture, RAM bootstrap and

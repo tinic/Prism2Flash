@@ -44,6 +44,8 @@ public:
       const auto id = le16(bytes_.data() + pos + 2);
       if (!id)
         break;
+      if (!words || std::size_t{words} + 1 > (bytes_.size() - pos) / 2)
+        return std::nullopt;
       if (id == type)
         return bytes_.subspan(pos + 4, (words - 1) * 2);
       pos += (words + 1) * 2;

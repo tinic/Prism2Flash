@@ -85,7 +85,8 @@ struct Options {
     if (argc == 2 && std::string_view{argv[1]} == "inspect")
       return Options{Command::Inspect, 0, directory, utc, east};
     if (argc == 4 && std::string_view{argv[1]} == "bootstrap" &&
-        std::string_view{argv[2]} == "--initial" && directory && east != 10000)
+        std::string_view{argv[2]} == "--initial" && directory && utc &&
+        east != 10000)
       return Options{
           Command::Bootstrap, 16, directory, utc, east, true, argv[3]};
     if (argc == 4 && std::string_view{argv[1]} == "probe" &&

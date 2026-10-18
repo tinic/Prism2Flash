@@ -92,7 +92,7 @@ int main() {
                    Volume{0x444f5301, 82, 100, -1, 512, false},
                    Volume{0x444f5301, 82, 1000000, 0, -1, false}})
     CHECK(!check_volume(bad));
-  CHECK(!p2::profile::programming_approved());
+  CHECK(p2::profile::programming_approved());
   // Original synthetic PDA with independent polynomial-long-division CRC.
   std::array<uint8_t, P2_PDA_SIZE> pda{};
   auto put = [&](size_t pos, uint16_t value) {

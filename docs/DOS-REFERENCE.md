@@ -160,3 +160,30 @@ recovery callback, after persisting the failure journal; explicit Ctrl-E
 releases ownership without a reset. The caller must not power-cycle an
 unverified partial flash. Standalone firmware verification also takes fresh
 before/after captures around INIT/RID queries.
+
+## Qualified transaction and review fixes
+
+The complete native transaction fa2f459 at20261018T221517Z passed:
+- two Genesis latches and both true RAM byte-write lanes;
+-3434 initial-code bytes written and verified;
+- valid original PDA and SST JEDEC BF:D5;
+- four complete saved/reopened8MiB captures, all SHA256
+  f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f;
+- exact before/after equality, cleanup/journal0 and readable CIS afterward.
+
+DeepSeek independently reviewed62d51cb/b129eab/fa2f459 against the DOS engine
+and ran24 host tests under ASan/UBSan. The required physical byte-write proof
+is now present. Its remaining findings are addressed: F0 cleanup ignores only
+cancellation after identification errors; post-load AUX is explicitly ensured;
+native programming locally requires byte-write and handoff proof; RAM scratch
+writes require this live Card's Genesis latch; erase attempt and completed
+command are distinct; PDA lookup checks bounds; missing UTC is explicit;
+post-hold cleanup gets a separate saved/reopened release record. Typed mock
+initialization fixes GCC14's class-memaccess warning without suppressing it.
+
+Native programming is admitted only for the exact MA401 path, with fresh owned
+captures and all runtime checks above. Optional expected-plan SHA pins the
+freshly prepared128KiB image before bootstrap/erase. The independently
+constructed actual-card candidate preserves all gaps, CIS and PDA; its payload
+changes58641bytes. Verification checks prepared flash bytes and firmware RIDs.
+The native firmware update itself remains the next required hardware step.

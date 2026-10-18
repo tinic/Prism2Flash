@@ -233,14 +233,49 @@ public:
         "  \"readback_attempted\": %s,\n  \"readback_error\": %d,\n"
         "  \"comparison_error\": %d,\n  \"cleanup_error\": %d,\n"
         "  \"recovery_session_held\": %s,\n"
+        "  \"cleanup_pending\": %s,\n"
         "  \"success\": %s\n}\n",
         native_ ? "false" : "true", operation_, utc_, result.preparation_error,
         result.acquisition_error, result.operation_started ? "true" : "false",
         result.operation_error, result.readback_attempted ? "true" : "false",
         result.readback_error, result.comparison_error, result.cleanup_error,
         result.recovery_held ? "true" : "false",
+        result.recovery_held ? "true" : "false",
         result.success() ? "true" : "false");
     const int error = save_text(6, text, count);
+    return error ? CardStatus{std::unexpected{static_cast<p2_error>(error)}}
+                 : CardStatus{};
+  }
+
+  CardStatus record_release(const Report &result) {
+    // Preserve the verified held-state journal. Record later cleanup in a
+    // separate checked file after explicit release, without truncating it.
+    constexpr auto name = "recovery-release.json";
+    auto storage = make_owned<std::array<char, 1024>>();
+    auto file = File::open(name, "w+b");
+    if (!storage || !file)
+      return std::unexpected{P2_E_IO};
+    const auto count =
+        p2_snprintf(storage->data(), storage->size(),
+                    "{\n  \"format\": \"Prism2 recovery release 1\",\n"
+                    "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
+                    "  \"utc_transaction_start\": \"%s\",\n"
+                    "  \"cleanup_pending\": false,\n  \"cleanup_error\": %d,\n"
+                    "  \"operation_error\": %d,\n  \"readback_error\": %d,\n"
+                    "  \"comparison_error\": %d,\n"
+                    "  \"ownership_released_without_reset\": true\n}\n",
+                    utc_, result.cleanup_error, result.operation_error,
+                    result.readback_error, result.comparison_error);
+    if (count <= 0 || static_cast<std::size_t>(count) >= storage->size())
+      return std::unexpected{P2_E_IO};
+    Sha256 hash;
+    hash.update(
+        std::string_view{storage->data(), static_cast<std::size_t>(count)});
+    if (fwrite(storage->data(), 1, count, file.get()) !=
+            static_cast<std::size_t>(count) ||
+        fflush(file.get()) || !file.close())
+      return std::unexpected{P2_E_IO};
+    const auto error = backup::verify_file(name, hash.hex().data(), count);
     return error ? CardStatus{std::unexpected{static_cast<p2_error>(error)}}
                  : CardStatus{};
   }
@@ -331,7 +366,10 @@ int run_native(const char *directory, const char *utc, const char *operation,
                                             offset_east, expected);
   if (!journal)
     return 20;
-  const auto result = run(*journal, work, context, recovery);
+  auto result = run(*journal, work, context, recovery);
+  if (result.recovery_held)
+    if (auto record = journal->record_release(result); !record)
+      result.journal_error = record.error();
   if (result.preparation_error) {
     p2_fprintf(stderr,
                "Operation blocked: a verified timestamped full-flash backup is "

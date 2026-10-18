@@ -46,6 +46,8 @@ Report load(Card &card, p2_bus &bus, const firmware::InitialImage &image) {
     report.genesis = card.leave_genesis(report.genesis);
     if (report.genesis.error)
       return std::unexpected{report.genesis.error};
+    if (auto r = card.ensure_aux_enabled(); !r)
+      return r;
     report.initial_started = true;
     report.recovery_required = false;
     return {};

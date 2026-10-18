@@ -20,6 +20,7 @@ struct Options {
   bool verify = false;
   const char *initial = nullptr, *primary = nullptr, *station = nullptr;
   const char *directory = nullptr, *utc = nullptr;
+  const char *expected_plan = nullptr;
   int east = 10000;
 };
 std::optional<Options> parse(int argc, char **argv) {
@@ -32,12 +33,13 @@ std::optional<Options> parse(int argc, char **argv) {
     if (i + 1 == argc)
       return {};
     const std::string_view key = argv[i], value = argv[i + 1];
-    const char **slot = key == "--initial"   ? &options.initial
-                        : key == "--primary" ? &options.primary
-                        : key == "--station" ? &options.station
-                        : key == "--output"  ? &options.directory
-                        : key == "--utc"     ? &options.utc
-                                             : nullptr;
+    const char **slot = key == "--initial"             ? &options.initial
+                        : key == "--primary"           ? &options.primary
+                        : key == "--station"           ? &options.station
+                        : key == "--output"            ? &options.directory
+                        : key == "--utc"               ? &options.utc
+                        : key == "--expected-plan-sha" ? &options.expected_plan
+                                                       : nullptr;
     if (slot) {
       if (*slot)
         return {};
@@ -56,6 +58,14 @@ std::optional<Options> parse(int argc, char **argv) {
       !options.utc || options.east == 10000 ||
       (!options.verify && !options.initial))
     return {};
+  if (options.expected_plan) {
+    const std::string_view digest = options.expected_plan;
+    if (digest.size() != 64 ||
+        !std::all_of(digest.begin(), digest.end(), [](char c) {
+          return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        }))
+      return {};
+  }
   return options;
 }
 template <typename Image>
@@ -73,6 +83,7 @@ struct Context {
   std::optional<firmware::InitialImage> initial;
   std::optional<flash::Plan> plan;
   const char *primary_name = nullptr, *station_name = nullptr;
+  const char *expected_plan = nullptr;
   bool recovery_required = false;
   bool flash_changed = false;
 };
@@ -110,6 +121,12 @@ CardStatus prepare(Context &context) {
   auto file = File::open("planned-flash.bin", "w+b");
   Sha256 hash;
   hash.update(context.plan->desired());
+  if (context.expected_plan &&
+      std::string_view{hash.hex().data()} != context.expected_plan) {
+    p2_fprintf(stderr, "Prepared flash image differs from expected SHA256; no "
+                       "bootstrap/erase.\n");
+    return std::unexpected{P2_E_VERIFY};
+  }
   if (!file ||
       fwrite(context.plan->desired().data(), 1, flash::Bytes, file.get()) !=
           flash::Bytes ||
@@ -146,18 +163,19 @@ CardStatus program(Card &card, void *opaque) {
             loaded.error, loaded.byte_writes_verified,
             static_cast<unsigned long>(loaded.bytes_verified),
             loaded.initial_started);
-  if (loaded.error) {
+  if (loaded.error || !loaded.byte_writes_verified || !loaded.initial_started) {
     context.recovery_required = loaded.recovery_required;
-    return std::unexpected{loaded.error};
+    return std::unexpected{loaded.error ? loaded.error : P2_E_VERIFY};
   }
   const auto result = flash::program_sst(
       card, card.transport(), context.plan->before(), context.plan->desired());
   context.recovery_required = result.recovery_required;
-  context.flash_changed = result.erase_started;
-  p2_printf("Flash: error=%d manufacturer=%02x device=%02x erase=%u "
+  context.flash_changed = result.erase_command_attempted;
+  p2_printf("Flash: error=%d manufacturer=%02x device=%02x erase_attempted=%u "
+            "erase_command_completed=%u "
             "programmed=%lu verified=%lu recovery=%u\n",
             result.error, result.manufacturer, result.device,
-            result.erase_started,
+            result.erase_command_attempted, result.erase_started,
             static_cast<unsigned long>(result.programmed_bytes),
             static_cast<unsigned long>(result.verified_bytes),
             result.recovery_required);
@@ -185,7 +203,12 @@ CardStatus compare(const char *, const char *path, void *opaque) {
   return file.close() ? CardStatus{} : CardStatus{std::unexpected{P2_E_IO}};
 }
 CardStatus verify(Card &card, void *opaque) {
-  const auto &context = *static_cast<Context *>(opaque);
+  auto &context = *static_cast<Context *>(opaque);
+  if (auto r = prepare(context); !r)
+    return r;
+  if (!std::equal(context.plan->before().begin(), context.plan->before().end(),
+                  context.plan->desired().begin()))
+    return std::unexpected{P2_E_VERIFY};
   if (auto r = card.initialize(); !r)
     return r;
   for (const auto &[rid, expected] :
@@ -233,6 +256,8 @@ int main(int argc, char **argv) {
          "MINUTES_EAST\n"
          "Fresh full before/after captures are mandatory; no skip/force "
          "option.");
+    puts("Use Stack 16384. Optional: --expected-plan-sha SHA256 checks the "
+         "exact prepared image.");
     return argc == 2 && (std::string_view{argv[1]} == "--help" ||
                          std::string_view{argv[1]} == "help")
                ? 0
@@ -257,10 +282,11 @@ int main(int argc, char **argv) {
     return 20;
   context->primary_name = options->primary;
   context->station_name = options->station;
+  context->expected_plan = options->expected_plan;
   if (options->verify)
     return operation::run_native(options->directory, options->utc,
                                  "verify-current", verify, context.get(),
-                                 options->east);
+                                 options->east, {compare, context.get()});
   context->initial = load<firmware::InitialImage>(
       options->initial,
       "1d326cee5887005e9b755e74e5578ccfbd74ae5e7ebc19c1af23e61b7a76c018");

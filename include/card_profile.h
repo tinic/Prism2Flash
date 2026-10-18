@@ -15,7 +15,8 @@ struct Observation {
 // this reports observations and cannot issue an operation capability.
 [[nodiscard]] CardResult<Observation>
 observe(const p2_card_info &cis, std::span<const uint8_t, P2_PDA_SIZE> pda);
-// No programming profile exists. RAM-only admission uses the user-accepted
-// full 8 MiB NV map and fresh owned capture, never a saved observation flag.
+// Native MA401 admission still requires fresh owned exact CIS/PDA binding,
+// pinned images, live RAM byte proof and BF:D5 identification. No saved
+// observation/manifest flag grants admission.
 [[nodiscard]] bool programming_approved();
 } // namespace p2::profile
