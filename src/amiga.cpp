@@ -4,6 +4,7 @@
  * netdev_pcmcia.c (MIT), copyright AmiNetXDuo contributors. See
  * third_party/NOTICES and docs/SOURCES.md.
  */
+#include "gayle_io.h"
 #include "owned_memory.h"
 #include "p2_stdio.h"
 #include "platform.h"
@@ -172,6 +173,15 @@ static void write16(void *ctx, uint16_t reg, uint16_t value) {
   auto *p = static_cast<p2_platform *>(ctx);
   if (p->present)
     *(volatile UWORD *)(p->io + reg) = std::byteswap(value);
+}
+static uint8_t read8(void *ctx, uint16_t reg) {
+  auto *p = static_cast<p2_platform *>(ctx);
+  return p->present ? p->io[p2::gayle_byte_offset(reg)] : 0xff;
+}
+static void write8(void *ctx, uint16_t reg, uint8_t value) {
+  auto *p = static_cast<p2_platform *>(ctx);
+  if (p->present)
+    p->io[p2::gayle_byte_offset(reg)] = value;
 }
 static uint8_t read_cfg(void *ctx, uint8_t reg) {
   auto *p = static_cast<p2_platform *>(ctx);
@@ -352,8 +362,8 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
   }
   p->configured = 1;
   delay_us(p, 50000);
-  *bus = p2_bus{p,        read16, write16, read_cfg, write_cfg,
-                delay_us, now_us, present, cancelled};
+  *bus = p2_bus{p,      read16,  write16,   read_cfg, write_cfg, delay_us,
+                now_us, present, cancelled, read8,    write8};
   return P2_OK;
 bad_cis:
   p2_snprintf(error, size,

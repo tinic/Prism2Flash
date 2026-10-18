@@ -54,6 +54,8 @@ struct p2_bus {
   uint32_t (*now_us)(void *);
   int (*present)(void *);
   int (*cancelled)(void *);
+  uint8_t (*read8)(void *, uint16_t) = nullptr;
+  void (*write8)(void *, uint16_t, uint8_t) = nullptr;
 };
 namespace p2 {
 struct Identity {
@@ -80,6 +82,7 @@ struct ProbeReport {
   uint32_t verification_reads = 0, disagreements = 0;
   unsigned genesis_latches = 0;
   bool aux_was_enabled = false, reset_started = false;
+  bool io_configuration_restored = false;
 };
 class Card {
 public:
@@ -89,6 +92,10 @@ public:
   [[nodiscard]] CardStatus enable_aux(bool enable);
   [[nodiscard]] CardStatus read_aux(uint32_t address, std::span<uint8_t> data);
   [[nodiscard]] CardStatus read_nv(uint32_t address, std::span<uint8_t> data);
+  // True byte cycles, required by the DOS host-flash JEDEC algorithm.
+  // These never substitute word writes or read/modify/write a neighbour.
+  [[nodiscard]] CardResult<uint8_t> read_nv_byte(uint32_t address);
+  [[nodiscard]] CardStatus write_nv_byte(uint32_t address, uint8_t value);
   [[nodiscard]] CardStatus write_aux(uint32_t address,
                                      std::span<const uint8_t> data);
   // Writes each bounded RAM chunk once, then requires two consecutive exact
@@ -113,6 +120,7 @@ private:
                                     uint16_t space,
                                     std::optional<uint32_t> started = {});
   [[nodiscard]] CardStatus reset(uint8_t cor, uint8_t hcr);
+  [[nodiscard]] CardStatus seek_nv_byte(uint32_t address);
   [[nodiscard]] CardStatus restore_aux(bool was_enabled);
   p2_bus &bus_;
 };

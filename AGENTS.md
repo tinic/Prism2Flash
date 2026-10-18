@@ -49,3 +49,7 @@
   tools/ci.sh format/format-check. Do not reformat retained third-party sources.
 - Native builds use the official AmigaPorts GCC v16.2-rc17 pin. Preserve runtime
   verification gates; do not apply legacy binary repairs to this compiler.
+
+- Human priority, 2026-10-18: focus on real Genesis and firmware upgrade. Do
+  not spend active hardware time monitoring, discussing or optimizing CI. Run
+  only the targeted local checks needed to use changed hardware code safely.

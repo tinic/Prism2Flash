@@ -147,6 +147,8 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
   p2_printf("Genesis COR=0x%02x/0x%02x HCR=0x%02x; completed latch cycles=%u\n",
             report.cor_used | 0x80, report.cor_used,
             options.bits == 16 ? 0x0f : 0x1f, report.genesis_latches);
+  if (report.io_configuration_restored)
+    puts("Original I/O configuration restored before normal firmware check.");
   if (report.aux_cleanup_error)
     p2_fprintf(stderr, "Restoring AUX state: %s\n",
                p2_error_string(report.aux_cleanup_error));

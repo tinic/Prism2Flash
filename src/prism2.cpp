@@ -141,6 +141,37 @@ CardStatus Card::read_aux(uint32_t address, std::span<uint8_t> data) {
 CardStatus Card::read_nv(uint32_t address, std::span<uint8_t> data) {
   return transfer(address, data, {}, 0x1000);
 }
+CardStatus Card::seek_nv_byte(uint32_t address) {
+  if (address >= 0x800000)
+    return std::unexpected{P2_E_ARGUMENT};
+  if (!bus_.read8 || !bus_.write8)
+    return std::unexpected{P2_E_UNSUPPORTED};
+  if (auto result = interrupted(); !result)
+    return result;
+  // ILHOPFW 0a22:02f9 direct seek retains bit zero in AUXOFFSET, then
+  // 0a22:000a/004f selects AUXDATA+1 for an odd byte address.
+  bus_.write16(bus_.ctx, P2_AUXPAGE, static_cast<uint16_t>(address >> 7));
+  if (auto result = interrupted(); !result)
+    return result;
+  bus_.write16(bus_.ctx, P2_AUXOFFSET,
+               static_cast<uint16_t>((address & 127) | 0x1000));
+  bus_.delay_us(bus_.ctx, 5);
+  return interrupted();
+}
+CardResult<uint8_t> Card::read_nv_byte(uint32_t address) {
+  if (auto result = seek_nv_byte(address); !result)
+    return std::unexpected{result.error()};
+  const auto value = bus_.read8(bus_.ctx, P2_AUXDATA + (address & 1));
+  if (auto result = interrupted(); !result)
+    return std::unexpected{result.error()};
+  return value;
+}
+CardStatus Card::write_nv_byte(uint32_t address, uint8_t value) {
+  if (auto result = seek_nv_byte(address); !result)
+    return result;
+  bus_.write8(bus_.ctx, P2_AUXDATA + (address & 1), value);
+  return interrupted();
+}
 CardStatus Card::write_aux(uint32_t address, std::span<const uint8_t> data) {
   return transfer(address, {}, data, 0);
 }
@@ -395,6 +426,22 @@ ProbeReport Card::probe(unsigned bits) {
   CardStatus normal;
   if (report.reset_started)
     normal = reset(report.cor_used, bits == 8 ? 0x17 : 0x07);
+  // DOS's literal configuration index 5 can change the Amiga I/O access
+  // mode. Restore this insertion's original configuration BEFORE any AUX
+  // cleanup, INIT or post-capture word reads. This is not another reset.
+  if (report.reset_started && normal && report.cor_used != report.cor_before) {
+    normal = alive();
+    if (normal) {
+      bus_.write_cfg(bus_.ctx, P2_CFG_COR, report.cor_before);
+      bus_.delay_us(bus_.ctx, 5000);
+      normal = alive();
+      if (normal && bus_.read_cfg(bus_.ctx, P2_CFG_COR) != report.cor_before)
+        normal = std::unexpected{P2_E_VERIFY};
+      if (normal)
+        normal = alive();
+    }
+    report.io_configuration_restored = normal.has_value();
+  }
   CardStatus aux;
   if (aux_acquired)
     aux = restore_aux(report.aux_was_enabled);

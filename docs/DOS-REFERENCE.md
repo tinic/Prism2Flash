@@ -71,3 +71,25 @@ cleanup_error=0, final CIS check passed. No Genesis/reset/INIT occurred. Partial
 files and the failure journal were preserved. The direct AUX seek path and DOS
 legacy mask/advance workaround address the same windows; the workaround and
 setup diagnostics are separately documented in the private RE report.
+
+## First complete native latch test, 2026-10-18 21:46 UTC
+
+Both DOS x16 Genesis latches completed. The sentinel read `00 e1 a1 ff` on
+two consecutive reads with no disagreement. The normal INIT timed out while
+COR remained at the DOS literal45. Both saved 8 MiB after captures agreed,
+but differed from the unchanged dual before captures; CIS stayed readable.
+The after data repeated every128KiB and contained a changed byte-access
+pattern. No flash erase/program command was issued. Raw failure captures,
+manifests and the exact binary are retained privately.
+
+The concrete Amiga transport correction restores the insertion's original
+COR (without resetting) immediately after the normal HCR latch, before AUX
+cleanup, INIT and NV word readback. Previously the backend restored it only
+after readback. This is an access-configuration hypothesis to test on the real
+card; passing RAM liveness alone is not a completed normal-return test.
+
+True byte I/O uses Gayle's separate odd-byte bank, as defined by
+[Linux v6.17 amigayle.h](https://github.com/torvalds/linux/blob/v6.17/arch/m68k/include/asm/amigayle.h):
+an odd port adds0xffff to its offset, making AUXDATA+1 use bankoffset0x1003e.
+DOS byte helpers preserve the odd address in AUXOFFSET and select port3f;
+the Amiga backend maps that port with a byte cycle, never a word RMW.
