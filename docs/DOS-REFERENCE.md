@@ -148,7 +148,7 @@ The full after-capture failed at its first register read because the byte
 operation left the NV selector active. Completing the missing AUXOFFSET=0
 cleanup restored CONTROL=C000 and the exact CIS without any reset or payload
 write; subsequent word and byte PDA reads both matched the original. Byte
-read/write APIs now clear the selector before returning. Full owned rerun is
+read/write APIs now clear the selector before returning. A full owned rerun
 was required and subsequently passed at 22:15 UTC; failed empty after files remain failure evidence.
 
 `Prism2Flash` now has program/verify commands, exact input hashes, preparation
@@ -165,7 +165,7 @@ before/after captures around INIT/RID queries.
 
 The complete native transaction fa2f459 at20261018T221517Z passed:
 - two Genesis latches and both true RAM byte-write lanes;
--3434 initial-code bytes written and verified;
+- all 3434 initial-code bytes checked: 50 bytes written/verified and 3384 already matching;
 - valid original PDA and SST JEDEC BF:D5;
 - four complete saved/reopened8MiB captures, all SHA256
   f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f;
