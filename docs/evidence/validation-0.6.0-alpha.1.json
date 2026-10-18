@@ -1,0 +1,32 @@
+{
+  "version": "0.6.0-alpha.1",
+  "implementation_commit": "5783e488ce3ba68d1fd785daca0bb1851206f979",
+  "date": "2026-10-18",
+  "host_suites": 15,
+  "sanitizer_suites": 15,
+  "final_affected_subsets_rerun": true,
+  "native_compiler": "AmigaPorts GCC v16.2-rc17",
+  "native_runtime_guard_passed": true,
+  "emulator_cases": 64,
+  "emulator_profiles": [
+    "Amiberry A600/68000/Kickstart 2.05",
+    "Copperline A1200/68020/Kickstart 3.1"
+  ],
+  "binary_sha256": {
+    "Prism2Genesis": "8dd9e9f5ffbda7125fd1baceeab345bbb0fa9166daa2d9b8524bb37b0332f475",
+    "Prism2Firmware": "cb44bcc253567457e210b4bf5cae574f77b212bd156ce4d31ab21cb3e94bdded",
+    "emulator_env": "13badcc1bde6b7346164db4084c92b3583f6319d7506059f5914d43386f36c49"
+  },
+  "guest_stack_bytes": 4096,
+  "preparation_oracle": "retained Host AP 0.4.7 plug/stamp/merge; original valid synthetic inputs only",
+  "real_card_tested": false,
+  "physical_flash_coverage_verified": false,
+  "genesis_hardware_enabled": false,
+  "flash_engine_present": false,
+  "limits": [
+    "FCC internal PDF retrieval failed locally and from playhouse2",
+    "NIC800c SST family permits both x8/x16 RAM",
+    "prepared payloads are held in memory; CLI reports hashes only",
+    "no independent hardware/profile/backup-gate approval"
+  ]
+}
