@@ -14,9 +14,11 @@
 #include <libraries/pccard.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
+#include <proto/dos.h>
 #include "p2_stdio.h"
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 struct UtilityBase *UtilityBase;
 static struct Library *card_resource;
@@ -31,6 +33,8 @@ struct p2_platform {
     volatile UBYTE present;
     volatile UBYTE cancelled;
     int owned, configured, timer_open;
+    int backup_only, cor_changed;
+    uint8_t original_cor;
     volatile UBYTE *config;
     volatile UBYTE *io;
 };
@@ -206,14 +210,25 @@ fail:
     p2_platform_close(p);
     return P2_E_IO;
 }
-int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
-                         char *error, size_t size)
+static int configure(struct p2_platform *p, struct p2_bus *bus,
+                     char *error, size_t size, int backup_only)
 {
     UBYTE tuple[263];
     const struct TagItem *tags;
     ULONG *bases, *lengths, count, i;
     int found = 0;
-    if (!supported_cis(p->info.manufacturer, p->info.product)) {
+    if (backup_only) {
+        static const char strings[] = "NETGEAR MA401RA Wireless PC\0Card\0ISL37300P\0Eval-RevA\0";
+        memset(tuple, 0, sizeof(tuple));
+        if (p->info.manufacturer != 0x000b || p->info.product != 0x7300
+            || !copy_tuple(&p->handle, tuple, PCCARD_TPL_VERS1)
+            || tuple[1] < 2 + sizeof(strings) - 1
+            || memcmp(tuple + 4, strings, sizeof(strings) - 1)) {
+            p2_snprintf(error, size, "Backup requires the exact MA401RA / ISL37300P CIS identity");
+            return P2_E_UNSUPPORTED;
+        }
+        p->backup_only = 1;
+    } else if (!supported_cis(p->info.manufacturer, p->info.product)) {
         p2_snprintf(error, size, "CIS ID is outside the initial Prism2 PC Card allowlist");
         return P2_E_UNSUPPORTED;
     }
@@ -265,11 +280,24 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
     p2_printf("Mapping: attribute offset=0x%08lx I/O offset=0x%08lx index=%u\n",
            (unsigned long)p->info.config_base, (unsigned long)p->info.io_base,
            (unsigned)p->info.config_index);
+    if (backup_only) {
+        p->original_cor = read_cfg(p, P2_CFG_COR);
+        if ((p->original_cor & 0x80) || ((p->original_cor & 0x3f) != 0
+            && (p->original_cor & 0x3f) != p->info.config_index)) {
+            p2_snprintf(error, size, "Refusing reset or replacement of a different active I/O configuration");
+            return P2_E_UNSUPPORTED;
+        }
+        if ((p->original_cor & 0x3f) == 0) {
+            p->cor_changed = 1;
+            write_cfg(p, P2_CFG_COR, (uint8_t)(p->original_cor | p->info.config_index));
+        }
+    } else {
+        /* Same slot-pin setup as prism2.device's PC Card backend. */
+        misc_control(&p->handle, CARD_ENABLEF_DIGAUDIO | CARD_DISABLEF_WP);
+        write_cfg(p, P2_CFG_COR, p->info.config_index);
+        write_cfg(p, P2_CFG_CCSR, (uint8_t)(read_cfg(p, P2_CFG_CCSR) | PCCARD_REG_CCSRF_AUDIOENABLE));
+    }
     p->configured = 1;
-    /* Same slot-pin setup as prism2.device's PC Card backend. */
-    misc_control(&p->handle, CARD_ENABLEF_DIGAUDIO | CARD_DISABLEF_WP);
-    write_cfg(p, P2_CFG_COR, p->info.config_index);
-    write_cfg(p, P2_CFG_CCSR, (uint8_t)(read_cfg(p, P2_CFG_CCSR) | PCCARD_REG_CCSRF_AUDIOENABLE));
     delay_us(p, 50000);
     *bus = (struct p2_bus){p, read16, write16, read_cfg, write_cfg,
                            delay_us, now_us, present, cancelled};
@@ -278,13 +306,52 @@ bad_cis:
     p2_snprintf(error, size, "Unsupported CIS configuration; first CFTABLE entry must contain a 64-byte I/O window");
     return P2_E_UNSUPPORTED;
 }
+int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
+                         char *error, size_t size)
+{
+    return configure(p, bus, error, size, 0);
+}
+int p2_platform_configure_backup(struct p2_platform *p, struct p2_bus *bus,
+                                char *error, size_t size)
+{
+    return configure(p, bus, error, size, 1);
+}
+int p2_platform_backup_directory(const char *path)
+{
+    BPTR lock;
+    /* Use a persistent volume explicitly; never stage a backup in RAM/T. */
+    if (!strchr(path, ':') || !strncasecmp(path, "RAM:", 4) || !strncasecmp(path, "T:", 2))
+        return P2_E_ARGUMENT;
+    lock = CreateDir((CONST_STRPTR)path);
+    if (!lock) return P2_E_IO; /* Existing directory is never reused. */
+    UnLock(lock);
+    return P2_OK;
+}
+int p2_platform_finish_backup(struct p2_platform *p)
+{
+    if(!p || !p->backup_only)return P2_E_ARGUMENT;
+    if(!p->configured)return P2_OK;
+    if(!p->present)return P2_E_REMOVED;
+    p->configured=0;
+    if(p->cor_changed){
+        p->cor_changed=0;
+        write_cfg(p,P2_CFG_COR,p->original_cor);
+        if(!p->present)return P2_E_REMOVED;
+        if(read_cfg(p,P2_CFG_COR)!=p->original_cor)return P2_E_VERIFY;
+    }
+    return P2_OK;
+}
 void p2_platform_close(struct p2_platform *p)
 {
     if (!p) return;
     if (p->owned) {
         if (p->configured && p->present) {
-            misc_control(&p->handle, 0);
-            reset_card(&p->handle);
+            if (p->backup_only) {
+                (void)p2_platform_finish_backup(p);
+            } else {
+                misc_control(&p->handle, 0);
+                reset_card(&p->handle);
+            }
         }
         release_card(&p->handle);
     }

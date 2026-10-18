@@ -12,6 +12,26 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.3.0-alpha.1] - 2026-10-18
+
+### Added
+
+- `Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ`:
+  two complete 8 MiB AUX NV address-space reads, byte comparison, saved-file
+  reopen verification and SHA-256 manifests in a new timestamped directory.
+- Exact MA401RA/ISL37300P CIS matching for acquisition, separate from the
+  active-card allowlist. No INIT, Genesis, AUX payload write or programming
+  command is used. Restore AUX state and any temporary COR selection without
+  resetting the slot. Preserve partial captures on failure.
+- NV-selector/page/bounds, hash-vector, full-read, mismatch, removal,
+  cancellation, timeout, file-preservation and native startup checks.
+
+### Scope
+
+Address-space capture alone does not certify a physical flash map or recovery
+image. Active inspection/probing and programming remain blocked. Firmware and
+private card dumps are never included in releases.
+
 ## [0.2.1-alpha.1] - 2026-10-18
 
 ### Changed

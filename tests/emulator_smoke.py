@@ -68,6 +68,10 @@ def valid_output(name, text, suite="genesis"):
         if name == "missing_image":
             return "Cannot open image" in text
         return f"Prism2Firmware {VERSION} - offline" in text
+    if name == "backup_bad_utc":
+        return "Use a new persistent directory" in text
+    if name == "backup_no_card":
+        return "NV capture failed:" in text and ("Cannot own PCMCIA card" in text or "No card.resource" in text)
     if name in ("inspect", "probe8", "probe16", "inspect_again"):
         return ("Operation blocked: a verified timestamped full-flash backup is required." in text
                 and "no card access was attempted" in text)
@@ -170,6 +174,12 @@ def main():
             ("missing_args", "validate", 20), ("reject_flash", "flash", 20),
             ("help_after_errors", "--help", 0),
         ]
+    else:
+        prefix="RunProg:" if args.emulator=="copperline" else "DH0:"
+        CASES=CASES[:-1]+[
+            ("backup_bad_utc", "backup --output RAM:invalid --utc invalid", 20),
+            ("backup_no_card", f"backup --output {prefix}backup-20261018T104000Z --utc 20261018T104000Z", 20),
+        ]+CASES[-1:]
     for path in (args.emulator_path, args.rom, args.binary):
         if not path.is_file():
             parser.error(f"missing file: {path}")

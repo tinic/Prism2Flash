@@ -17,3 +17,7 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *b,
 }
 void p2_platform_close(struct p2_platform *p) { (void)p; abort(); }
 const char *p2_platform_description(void) { abort(); }
+int p2_platform_configure_backup(struct p2_platform *p,struct p2_bus *b,char *error,size_t size)
+{ (void)p;(void)b;(void)error;(void)size;abort(); }
+int p2_platform_backup_directory(const char *path) { (void)path;abort(); }
+int p2_platform_finish_backup(struct p2_platform *p) { (void)p;abort(); }

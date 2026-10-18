@@ -12,6 +12,11 @@ int p2_platform_open(struct p2_platform **, struct p2_card_info *,
                      char *error, size_t error_size);
 int p2_platform_configure(struct p2_platform *, struct p2_bus *,
                          char *error, size_t error_size);
+/* Strict MA401RA acquisition path: no INIT, reset, audio/pin or CCSR writes. */
+int p2_platform_configure_backup(struct p2_platform *, struct p2_bus *,
+                                char *error, size_t error_size);
+int p2_platform_backup_directory(const char *path);
+int p2_platform_finish_backup(struct p2_platform *);
 void p2_platform_close(struct p2_platform *);
 const char *p2_platform_description(void);
 #endif
