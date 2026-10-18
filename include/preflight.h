@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #pragma once
+#include "owned_memory.h"
 #include "prism2.h"
 #include <string_view>
 
@@ -30,9 +31,9 @@ struct Evidence {
 // Resolve/check a new destination without creating it. Used by experimental
 // acquisition as well as diagnostic preflight; it grants no operation
 // authority.
-[[nodiscard]] CardResult<Evidence> destination(const char *directory);
+[[nodiscard]] CardResult<Owned<Evidence>> destination(const char *directory);
 // Read filesystem/clock only. No card resource, directory creation or files.
-[[nodiscard]] CardResult<Evidence> native(const char *directory,
-                                          const char *utc, int offset_east);
+[[nodiscard]] CardResult<Owned<Evidence>>
+native(const char *directory, const char *utc, int offset_east);
 int run_command(const char *directory, const char *utc, const char *offset);
 } // namespace p2::preflight

@@ -377,7 +377,7 @@ int p2_platform_backup_directory(const char *path) {
   // Validate the actual volume behind assigns, then create on its canonical
   // path. This remains experimental acquisition, not operation authorization.
   const auto lock =
-      CreateDir((CONST_STRPTR)destination->resolved_directory.data());
+      CreateDir((CONST_STRPTR)(*destination)->resolved_directory.data());
   if (!lock)
     return P2_E_IO;
   UnLock(lock);

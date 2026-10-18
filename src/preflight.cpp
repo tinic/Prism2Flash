@@ -77,7 +77,7 @@ int run_command(const char *directory, const char *utc, const char *offset) {
             "minutes.\n"
             "Physical profile unapproved; no operation authorized; no card "
             "access was attempted.\n",
-            evidence->resolved_directory.data(), east);
+            (*evidence)->resolved_directory.data(), east);
   return 0;
 }
 } // namespace p2::preflight

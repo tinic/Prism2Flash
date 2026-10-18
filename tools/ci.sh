@@ -13,12 +13,16 @@ case "${1:-}" in
     ;;
   host)
     python3 tools/check_project.py
-    cmake -S . -B build-host -DCMAKE_BUILD_TYPE=Debug
+    # Keep assertions/debug symbols while avoiding interpreter-speed protocol
+    # simulations (each complete transaction transfers four 8 MiB captures).
+    cmake -S . -B build-host -DCMAKE_BUILD_TYPE=Debug \
+      '-DCMAKE_CXX_FLAGS_DEBUG=-g -O1'
     cmake --build build-host --parallel
     ctest --test-dir build-host --output-on-failure
     ;;
   sanitize)
     cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=Debug \
+      '-DCMAKE_CXX_FLAGS_DEBUG=-g -O1' \
       "-DCMAKE_CXX_FLAGS=${CXXFLAGS:-} -fsanitize=address,undefined -fno-omit-frame-pointer" \
       '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined'
     cmake --build build-sanitize --parallel
