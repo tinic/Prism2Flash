@@ -42,10 +42,9 @@ toolchain.
 
 **Current hardware milestone:** the actual Netgear MA401 V2.5 / PD5LMWP200 has
 passed x16 Genesis, original DOS initial-code loading, SST BF:D5 identification,
-native programming and complete intended-image readback. Qualification is
-specific to that card profile and the tested PRI 1.1.1 / STA 1.7.4 pair.
+native programming and complete intended-image readback. The tested firmware pair is PRI 1.1.1 / STA 1.7.4.
 See [hardware results](docs/HARDWARE-TESTING.md) for the exact runs, including
-failures and recovery. Other cards and general dead-card recovery remain unqualified.
+failures and recovery.
 
 ## Downloads and project workflow
 
@@ -68,7 +67,7 @@ active inspection, resets and Genesis RAM probes, as well as loading,
 flashing and restores. PDA/CIS-only backups are insufficient. Backup failure
 blocks the operation; no skip/force option is permitted.
 
-Native operations require the exact card profile, exclusive slot ownership and
+Native operations use the card's PDA, exclusive slot ownership and
 fresh verified captures. There is no force/skip option. Old saved captures do
 not authorize a new operation. See the
 [backup contract](docs/HARDWARE-TESTING.md#mandatory-full-flash-backups).
@@ -76,13 +75,12 @@ not authorize a new operation. See the
 ## Native utilities
 
 - `Prism2Genesis --help`: CIS information, full NV backup, preflight and the
-  Prism2 x8/x16 Genesis/bootstrap transaction. Standalone legacy `inspect`
-  and unqualified width/card combinations remain blocked.
+  Prism2 x8/x16 Genesis/bootstrap transaction.
 - `Prism2Firmware --help`: offline S-record inspection, compatibility checks
   and private-copy preparation. It has no card backend.
 - `Prism2Flash --help`: native programming and post-boot verification with full
   before/after captures. Use `Stack 16384`. See the
-  [complete command reference](docs/NATIVE-FLASH.md) for compatible inputs, clocks,
+  [complete command reference](docs/NATIVE-FLASH.md) for compatible inputs,
   storage, intended-image checks and recovery behavior.
 
 ```text

@@ -52,7 +52,7 @@ static void usage(void) {
        "Select SRAM width from the exact card's hardware documentation.\n"
        "bootstrap loads your DOS initial code into RAM, with full "
        "before/after captures.\n"
-       "No native flash programming command is enabled.");
+       "Use Prism2Flash for native flash programming.");
 }
 namespace {
 struct Options {
