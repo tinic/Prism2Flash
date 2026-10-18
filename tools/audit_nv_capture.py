@@ -15,6 +15,8 @@ import struct
 NV_BYTES = 0x800000
 WINDOW_BYTES = 0x20000
 PDA_ADDRESS = 0x7f0000
+PDR_LENGTH_MAX = 512  # Length field in bytes, excluding its own word.
+CIS_OFFSET = 0xfe00
 
 
 def crc_arc(data):
@@ -32,7 +34,7 @@ def pdrs(data):
     while pos + 4 <= len(data):
         words, kind = struct.unpack_from('<HH', data, pos)
         end = pos + 2 * (words + 1)
-        if not words or end > len(data):
+        if not words or words * 2 > PDR_LENGTH_MAX or end > len(data):
             raise ValueError('Malformed PDA record bounds')
         if kind == 0:
             if words != 2 or crc_arc(data[:end]):
@@ -43,6 +45,34 @@ def pdrs(data):
         records[kind] = data[pos + 4:end]
         pos = end
     raise ValueError('Missing PDA end record')
+
+
+def cis_identity(window):
+    """Walk the candidate's bounded CIS chain; never search for a byte pattern."""
+    pos = CIS_OFFSET
+    identity = None
+    while pos < 0x10000:
+        kind = window[pos]
+        pos += 1
+        if kind == 0xff:
+            if identity is None:
+                raise ValueError('Missing candidate CIS MANFID')
+            return identity
+        if kind == 0:
+            continue
+        if pos >= 0x10000:
+            break
+        length = window[pos]
+        pos += 1
+        end = pos + length
+        if end > 0x10000:
+            break
+        if kind == 0x20:
+            if length != 4 or identity is not None:
+                raise ValueError('Invalid or duplicate CIS MANFID')
+            identity = struct.unpack_from('<HH', window, pos)
+        pos = end
+    raise ValueError('Malformed candidate CIS chain')
 
 
 def audit(first, second):
@@ -56,6 +86,11 @@ def audit(first, second):
     if any(first[offset:offset + WINDOW_BYTES] != window
            for offset in range(0, NV_BYTES, WINDOW_BYTES)):
         raise ValueError('The 64 observed 128 KiB windows are not identical')
+    if cis_identity(window) != (0x000b, 0x7300):
+        raise ValueError('CIS tuple differs from the exact candidate')
+    for offset, name in ((0x150c, b'PK010007.HEX'), (0xca08, b'SF010306.HEX')):
+        if window[offset:offset + len(name)] != name:
+            raise ValueError('Firmware anchor differs from candidate observation')
     records = pdrs(first[PDA_ADDRESS:PDA_ADDRESS + 1024])
     nic = struct.pack('<4H', 0x800c, 0, 1, 0)
     if records.get(8) != nic:
@@ -77,13 +112,15 @@ def audit(first, second):
         'identical_windows': 64,
         'window_bytes': WINDOW_BYTES,
         'pda_crc_valid': True,
+        'firmware_anchors_match': True,
+        'cis': {'manufacturer': 0x000b, 'product': 0x7300},
         'nic': {'id': 0x800c, 'variant': 0, 'major': 1, 'minor': 0},
         'pdr_0400': 3,
         'pdr_0005_present': False,
         'sram_width_inference': 16,
         'sram_capacity_verified': False,
         'limitations': ['Saved files cannot authorize a new operation',
-                        'Aliasing and filing photos do not prove physical decode',
+                        'Aliasing, firmware anchors and filing photos do not prove physical decode',
                         'No physical card or internal part identity read'],
     }
 

@@ -77,9 +77,15 @@ Native active commands refuse even with these options. See
 [transaction behavior and remaining gates](docs/OPERATION-TRANSACTION.md).
 
 For read-only analysis of existing MA401 captures, use
-`python3 tools/audit_nv_capture.py FIRST SECOND`. Its report checks the exact
+`python3 tools/audit_nv_capture.py FIRST SECOND`. Its report checks the saved-capture CIS/NIC/PDA, alias and firmware-anchor
 [candidate observations](docs/evidence/ma401-pd5lmwp200-candidate.json);
 saved files never authorize a new operation.
+
+Native builds also provide `preflight --output NEW_DIRECTORY --utc TIMESTAMP
+--utc-offset MINUTES_EAST_OF_UTC`. It checks the Amiga clock against the supplied
+reference and resolves storage through assigns, without creating files or
+accessing the card. A passing diagnostic cannot authorize an operation; see
+[preflight limits](docs/OPERATION-TRANSACTION.md#native-diagnostic-preflight-08).
 
 The probe resets the card and changes four bytes in its RAM. It requires
 exclusive slot ownership and interrupts any use of that card for networking.

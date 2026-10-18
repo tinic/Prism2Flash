@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #pragma once
+#include "owned_memory.h"
 #include "platform.h"
 
 namespace p2::operation {
@@ -31,7 +32,12 @@ using Work = CardStatus (*)(Card &, void *);
 // Own once, configure only the non-reset acquisition path, retain ownership
 // through file verification, operation and readback. Never reclaim/retry/reset.
 [[nodiscard]] Report run(Journal &, Work, void *context);
+int run_native(const char *directory, const char *utc, const char *operation,
+               Work, void *context);
 // Host model only. Native commands remain blocked before any backend call.
+[[nodiscard]] Owned<Journal> make_model_journal(const char *directory,
+                                                const char *utc,
+                                                const char *operation);
 int run_model(const char *directory, const char *utc, const char *operation,
               Work, void *context);
 } // namespace p2::operation

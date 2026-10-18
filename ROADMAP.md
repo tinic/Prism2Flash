@@ -18,6 +18,14 @@
       comparison in the host model. Native implementation/approval is pending.
 - [x] Record the exact PD5LMWP200 candidate and reproducibly audit existing
       captures for matching raw bytes, aliases, CRC and PDA configuration.
+- [x] Address independent model review: CIS/PDA/anchor audit, four-file tamper
+      regression, real output-open and short-write failure evidence.
+- [x] Cross-build the shared transaction ordering for Amiga and test native
+      admission refusal with an aborting backend. Active admission stays closed.
+- [x] Implement native clock/offset and resolved-volume diagnostic preflight,
+      including RAM-assign refusal; validate policy offline and APIs in emulators.
+- [ ] Retain destination locks, bind an approved physical map and record per-phase
+      checked UTC times in a native file journal, then independently review it.
 - [ ] Verify failure/removal/storage handling and operation gating offline, then
       validate the acquisition on spare hardware when explicitly made available.
 

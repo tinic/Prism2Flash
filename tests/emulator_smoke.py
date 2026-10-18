@@ -72,10 +72,13 @@ def valid_output(name, text, suite="genesis"):
         if name == "missing_image":
             return "Cannot open image" in text
         return f"Prism2Firmware {VERSION} - offline" in text
+    if name.startswith("preflight_"):
+        return "Native preflight rejected" in text and "no card access was attempted" in text
     if name == "backup_bad_utc":
         return "Use a new persistent directory" in text
     if name == "backup_no_card":
-        return "NV capture failed:" in text and ("Cannot own PCMCIA card" in text or "No card.resource" in text)
+        return (("NV capture failed:" in text and ("Cannot own PCMCIA card" in text or "No card.resource" in text))
+                or "Cannot create a NEW backup directory" in text)
     if name in ("inspect", "probe8", "probe16", "inspect_again",
                 "inspect_transaction", "probe_transaction"):
         return ("Operation blocked: a verified timestamped full-flash backup is required." in text
@@ -209,6 +212,8 @@ def main():
         CASES=CASES[:-1]+[
             ("inspect_transaction", "inspect --output Work:20261018T104000Z --utc 20261018T104000Z", 20),
             ("probe_transaction", "probe --sram 16 --output Work:20261018T104000Z --utc 20261018T104000Z", 20),
+            ("preflight_ram", "preflight --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset 0", 20),
+            ("preflight_offset", "preflight --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset invalid", 20),
             ("backup_bad_utc", "backup --output RAM:invalid --utc invalid", 20),
             ("backup_no_card", f"backup --output {prefix}backup-20261018T104000Z --utc 20261018T104000Z", 20),
         ]+CASES[-1:]

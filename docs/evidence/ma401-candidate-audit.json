@@ -11,6 +11,11 @@
   "identical_windows": 64,
   "window_bytes": 131072,
   "pda_crc_valid": true,
+  "firmware_anchors_match": true,
+  "cis": {
+    "manufacturer": 11,
+    "product": 29440
+  },
   "nic": {
     "id": 32780,
     "variant": 0,
@@ -23,7 +28,7 @@
   "sram_capacity_verified": false,
   "limitations": [
     "Saved files cannot authorize a new operation",
-    "Aliasing and filing photos do not prove physical decode",
+    "Aliasing, firmware anchors and filing photos do not prove physical decode",
     "No physical card or internal part identity read"
   ]
 }

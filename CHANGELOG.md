@@ -12,6 +12,42 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.8.0-alpha.1] - 2026-10-18
+
+### Changed
+
+- Address DeepSeek P2R9 F1-F4: walk the bounded candidate CIS chain and check
+  MANFID, bound PDA record byte lengths to 512, exercise saved-file tampering
+  independently for all four raw captures, and retain a transaction failure
+  record when an output open fails after directory creation. Real descriptor
+  exhaustion and short-write tests prove both storage gates prevent work.
+- Corroborate the candidate firmware-name offsets (optional F5); these anchors
+  are observations, not proof of physical flash capacity or controller decode.
+- Build the shared owned transaction runner for Amiga. Native transaction
+  admission still refuses before output creation or slot access: no physical
+  map/capability is approved, and the model journal cannot become native by
+  changing a profile flag. Native refusal tests use an aborting backend.
+- Record the source revision in model phase and transaction manifests.
+
+### Added
+
+- Native `preflight --output PATH --utc YYYYMMDDTHHMMSSZ --utc-offset MINUTES`
+  validates an explicit local-to-UTC offset, calendar fields and clock skew,
+  resolves assigns through AmigaDOS locks, rejects the RAM volume and unknown
+  filesystem types, and requires writable DOS storage and space for four
+  captures. The experimental backup command uses the same volume check
+  before directory creation, closing the literal-RAM-name bypass. Preflight creates no files and never accesses card.resource.
+- Typed offline MA401 CIS/PDA candidate observation validation. Matching
+  NIC/PDR configuration yields only an SRAM-width inference; physical coverage,
+  SRAM capacity and hardware authorization remain false.
+
+### Scope
+
+No hardware testing, native Genesis, bootstrap, JEDEC/autoselect or flash
+programming. Preflight is a diagnostic snapshot; retained directory locks,
+per-phase checked UTC timestamps, physical map binding, native file journal
+and independent native gate approval remain prerequisites for enablement.
+
 ## [0.7.0-alpha.1] - 2026-10-18
 
 ### Added

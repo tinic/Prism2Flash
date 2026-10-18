@@ -3,6 +3,9 @@
 #include "operation.h"
 #include "p2_stdio.h"
 #include "platform.h"
+#ifdef PRISM2_AMIGA
+#include "preflight.h"
+#endif
 #include "version.h"
 #include <optional>
 #include <string_view>
@@ -16,6 +19,9 @@ static void usage(void) {
   puts("Prism2Genesis " P2_VERSION " - experimental Genesis RAM probe\n"
        "  Prism2Genesis --version\n"
        "  Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ\n"
+       "  Prism2Genesis preflight --output NEW_DIRECTORY --utc "
+       "YYYYMMDDTHHMMSSZ\n"
+       "    --utc-offset MINUTES_EAST_OF_UTC (native; filesystem/clock only)\n"
        "  Prism2Genesis info\n"
        "  Prism2Genesis inspect\n"
        "  Prism2Genesis probe --sram 8|16\n"
@@ -139,6 +145,13 @@ int main(int argc, char **argv) {
       return 0;
     }
   }
+#ifdef PRISM2_AMIGA
+  if (argc == 8 && std::string_view{argv[1]} == "preflight" &&
+      std::string_view{argv[2]} == "--output" &&
+      std::string_view{argv[4]} == "--utc" &&
+      std::string_view{argv[6]} == "--utc-offset")
+    return p2::preflight::run_command(argv[3], argv[5], argv[7]);
+#endif
   if (argc == 6 && std::string_view{argv[1]} == "backup" &&
       std::string_view{argv[2]} == "--output" &&
       std::string_view{argv[4]} == "--utc")
@@ -149,6 +162,15 @@ int main(int argc, char **argv) {
     return 20;
   }
 #if defined(PRISM2_AMIGA) || defined(PRISM2_REQUIRE_BACKUP)
+#if defined(PRISM2_AMIGA) || defined(PRISM2_NATIVE_TRANSACTION_TEST)
+  if (options->command != Options::Command::Info && options->directory) {
+    auto work_options = *options;
+    return p2::operation::run_native(
+        options->directory, options->utc,
+        options->command == Options::Command::Inspect ? "inspect" : "probe",
+        inspect_work, &work_options);
+  }
+#endif
   // Refuse before opening the slot. An existing file or force option must
   // never bypass the unverified physical-flash profile/backup approval gate.
   if (options->command != Options::Command::Info) {
