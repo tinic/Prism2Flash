@@ -18,6 +18,8 @@ static uint16_t read16(void *ctx, uint16_t reg) {
     return 0xffff;
   if (reg == P2_CMD && m->stuck_command)
     return 0x8000;
+  if (reg == P2_CONTROL && m->nv_selector_hides_control && m->aux_space)
+    return 0x6500;
   if (reg == P2_AUXDATA) {
     uint16_t v;
     const uint8_t *source = m->aux_space == 1 ? m->nv_memory : m->memory;
@@ -30,7 +32,20 @@ static uint16_t read16(void *ctx, uint16_t reg) {
     m->aux_address += 2;
     if (m->aux_space == 1) {
       ++m->nv_reads;
-      if (m->unstable_nv && (((m->nv_reads - 1) / 64) & 1))
+      if (m->drop_aux_at_nv_read && m->nv_reads >= m->drop_aux_at_nv_read)
+        m->regs[P2_CONTROL / 2] = 0;
+      if (!(m->regs[P2_CONTROL / 2] & 0xc000) && m->drop_aux_at_nv_read)
+        return 0xffff;
+      const bool too_fast =
+          m->min_nv_gap && m->have_nv_read &&
+          uint32_t(m->clock - m->last_nv_read) < m->min_nv_gap;
+      m->last_nv_read = m->clock;
+      m->have_nv_read = true;
+      if (too_fast)
+        return v ^ 1;
+      if ((m->unstable_nv ||
+           (m->nv_unstable_until && m->clock < m->nv_unstable_until)) &&
+          (((m->nv_reads - 1) / 64) & 1))
         return v ^ 1;
       if ((m->corrupt_nv_after && m->nv_reads > m->corrupt_nv_after) ||
           m->nv_reads == m->corrupt_nv_once_at)
@@ -82,9 +97,12 @@ static void write16(void *ctx, uint16_t reg, uint16_t value) {
   } else if (reg == P2_EVACK) {
     m->regs[P2_EVSTAT / 2] &= (uint16_t)~value;
   } else if (reg == P2_CONTROL && !m->stuck_aux) {
+    if ((value & 0xc000) == 0x8000)
+      ++m->aux_enables;
     value = (value & 0xc000) == 0x8000 ? 0xc000 : 0;
   } else if (reg == P2_AUXDATA && m->aux_address < 0x800000 - 1) {
-    if (!m->drop_ram_writes) {
+    if (!m->drop_ram_writes &&
+        (!m->drop_ram_after || m->payload_writes < m->drop_ram_after)) {
       m->memory[m->aux_address] = static_cast<uint8_t>(value);
       m->memory[m->aux_address + 1] = static_cast<uint8_t>(value >> 8);
     }
@@ -109,6 +127,11 @@ static void write_cfg(void *ctx, uint8_t reg, uint8_t value) {
   auto *m = static_cast<p2_mock *>(ctx);
   if (!touch(m))
     return;
+  if (m->configuration_writes < 32) {
+    m->cfg_registers[m->configuration_writes] = reg;
+    m->cfg_values[m->configuration_writes] = value;
+    m->cfg_times[m->configuration_writes] = m->clock;
+  }
   ++m->configuration_writes;
   if (reg == P2_CFG_COR)
     m->cor = value;
@@ -126,6 +149,23 @@ static void write_cfg(void *ctx, uint8_t reg, uint8_t value) {
         m->stuck_aux = 1;
     }
   }
+}
+static uint8_t read8(void *ctx, uint16_t reg) {
+  auto *m = static_cast<p2_mock *>(ctx);
+  if (!touch(m))
+    return 0xff;
+  const auto *memory = m->aux_space == 1 ? m->nv_memory : m->memory;
+  const auto address = m->aux_address + (reg & 1);
+  return memory && address < 0x800000 ? memory[address] : 0xff;
+}
+static void write8(void *ctx, uint16_t reg, uint8_t value) {
+  auto *m = static_cast<p2_mock *>(ctx);
+  if (!touch(m) || m->aux_space != 0)
+    return;
+  const auto address = m->aux_address + (reg & 1);
+  if (address < 0x800000 && !m->drop_ram_writes &&
+      (!m->drop_ram_after || m->payload_writes < m->drop_ram_after))
+    m->memory[address] = value;
 }
 static void delay_us(void *ctx, uint32_t us) {
   ((struct p2_mock *)ctx)->clock += us;
@@ -147,7 +187,7 @@ void p2_mock_fix_pda(uint8_t data[P2_PDA_SIZE]) {
 }
 int p2_mock_init(struct p2_mock *m, unsigned bits) {
   static const uint8_t pda[] = {2, 0, 8, 0, 0x1b, 0x80, 2, 0, 0, 0, 0, 0};
-  memset(m, 0, sizeof(*m));
+  *m = p2_mock{};
   m->memory = static_cast<uint8_t *>(calloc(1, 0x800000));
   if (!m->memory)
     return P2_E_IO;
@@ -158,8 +198,8 @@ int p2_mock_init(struct p2_mock *m, unsigned bits) {
   m->nicid = 0x801b;
   memcpy(m->memory + 0x7f0000, pda, sizeof(pda));
   p2_mock_fix_pda(m->memory + 0x7f0000);
-  m->bus = p2_bus{m,        read16, write16, read_cfg, write_cfg,
-                  delay_us, now_us, present, cancelled};
+  m->bus = p2_bus{m,      read16,  write16,   read_cfg, write_cfg, delay_us,
+                  now_us, present, cancelled, read8,    write8};
   return P2_OK;
 }
 void p2_mock_free(struct p2_mock *m) {

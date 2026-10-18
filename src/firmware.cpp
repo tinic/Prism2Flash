@@ -38,11 +38,13 @@ public:
   Parser() = default;
   // State lives on the heap: the information record alone exceeds the normal
   // 4 KiB Amiga shell stack. The input cursor itself needs no allocation.
-  template <typename Next> static Result<Image> run(Next next) {
+  template <typename Next>
+  static Result<Image> run(Next next, bool initial = false) {
     auto parser = make_owned<Parser>();
     if (!parser)
       return std::unexpected{
           Error{Errc::Memory, 0, "Out of memory for parser"}};
+    parser->initial_ = initial;
     return parser->consume(next);
   }
 
@@ -151,6 +153,13 @@ private:
     return {};
   }
   Status s3(uint32_t address, std::span<const uint8_t> bytes) {
+    if (initial_) {
+      if (address >= 0x800000 || bytes.size() > 0x800000 - address ||
+          (address & 1) || (bytes.size() & 1))
+        return fail(Errc::Format,
+                    "Initial image must contain aligned 23-bit RAM payloads");
+      return payload(address, bytes);
+    }
     if (info_used_ && (address & 0xffff0000) != InfoBase)
       return fail(Errc::Format, "Unfinished firmware information record");
     if (address == 0xff000000) {
@@ -326,10 +335,13 @@ private:
           return std::unexpected{result.error()};
       }
     }
-    if (!entry_seen_ || !component_seen_ || image_.segments_.empty() ||
-        info_used_)
+    if (!entry_seen_ || (!initial_ && !component_seen_) ||
+        image_.segments_.empty() || info_used_)
       return fail(Errc::Format,
                   "Missing S7, component, payload or complete metadata");
+    if (initial_ && image_.entry_ != 0)
+      return fail(Errc::Format,
+                  "Initial bootstrap requires the DOS zero S7 marker");
     if (auto result = combine(); !result)
       return std::unexpected{result.error()};
     image_.source_sha256_ = source_hash_.hex();
@@ -342,6 +354,7 @@ private:
   unsigned long line_ = 0;
   bool component_seen_ = false, entry_seen_ = false, header_seen_ = false;
   bool count_seen_ = false, name_seen_ = false;
+  bool initial_ = false;
 };
 
 Result<Image> Image::parse(std::span<const uint8_t> input) {
@@ -358,6 +371,28 @@ Result<Image> Image::read(FILE &file) {
   if (ferror(&file))
     return std::unexpected{Error{Errc::Io, 0, "Input read error"}};
   return result;
+}
+Result<InitialImage> InitialImage::parse(std::span<const uint8_t> input) {
+  auto result = Parser::run(
+      [input]() mutable -> int {
+        if (input.empty())
+          return EOF;
+        const auto byte = input.front();
+        input = input.subspan(1);
+        return byte;
+      },
+      true);
+  if (!result)
+    return std::unexpected{result.error()};
+  return InitialImage{std::move(*result)};
+}
+Result<InitialImage> InitialImage::read(FILE &file) {
+  auto result = Parser::run([&file] { return fgetc(&file); }, true);
+  if (ferror(&file))
+    return std::unexpected{Error{Errc::Io, 0, "Initial image read error"}};
+  if (!result)
+    return std::unexpected{result.error()};
+  return InitialImage{std::move(*result)};
 }
 bool Image::contains(uint32_t start, uint32_t length) const {
   return std::any_of(segments_.begin(), segments_.end(), [=](const Segment &s) {

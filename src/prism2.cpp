@@ -89,6 +89,35 @@ CardStatus Card::enable_aux(bool enable) {
   bus_.delay_us(bus_.ctx, 5);
   return wait_mask(P2_CONTROL, 0xc000, enable ? 0xc000 : 0, 100000);
 }
+CardResult<uint16_t> Card::aux_control() {
+  if (auto r = interrupted(); !r)
+    return std::unexpected{r.error()};
+  auto control = bus_.read16(bus_.ctx, P2_CONTROL);
+  if (auto r = interrupted(); !r)
+    return std::unexpected{r.error()};
+  // A retained NV selector can expose flash data in CONTROL on Gayle.
+  // Complete that scratch access once, without reset/INIT or flash commands.
+  if (control != 0xffff && (control & 0xc000) != 0 &&
+      (control & 0xc000) != 0xc000) {
+    bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+    bus_.delay_us(bus_.ctx, 5);
+    if (auto r = interrupted(); !r)
+      return std::unexpected{r.error()};
+    control = bus_.read16(bus_.ctx, P2_CONTROL);
+    if (auto r = interrupted(); !r)
+      return std::unexpected{r.error()};
+  }
+  if (control == 0xffff ||
+      ((control & 0xc000) != 0 && (control & 0xc000) != 0xc000))
+    return std::unexpected{P2_E_IO};
+  return control;
+}
+CardStatus Card::ensure_aux_enabled() {
+  const auto control = aux_control();
+  if (!control)
+    return std::unexpected{control.error()};
+  return (*control & 0xc000) == 0xc000 ? CardStatus{} : enable_aux(true);
+}
 CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
                           std::span<const uint8_t> write, uint16_t space,
                           std::optional<uint32_t> started) {
@@ -124,6 +153,14 @@ CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
         const auto value = bus_.read16(bus_.ctx, P2_AUXDATA);
         read[i] = static_cast<uint8_t>(value);
         read[i + 1] = static_cast<uint8_t>(value >> 8);
+        // An active MAC shares the external flash bus. Gayle/Emu68 can
+        // issue the next AUX strobe before the NV word has advanced.
+        if (space == 0x1000) {
+          if (bus_.nv_word_gap)
+            bus_.nv_word_gap(bus_.ctx);
+          else
+            bus_.delay_us(bus_.ctx, 1);
+        }
       }
     }
     address += static_cast<uint32_t>(count);
@@ -139,7 +176,89 @@ CardStatus Card::read_aux(uint32_t address, std::span<uint8_t> data) {
   return transfer(address, data, {}, 0);
 }
 CardStatus Card::read_nv(uint32_t address, std::span<uint8_t> data) {
-  return transfer(address, data, {}, 0x1000);
+  auto result = transfer(address, data, {}, 0x1000);
+  if (!result && result.error() == P2_E_ARGUMENT)
+    return result;
+  // Every caller, including bootstrap PDA validation, must see normal
+  // registers after a word NV transfer. Ignore cancellation only for cleanup.
+  if (bus_.present(bus_.ctx)) {
+    bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+    if (auto state = alive(); !state && result)
+      result = state;
+  }
+  return result;
+}
+CardStatus Card::seek_byte(uint32_t address, uint16_t space) {
+  if (address >= 0x800000)
+    return std::unexpected{P2_E_ARGUMENT};
+  if (!bus_.read8 || !bus_.write8)
+    return std::unexpected{P2_E_UNSUPPORTED};
+  if (auto result = interrupted(); !result)
+    return result;
+  // Use the aligned word plus the selected byte lane. This is also the
+  // effective address of DOS's legacy address/2 advance workaround. Odd
+  // reads on this Amiga card require GETODD (aligned word, low CPU byte).
+  bus_.write16(bus_.ctx, P2_AUXPAGE, static_cast<uint16_t>(address >> 7));
+  if (auto result = interrupted(); !result)
+    return result;
+  bus_.write16(bus_.ctx, P2_AUXOFFSET,
+               static_cast<uint16_t>((address & 126) | space));
+  bus_.delay_us(bus_.ctx, 5);
+  return interrupted();
+}
+CardResult<uint8_t> Card::read_nv_byte(uint32_t address) {
+  if (auto result = seek_byte(address, 0x1000); !result)
+    return std::unexpected{result.error()};
+  const auto value = bus_.read8(bus_.ctx, P2_AUXDATA + (address & 1));
+  if (auto result = interrupted(); !result)
+    return std::unexpected{result.error()};
+  // Complete the Amiga NV access before the caller reads normal registers
+  // or CIS. The next byte always re-seeks; no streaming pointer is exposed.
+  bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+  if (auto result = alive(); !result)
+    return std::unexpected{result.error()};
+  return value;
+}
+CardStatus Card::write_nv_byte(uint32_t address, uint8_t value) {
+  if (auto result = seek_byte(address, 0x1000); !result)
+    return result;
+  bus_.write8(bus_.ctx, P2_AUXDATA + (address & 1), value);
+  if (auto result = interrupted(); !result)
+    return result;
+  bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+  return alive();
+}
+CardStatus Card::test_ram_byte_access(uint32_t address) {
+  if (!genesis_active_)
+    return std::unexpected{P2_E_UNSUPPORTED};
+  if (address & 1)
+    return std::unexpected{P2_E_ARGUMENT};
+  std::array<uint8_t, 2> original{}, readback{};
+  if (auto r = read_aux(address, original); !r)
+    return r;
+  const auto write = [&](std::span<const uint8_t, 2> bytes) -> CardStatus {
+    for (uint32_t lane = 0; lane < 2; ++lane) {
+      if (auto r = seek_byte(address + lane, 0); !r)
+        return r;
+      bus_.write8(bus_.ctx, P2_AUXDATA + lane, bytes[lane]);
+      if (auto r = interrupted(); !r)
+        return r;
+    }
+    // Independent word reads prove both byte writes and their neighbour.
+    for (unsigned i = 0; i < 2; ++i) {
+      if (auto r = read_aux(address, readback); !r)
+        return r;
+      if (!std::equal(readback.begin(), readback.end(), bytes.begin()))
+        return std::unexpected{P2_E_VERIFY};
+    }
+    return {};
+  };
+  const std::array<uint8_t, 2> pattern{
+      static_cast<uint8_t>(original[0] ^ 0x5a),
+      static_cast<uint8_t>(original[1] ^ 0xa5)};
+  if (auto r = write(pattern); !r)
+    return r; // Do not hide a byte-lane fault by rewriting the word.
+  return write(original);
 }
 CardStatus Card::write_aux(uint32_t address, std::span<const uint8_t> data) {
   return transfer(address, {}, data, 0);
@@ -292,15 +411,19 @@ CardStatus Card::reset(uint8_t cor, uint8_t hcr) {
   if (auto result = alive(); !result)
     return result;
   bus_.write_cfg(bus_.ctx, P2_CFG_COR, static_cast<uint8_t>(cor | 0x80));
-  bus_.delay_us(bus_.ctx, 10000);
+  // Original ILHOPFW 0a22:0ad5: Genesis latches HCR immediately while reset
+  // is asserted; normal return waits 5 ms before changing HCR.
+  if (!(hcr & 8))
+    bus_.delay_us(bus_.ctx, 5000);
   if (auto result = alive(); !result)
     return result;
   bus_.write_cfg(bus_.ctx, P2_CFG_CCSR, hcr);
-  bus_.delay_us(bus_.ctx, 10000);
+  bus_.delay_us(bus_.ctx, 5000);
   if (auto result = alive(); !result)
     return result;
   bus_.write_cfg(bus_.ctx, P2_CFG_COR, static_cast<uint8_t>(cor & 0x7f));
-  bus_.delay_us(bus_.ctx, 10000);
+  // Allow a bounded Gayle settling interval after deassertion.
+  bus_.delay_us(bus_.ctx, 5000);
   return alive();
 }
 CardStatus Card::restore_aux(bool was_enabled) {
@@ -319,7 +442,7 @@ CardStatus Card::restore_aux(bool was_enabled) {
     return alive();
   return enable_aux(was_enabled);
 }
-ProbeReport Card::probe(unsigned bits) {
+ProbeReport Card::enter_genesis(unsigned bits) {
   constexpr std::array<uint8_t, 4> pattern{0x00, 0xe1, 0xa1, 0xff};
   ProbeReport report;
   report.sram_bits = bits;
@@ -327,7 +450,6 @@ ProbeReport Card::probe(unsigned bits) {
     report.error = P2_E_ARGUMENT;
     return report;
   }
-  bool aux_acquired = false;
   const auto exercise = [&]() -> CardStatus {
     if (auto result = interrupted(); !result)
       return result;
@@ -346,32 +468,31 @@ ProbeReport Card::probe(unsigned bits) {
       return result;
     if ((report.cor_before & 0x80) || report.ccsr_before == 0xff)
       return std::unexpected{P2_E_IO};
-    aux_acquired = true; // Also restore AUX after a failed enable handshake.
+    // The original DOS routine writes literal C5/45, independent of the
+    // previous COR or the CIS tuple index. The native x16 path follows it.
+    // x8 remains a Host AP model experiment, unavailable on native hardware.
+    report.cor_used = bits == 16 ? 0x45 : report.cor_before;
+    report.aux_state_acquired = true; // Restore even a failed handshake.
     if (!report.aux_was_enabled) {
       if (auto result = enable_aux(true); !result)
         return result;
     }
     if (auto result = interrupted(); !result)
       return result;
-    report.reset_started = true;
-    bus_.write_cfg(bus_.ctx, P2_CFG_COR,
-                   static_cast<uint8_t>(report.cor_before | 0x80));
-    bus_.delay_us(bus_.ctx, 2000);
-    if (auto result = interrupted(); !result)
-      return result;
-    bus_.write_cfg(bus_.ctx, P2_CFG_COR,
-                   static_cast<uint8_t>(report.cor_before & 0x7f));
-    bus_.delay_us(bus_.ctx, 2000);
-    // Host AP seeds this sentinel before Genesis latches. Readback becomes
-    // meaningful after the Genesis reset and initial priming read.
+    // DOS ILHOPFW reset dispatcher (0a22:0ad5) seeds/checks the idle words
+    // before the first HCR latch; there is no preliminary bare COR pulse.
+    // Its first idle result is advisory; the check after the first latch is
+    // required. AUX has already been acquired explicitly here.
     if (auto result = write_aux(P2_GENESIS_ADDRESS, pattern); !result)
-      return result;
-    if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
-        !result)
       return result;
     std::array<uint8_t, 4> discard;
     if (auto result = read_aux(P2_GENESIS_ADDRESS, discard); !result)
       return result;
+    report.reset_started = true;
+    if (auto result = reset(report.cor_used, bits == 8 ? 0x1f : 0x0f); !result)
+      return result;
+    ++report.genesis_latches;
+    genesis_active_ = true;
     const auto written = write_verified(P2_GENESIS_ADDRESS, pattern);
     std::copy_n(written.last_readback.begin(), report.readback.size(),
                 report.readback.begin());
@@ -379,25 +500,56 @@ ProbeReport Card::probe(unsigned bits) {
     report.disagreements = written.disagreements;
     if (written.error)
       return std::unexpected{written.error};
+    // The DOS routine performs a second HCR latch after the successful idle
+    // test. Verification retries above never repeat a payload write.
+    if (auto result = reset(report.cor_used, bits == 8 ? 0x1f : 0x0f); !result)
+      return result;
+    ++report.genesis_latches;
     return {};
   };
   const auto result = exercise();
+  report.error = result ? P2_OK : result.error();
+  return report;
+}
+ProbeReport Card::leave_genesis(ProbeReport report) {
+  const auto bits = report.sram_bits;
   const auto cancellation = bus_.cancelled;
   // Cleanup cannot be vetoed by Ctrl-C; sticky removal still forbids I/O.
   const IgnoreCancellation cleanup_scope{bus_};
   CardStatus normal;
   if (report.reset_started)
-    normal = reset(report.cor_before, bits == 8 ? 0x17 : 0x07);
+    normal = reset(report.cor_used, bits == 8 ? 0x17 : 0x07);
+  if (report.reset_started && normal)
+    genesis_active_ = false;
+  // DOS's literal configuration index 5 can change the Amiga I/O access
+  // mode. Restore this insertion's original configuration BEFORE any AUX
+  // cleanup, INIT or post-capture word reads. This is not another reset.
+  if (report.reset_started && normal && report.cor_used != report.cor_before) {
+    normal = alive();
+    if (normal) {
+      bus_.write_cfg(bus_.ctx, P2_CFG_COR, report.cor_before);
+      bus_.delay_us(bus_.ctx, 5000);
+      normal = alive();
+      if (normal && bus_.read_cfg(bus_.ctx, P2_CFG_COR) != report.cor_before)
+        normal = std::unexpected{P2_E_VERIFY};
+      if (normal)
+        normal = alive();
+    }
+    report.io_configuration_restored = normal.has_value();
+  }
   CardStatus aux;
-  if (aux_acquired)
+  if (report.aux_state_acquired)
     aux = restore_aux(report.aux_was_enabled);
   report.aux_cleanup_error = aux ? P2_OK : aux.error();
   report.cleanup_error = normal ? report.aux_cleanup_error : normal.error();
   const bool cancelled = cancellation && cancellation(bus_.ctx);
-  report.error = result ? (report.cleanup_error ? report.cleanup_error
-                           : cancelled          ? P2_E_CANCELLED
-                                                : P2_OK)
-                        : result.error();
+  if (!report.error)
+    report.error = report.cleanup_error ? report.cleanup_error
+                   : cancelled          ? P2_E_CANCELLED
+                                        : P2_OK;
   return report;
+}
+ProbeReport Card::probe(unsigned bits) {
+  return leave_genesis(enter_genesis(bits));
 }
 } // namespace p2

@@ -42,5 +42,10 @@ CardResult<Observation> observe(const p2_card_info &cis,
   result.sram_width_inference = 16;
   return result;
 }
-bool native_approved() { return false; }
+bool programming_approved() {
+  // Qualified MA401 path only: fresh exact CIS/PDA binding in the owned
+  // journal, pinned images, live Genesis byte proof and runtime BF:D5 ID.
+  // Complete real before/after bootstrap transaction: 20261018T221517Z.
+  return true;
+}
 } // namespace p2::profile

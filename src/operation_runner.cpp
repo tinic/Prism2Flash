@@ -11,8 +11,9 @@ int available(p2_bus &bus, bool cancellation = true) {
   return P2_OK;
 }
 } // namespace
-Report run(Journal &journal, Work work, void *context) {
+Report run(Journal &journal, Work work, void *context, Recovery recovery) {
   Report result;
+  bool journal_finished = false;
   if (!work) {
     result.preparation_error = P2_E_ARGUMENT;
     return result;
@@ -60,11 +61,22 @@ Report run(Journal &journal, Work work, void *context) {
             if (!result.readback_error)
               result.comparison_error = code(journal.compare());
           }
+          if (recovery.required && recovery.hold &&
+              recovery.required(context, result) && !available(*bus, false)) {
+            // Persist results while still owning the recovery environment.
+            // The hook can only return after explicit recovery/release; never
+            // reset or release a partially programmed card automatically.
+            result.recovery_held = true;
+            result.journal_error = code(journal.finish(result));
+            journal_finished = true;
+            recovery.hold(card, context);
+          }
         }
       }
       result.cleanup_error = slot->finish_backup();
     }
-    result.journal_error = code(journal.finish(result));
+    if (!journal_finished)
+      result.journal_error = code(journal.finish(result));
   }
   return result;
 }

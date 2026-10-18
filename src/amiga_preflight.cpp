@@ -19,11 +19,13 @@ public:
   LockHandle(const LockHandle &) = delete;
   LockHandle &operator=(const LockHandle &) = delete;
   BPTR get() const { return value_; }
+  BPTR release() { return std::exchange(value_, 0); }
 
 private:
   BPTR value_;
 };
 } // namespace
+static void unlock(uintptr_t lock) { UnLock(BPTR(lock)); }
 CardResult<Owned<Evidence>> destination(const char *directory) {
   if (!directory || std::strlen(directory) > 320)
     return std::unexpected{P2_E_ARGUMENT};
@@ -77,12 +79,13 @@ CardResult<Owned<Evidence>> destination(const char *directory) {
     if (existing.get() || IoErr() != ERROR_OBJECT_NOT_FOUND)
       return std::unexpected{P2_E_IO};
   }
+  result->parent = DirectoryLock{uintptr_t(parent_lock.release()), unlock};
   return result;
 }
 CardResult<Owned<Evidence>> native(const char *directory, const char *utc,
                                    int east) {
-  if (!directory || !utc || !backup::valid_utc(utc) ||
-      !std::strstr(directory, utc) || east < -840 || east > 840)
+  (void)utc;
+  if (!directory || !valid_offset(east))
     return std::unexpected{P2_E_ARGUMENT};
   auto resolved = destination(directory);
   if (!resolved)
@@ -91,11 +94,41 @@ CardResult<Owned<Evidence>> native(const char *directory, const char *utc,
   struct DateStamp stamp {};
   DateStamp(&stamp);
   result.clock = Clock{stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick};
-  auto checked = check_clock(result.clock, east, utc);
-  if (!checked)
-    return std::unexpected{checked.error()};
-  result.checked_utc_seconds = *checked;
   result.offset_east = east;
   return resolved;
+}
+NativeSession::~NativeSession() {
+  if (directory_.get())
+    CurrentDir(BPTR(old_directory_));
+}
+CardResult<Owned<NativeSession>>
+NativeSession::create(const char *directory, const char *utc, int east) {
+  auto checked = native(directory, utc, east);
+  if (!checked)
+    return std::unexpected{checked.error()};
+  auto session = make_owned<NativeSession>();
+  if (!session)
+    return std::unexpected{P2_E_IO};
+  session->evidence_ = std::move(*checked);
+  // Parent remains locked while the unique child is created and throughout
+  // the operation. CurrentDir is per DOS process; no assign is resolved again.
+  const auto previous = CurrentDir(BPTR(session->evidence_->parent.get()));
+  const char *path = session->evidence_->resolved_directory.data();
+  const char *leaf = std::strrchr(path, '/');
+  if (!leaf)
+    leaf = std::strchr(path, ':');
+  const auto created = CreateDir((CONST_STRPTR)(leaf + 1));
+  CurrentDir(previous);
+  if (!created)
+    return std::unexpected{P2_E_IO};
+  session->directory_ = DirectoryLock{uintptr_t(created), unlock};
+  session->old_directory_ = uintptr_t(CurrentDir(created));
+  return session;
+}
+std::array<char, 17> NativeSession::label() const {
+  struct DateStamp stamp {};
+  DateStamp(&stamp);
+  return clock_label({stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick},
+                     evidence_->offset_east);
 }
 } // namespace p2::preflight

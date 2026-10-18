@@ -86,10 +86,12 @@ class PreparationTests(unittest.TestCase):
     def setUp(self):
         write_fixtures(self.directory)
 
-    def prepare(self, target='station.hex', mode='flash', primary=None, error=None):
+    def prepare(self, target='station.hex', mode='flash', primary=None, error=None, dos=False):
         args = [str(BINARY), 'prepare', target, '--mode', mode, '--card', 'card.txt', '--pda', 'pda.bin']
         if primary:
             args += ['--primary', primary]
+        if dos:
+            args += ['--plug-policy', 'dos']
         before = {p.name: p.read_bytes() for p in self.directory.iterdir() if p.is_file()}
         result = subprocess.run(args, cwd=self.directory, capture_output=True, text=True, timeout=15)
         output = result.stdout + result.stderr
@@ -157,6 +159,12 @@ class PreparationTests(unittest.TestCase):
         self.assertIn(b'S 8263616 128 ', output)
         self.prepare(primary='primary.hex')
 
+    def test_standalone_primary_signature_placeholder(self):
+        placeholder = srec(3, 0x7e17fe, b'\x00\x00')
+        (self.directory / 'primary.hex').write_text(firmware(component=0x15, extra=placeholder))
+        self.compare(primary='primary.hex')
+        self.prepare(primary='primary.hex')
+
     def test_reject_signature_overlap_and_calibration_loss(self):
         signature = srec(3, 0xff100000, struct.pack('<III', 0x7e1800, 0x110, 1))
         (self.directory / 'station.hex').write_text(firmware(extra=signature))
@@ -175,6 +183,29 @@ class PreparationTests(unittest.TestCase):
         self.prepare(error='Required plug PDR')
         (self.directory / 'pda.bin').write_bytes(pda(mac=b'\x02\x00\x00\x00\x00\x02'))
         self.prepare(error='MAC address differs')
+
+    def test_dos_optional_defaults_are_whole_fields_and_reported(self):
+        (self.directory / 'pda.bin').write_bytes(pda(missing=3))
+        output = self.prepare(dos=True)
+        expected = bytearray(range(64))
+        expected[4:10] = b'\x02\x00\x00\x00\x00\x01'
+        expected[32:48] = b'STATION.HEX'.ljust(16, b'\0')
+        # Missing field remains precisely the bytes supplied by the HEX.
+        self.assertIn('address=0x007e17fe bytes=66 sha256=' +
+                      hashlib.sha256(b'\xde\xc0' + expected).hexdigest(), output)
+        self.assertIn('PDR=0x0003 expected=4 actual=0 missing', output)
+        (self.directory / 'pda.bin').write_bytes(pda())
+        old = srec(3, 0xff000000, struct.pack('<III', 3, 0x7e1810, 4))
+        new = srec(3, 0xff000000, struct.pack('<III', 3, 0x7e1810, 6))
+        (self.directory / 'station.hex').write_text(firmware().replace(old, new))
+        output = self.prepare(dos=True)
+        self.assertIn('PDR=0x0003 expected=6 actual=4 length mismatch', output)
+        self.assertIn(hashlib.sha256(b'\xde\xc0' + expected).hexdigest(), output)
+
+    def test_dos_defaults_do_not_replace_missing_rf_calibration(self):
+        plug = srec(3, 0xff000000, struct.pack('<III', 0x202, 0x7e1818, 2))
+        (self.directory / 'station.hex').write_text(firmware(extra=plug))
+        self.prepare(dos=True, error='Required plug PDR')
 
 
 if __name__ == '__main__':

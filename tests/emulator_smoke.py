@@ -54,7 +54,17 @@ def stop_child(proc):
 
 
 def valid_output(name, text, suite="genesis"):
+    if suite == "flash":
+        if name == "version":
+            return text.strip() == f"Prism2Flash {VERSION}"
+        if name in ("program_missing_files", "verify_missing_files", "program_local_missing_files", "verify_local_missing_files"):
+            return "Cannot open firmware file:" in text
+        return f"Prism2Flash {VERSION}" in text and "Fresh full before/after captures" in text
     if suite == "firmware":
+        if name == "initial_bootstrap":
+            return "Initial RAM bootstrap: 24 bytes, 3 S3 records" in text and "No card access or loading" in text
+        if name == "reject_initial_as_firmware":
+            return "Image rejected" in text and "Missing S7, component" in text
         if name == "version":
             return text.strip() == f"Prism2Firmware {VERSION}"
         if name.startswith("inspect_"):
@@ -80,7 +90,7 @@ def valid_output(name, text, suite="genesis"):
         return (("NV capture failed:" in text and ("Cannot own PCMCIA card" in text or "No card.resource" in text))
                 or "Cannot create a NEW backup directory" in text)
     if name in ("inspect", "probe8", "probe16", "inspect_again",
-                "inspect_transaction", "probe_transaction"):
+                "inspect_transaction", "probe_transaction", "probe_transaction_ram"):
         return ("Operation blocked: a verified timestamped full-flash backup is required." in text
                 and "no card access was attempted" in text)
     active = name in ("info", "info_again")
@@ -177,13 +187,13 @@ def main():
     parser.add_argument("--model", choices=("A600", "A1200", "A3000"), required=True)
     parser.add_argument("--cpu", choices=("68000", "68020", "68030", "68060"), required=True)
     parser.add_argument("--rom", type=Path, required=True)
-    parser.add_argument("--suite", choices=("genesis", "firmware"), default="genesis")
+    parser.add_argument("--suite", choices=("genesis", "firmware", "flash"), default="genesis")
     parser.add_argument("--binary", type=Path)
     parser.add_argument("--env-helper", type=Path, default=Path("build-amiga/emulator_env"))
     parser.add_argument("--output", type=Path, default=Path("build-emulator"))
     parser.add_argument("--timeout", type=float, default=45)
     args = parser.parse_args()
-    args.program = "Prism2Firmware" if args.suite == "firmware" else "Prism2Genesis"
+    args.program = {"firmware": "Prism2Firmware", "genesis": "Prism2Genesis", "flash": "Prism2Flash"}[args.suite]
     if args.binary is None:
         args.binary = Path("build-amiga") / args.program
     if args.suite == "firmware":
@@ -194,6 +204,8 @@ def main():
             ("help", "--help", 0), ("version", "--version", 0),
             ("inspect_flash", f"inspect {prefix}station.hex", 0),
             ("inspect_ram", f"inspect {prefix}ram.hex", 0),
+            ("initial_bootstrap", f"inspect-initial {prefix}initial.hex", 0),
+            ("reject_initial_as_firmware", f"inspect {prefix}initial.hex", 20),
             ("validate_flash", f"validate {prefix}station.hex --mode flash" + options, 0),
             ("validate_ram", f"validate {prefix}ram.hex --mode ram" + options, 0),
             ("validate_pair", f"validate {prefix}station.hex --mode flash" + options + f" --primary {prefix}primary.hex", 0),
@@ -207,11 +219,25 @@ def main():
             ("missing_args", "validate", 20), ("reject_flash", "flash", 20),
             ("help_after_errors", "--help", 0),
         ]
+    elif args.suite == "flash":
+        options = " --primary missing-primary.hex --station missing-station.hex --output Work:20261018T104000Z --utc 20261018T104000Z --utc-offset 0"
+        CASES = [
+            ("help", "--help", 0), ("version", "--version", 0),
+            ("missing_args", "program", 20),
+            ("program_missing_files", "program --initial missing-initial.hex" + options, 20),
+            ("verify_missing_files", "verify" + options, 20),
+            ("program_local_missing_files", "program --initial missing-initial.hex --primary missing-primary.hex --station missing-station.hex --backup-dir Work:P2Backups", 20),
+            ("verify_local_missing_files", "verify --primary missing-primary.hex --station missing-station.hex --backup-dir Work:P2Backups", 20),
+            ("bad_offset", "program --initial missing-initial.hex" + options.replace("--utc-offset 0", "--utc-offset 9999"), 20),
+            ("reject_force", "program --force yes" + options, 20),
+            ("help_after_errors", "--help", 0),
+        ]
     else:
         prefix="RunProg:" if args.emulator=="copperline" else "DH0:"
         CASES=CASES[:-1]+[
             ("inspect_transaction", "inspect --output Work:20261018T104000Z --utc 20261018T104000Z", 20),
             ("probe_transaction", "probe --sram 16 --output Work:20261018T104000Z --utc 20261018T104000Z", 20),
+            ("probe_transaction_ram", "probe --sram 16 --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset 0", 20),
             ("preflight_ram", "preflight --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset 0", 20),
             ("preflight_offset", "preflight --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset invalid", 20),
             ("backup_bad_utc", "backup --output RAM:invalid --utc invalid", 20),

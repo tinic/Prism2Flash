@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "backup.h"
+#include "bootstrap.h"
+#include "file.h"
+#include "host_flash.h"
 #include "operation.h"
 #include "p2_stdio.h"
 #include "platform.h"
@@ -7,6 +10,8 @@
 #include "preflight.h"
 #endif
 #include "version.h"
+#include <charconv>
+#include <cstring>
 #include <optional>
 #include <string_view>
 
@@ -25,6 +30,9 @@ static void usage(void) {
        "  Prism2Genesis info\n"
        "  Prism2Genesis inspect\n"
        "  Prism2Genesis probe --sram 8|16\n"
+       "  Prism2Genesis bootstrap --initial ID010001.HEX --output "
+       "NEW_DIRECTORY\n"
+       "    --utc YYYYMMDDTHHMMSSZ --utc-offset MINUTES_EAST_OF_UTC\n"
        "Host model transaction: append --output NEW_DIRECTORY --utc "
        "YYYYMMDDTHHMMSSZ\n"
        "to inspect/probe to save and verify fresh before/after NV captures.\n"
@@ -32,21 +40,39 @@ static void usage(void) {
        "firmware/PDA.\n"
        "probe resets the card and writes four RAM bytes, then restores normal "
        "mode.\n"
-       "Native inspect/probe are blocked pending physical profile and backup "
-       "gate review.\n"
+       "Native MA401 x16 probe: append --output NEW_DIRECTORY --utc "
+       "YYYYMMDDTHHMMSSZ\n"
+       "  --utc-offset MINUTES_EAST_OF_UTC; fresh before/after backups are "
+       "mandatory.\n"
+       "Native inspect, x8 probing and probing without backup arguments "
+       "remain blocked.\n"
        "backup reads all AUX NV addresses twice; it never initializes or "
        "resets the card.\n"
        "Select SRAM width from the exact card's hardware documentation.\n"
-       "No firmware loading or flash programming is implemented in this "
-       "milestone.");
+       "bootstrap loads the pinned DOS initial code into RAM, with full "
+       "before/after captures.\n"
+       "No native flash programming command is enabled.");
 }
 namespace {
 struct Options {
-  enum class Command { Info, Inspect, Probe } command;
+  enum class Command { Info, Inspect, Probe, Bootstrap } command;
   unsigned bits = 0;
   const char *directory = nullptr, *utc = nullptr;
+  int offset_east = 10000;
+  bool native_profile = false;
+  const char *initial = nullptr;
   static std::optional<Options> parse(int argc, char **argv) {
     const char *directory = nullptr, *utc = nullptr;
+    int east = 10000;
+    if (argc >= 4 && std::string_view{argv[argc - 2]} == "--utc-offset") {
+      const char *text = argv[argc - 1];
+      const char *end = text + std::strlen(text);
+      auto parsed = std::from_chars(text, end, east);
+      if (parsed.ec != std::errc{} || parsed.ptr != end || east < -840 ||
+          east > 840)
+        return std::nullopt;
+      argc -= 2;
+    }
     if (argc >= 6 && std::string_view{argv[argc - 4]} == "--output" &&
         std::string_view{argv[argc - 2]} == "--utc") {
       directory = argv[argc - 3];
@@ -54,14 +80,21 @@ struct Options {
       argc -= 4;
     }
     if (argc == 2 && std::string_view{argv[1]} == "info")
-      return directory ? std::nullopt : std::optional{Options{Command::Info}};
+      return directory || east != 10000 ? std::nullopt
+                                        : std::optional{Options{Command::Info}};
     if (argc == 2 && std::string_view{argv[1]} == "inspect")
-      return Options{Command::Inspect, 0, directory, utc};
+      return Options{Command::Inspect, 0, directory, utc, east};
+    if (argc == 4 && std::string_view{argv[1]} == "bootstrap" &&
+        std::string_view{argv[2]} == "--initial" && directory && utc &&
+        east != 10000)
+      return Options{
+          Command::Bootstrap, 16, directory, utc, east, true, argv[3]};
     if (argc == 4 && std::string_view{argv[1]} == "probe" &&
         std::string_view{argv[2]} == "--sram") {
       const std::string_view width = argv[3];
       if (width == "8" || width == "16")
-        return Options{Command::Probe, width == "8" ? 8u : 16u, directory, utc};
+        return Options{Command::Probe, width == "8" ? 8u : 16u, directory, utc,
+                       east};
     }
     return std::nullopt;
   }
@@ -71,33 +104,46 @@ void show_id(const char *label, const p2::Identity &id) {
             static_cast<unsigned>(id.id), static_cast<unsigned>(id.variant),
             static_cast<unsigned>(id.major), static_cast<unsigned>(id.minor));
 }
-p2::CardStatus inspect(p2::Card &card, const Options &options) {
-  if (auto result = card.initialize(); !result)
-    return result;
+p2::CardStatus show_firmware(p2::Card &card, bool ma401,
+                             const char *primary_label) {
   auto nic = card.identity(P2_RID_NICID);
   if (!nic)
     return std::unexpected{nic.error()};
   show_id("NIC", *nic);
-  if (!p2::Card::supports(nic->id)) {
-    p2_fprintf(stderr, "NIC is outside the initial HFA3842 profile list.\n");
+  const bool supported = ma401 ? nic->id == 0x800c && nic->variant == 0 &&
+                                     nic->major == 1 && nic->minor == 0
+                               : p2::Card::supports(nic->id);
+  if (!supported)
     return std::unexpected{P2_E_UNSUPPORTED};
-  }
   auto primary = card.identity(P2_RID_PRIID);
   if (!primary)
     return std::unexpected{primary.error()};
-  show_id("PRI", *primary);
+  show_id(primary_label, *primary);
   if (auto station = card.identity(P2_RID_STAID); station)
     show_id("STA", *station);
   else if (station.error() == P2_E_COMMAND)
     puts("STA: unavailable (primary-only firmware may be running)");
   else
     return std::unexpected{station.error()};
-  std::array<uint8_t, P2_PDA_SIZE> pda;
-  auto address = card.read_pda(pda);
-  if (!address)
-    return std::unexpected{address.error()};
-  p2_printf("PDA: validated 1024-byte read at 0x%08lx\n",
-            static_cast<unsigned long>(*address));
+  return {};
+}
+p2::CardStatus inspect(p2::Card &card, const Options &options) {
+  if (options.native_profile)
+    // DOS Genesis entry does not require a preliminary INIT. Exact identity
+    // and SRAM checks came from this claim's verified NV backup, not a RID.
+    puts("PDA: CRC/NIC/SRAM validated from the fresh, owned NV backup.");
+  else {
+    if (auto result = card.initialize(); !result)
+      return result;
+    if (auto result = show_firmware(card, false, "PRI"); !result)
+      return result;
+    std::array<uint8_t, P2_PDA_SIZE> pda;
+    auto address = card.read_pda(pda);
+    if (!address)
+      return std::unexpected{address.error()};
+    p2_printf("PDA: validated 1024-byte read at 0x%08lx\n",
+              static_cast<unsigned long>(*address));
+  }
   if (options.command != Options::Command::Probe)
     return {};
   p2_printf("Testing Genesis with %u-bit SRAM; no flash commands.\n",
@@ -111,6 +157,11 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
             static_cast<unsigned long>(report.verification_reads),
             static_cast<unsigned long>(report.disagreements),
             report.aux_was_enabled ? "enabled" : "disabled");
+  p2_printf("Genesis COR=0x%02x/0x%02x HCR=0x%02x; completed latch cycles=%u\n",
+            report.cor_used | 0x80, report.cor_used,
+            options.bits == 16 ? 0x0f : 0x1f, report.genesis_latches);
+  if (report.io_configuration_restored)
+    puts("Original I/O configuration restored before normal firmware check.");
   if (report.aux_cleanup_error)
     p2_fprintf(stderr, "Restoring AUX state: %s\n",
                p2_error_string(report.aux_cleanup_error));
@@ -122,15 +173,48 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
   // Readback alone does not prove the original firmware restarted.
   if (auto result = card.initialize(); !result)
     return result;
-  primary = card.identity(P2_RID_PRIID);
-  if (!primary)
-    return std::unexpected{primary.error()};
-  show_id("PRI after reset", *primary);
+  if (auto result =
+          show_firmware(card, options.native_profile, "PRI after reset");
+      !result)
+    return result;
   puts("Genesis RAM probe passed; normal firmware responded.");
   return {};
 }
 [[maybe_unused]] p2::CardStatus inspect_work(p2::Card &card, void *context) {
   return inspect(card, *static_cast<const Options *>(context));
+}
+[[maybe_unused]] p2::CardStatus bootstrap_work(p2::Card &card, void *context) {
+  const auto &image = *static_cast<const p2::firmware::InitialImage *>(context);
+  const auto loaded = p2::bootstrap::load(card, card.transport(), image);
+  p2_printf("Genesis RAM byte-write lanes verified=%u\n",
+            loaded.byte_writes_verified);
+  p2_printf("Initial RAM: error=%d latches=%u written=%lu verified=%lu "
+            "skipped=%lu started=%u recovery=%u\n",
+            loaded.error, loaded.genesis.genesis_latches,
+            static_cast<unsigned long>(loaded.bytes_written),
+            static_cast<unsigned long>(loaded.bytes_verified),
+            static_cast<unsigned long>(loaded.bytes_skipped),
+            loaded.initial_started, loaded.recovery_required);
+  if (loaded.error)
+    return std::unexpected{loaded.error};
+  auto pda = p2::ByteBuffer::allocate(P2_PDA_SIZE);
+  if (!pda)
+    return std::unexpected{P2_E_IO};
+  if (auto r = card.read_nv(0x7f0000, pda.bytes()); !r)
+    return r;
+  const auto error = p2_validate_pda(pda.bytes().data());
+  p2_printf("Initial RAM NV PDA validation=%d; no INIT issued.\n", error);
+  if (error)
+    return std::unexpected{P2_E_PDA};
+  const auto identity = p2::flash::identify(card);
+  if (!identity)
+    return std::unexpected{identity.error()};
+  p2_printf("JEDEC manufacturer=%02x device=%02x; reset to read mode; no "
+            "erase/program.\n",
+            identity->manufacturer, identity->device);
+  return identity->manufacturer == 0xbf && identity->device == 0xd5
+             ? p2::CardStatus{}
+             : p2::CardStatus{std::unexpected{P2_E_UNSUPPORTED}};
 }
 } // namespace
 int main(int argc, char **argv) {
@@ -161,14 +245,37 @@ int main(int argc, char **argv) {
     usage();
     return 20;
   }
+  if (options->command == Options::Command::Bootstrap) {
+#ifdef PRISM2_AMIGA
+    auto file = p2::File::open(options->initial, "rb");
+    if (!file)
+      return 20;
+    auto image = p2::firmware::InitialImage::read(*file);
+    if (!image || !file.close() ||
+        image->source_sha256() != "1d326cee5887005e9b755e74e5578ccfbd74ae5e7ebc"
+                                  "19c1af23e61b7a76c018") {
+      p2_fprintf(stderr, "Initial image must match original DOS ID010001.HEX; "
+                         "no card access.\n");
+      return 20;
+    }
+    return p2::operation::run_native(options->directory, options->utc,
+                                     "bootstrap-x16", bootstrap_work, &*image,
+                                     options->offset_east);
+#else
+    return 20; // Host bootstrap protocol is exercised by a separate model.
+#endif
+  }
 #if defined(PRISM2_AMIGA) || defined(PRISM2_REQUIRE_BACKUP)
 #if defined(PRISM2_AMIGA) || defined(PRISM2_NATIVE_TRANSACTION_TEST)
   if (options->command != Options::Command::Info && options->directory) {
     auto work_options = *options;
+    work_options.native_profile = true;
     return p2::operation::run_native(
         options->directory, options->utc,
-        options->command == Options::Command::Inspect ? "inspect" : "probe",
-        inspect_work, &work_options);
+        options->command == Options::Command::Inspect ? "inspect"
+        : options->bits == 16                         ? "probe-x16"
+                                                      : "probe-x8",
+        inspect_work, &work_options, options->offset_east);
   }
 #endif
   // Refuse before opening the slot. An existing file or force option must

@@ -54,6 +54,10 @@ struct p2_bus {
   uint32_t (*now_us)(void *);
   int (*present)(void *);
   int (*cancelled)(void *);
+  uint8_t (*read8)(void *, uint16_t) = nullptr;
+  void (*write8)(void *, uint16_t, uint8_t) = nullptr;
+  // Optional fast, hardware-clocked minimum 1 us gap for streamed NV words.
+  void (*nv_word_gap)(void *) = nullptr;
 };
 namespace p2 {
 struct Identity {
@@ -72,22 +76,33 @@ struct WriteReport {
 };
 struct ProbeReport {
   unsigned sram_bits = 0;
-  uint8_t cor_before = 0, ccsr_before = 0;
+  uint8_t cor_before = 0, ccsr_before = 0, cor_used = 0;
   std::array<uint8_t, 4> readback{};
   p2_error error = P2_OK;
   p2_error cleanup_error = P2_OK;
   p2_error aux_cleanup_error = P2_OK;
   uint32_t verification_reads = 0, disagreements = 0;
+  unsigned genesis_latches = 0;
   bool aux_was_enabled = false, reset_started = false;
+  bool io_configuration_restored = false;
+  bool aux_state_acquired = false;
 };
 class Card {
 public:
   explicit Card(p2_bus &bus) : bus_(bus) {}
+  [[nodiscard]] p2_bus &transport() { return bus_; }
   Card(const Card &) = delete;
   Card &operator=(const Card &) = delete;
   [[nodiscard]] CardStatus enable_aux(bool enable);
+  [[nodiscard]] CardResult<uint16_t> aux_control();
+  [[nodiscard]] CardStatus ensure_aux_enabled();
   [[nodiscard]] CardStatus read_aux(uint32_t address, std::span<uint8_t> data);
   [[nodiscard]] CardStatus read_nv(uint32_t address, std::span<uint8_t> data);
+  // True byte cycles, required by the DOS host-flash JEDEC algorithm.
+  // These never substitute word writes or read/modify/write a neighbour.
+  [[nodiscard]] CardResult<uint8_t> read_nv_byte(uint32_t address);
+  [[nodiscard]] CardStatus write_nv_byte(uint32_t address, uint8_t value);
+  [[nodiscard]] CardStatus test_ram_byte_access(uint32_t address);
   [[nodiscard]] CardStatus write_aux(uint32_t address,
                                      std::span<const uint8_t> data);
   // Writes each bounded RAM chunk once, then requires two consecutive exact
@@ -99,6 +114,10 @@ public:
   [[nodiscard]] CardResult<uint32_t>
   read_pda(std::span<uint8_t, P2_PDA_SIZE> data);
   [[nodiscard]] ProbeReport probe(unsigned sram_bits);
+  // Split entry/exit for the DOS initial loader. A failed RAM load must keep
+  // its recovery state; callers explicitly decide when to leave Genesis.
+  [[nodiscard]] ProbeReport enter_genesis(unsigned sram_bits);
+  [[nodiscard]] ProbeReport leave_genesis(ProbeReport);
   [[nodiscard]] static bool supports(uint16_t nic_id);
 
 private:
@@ -112,8 +131,10 @@ private:
                                     uint16_t space,
                                     std::optional<uint32_t> started = {});
   [[nodiscard]] CardStatus reset(uint8_t cor, uint8_t hcr);
+  [[nodiscard]] CardStatus seek_byte(uint32_t address, uint16_t space);
   [[nodiscard]] CardStatus restore_aux(bool was_enabled);
   p2_bus &bus_;
+  bool genesis_active_ = false;
 };
 } // namespace p2
 const char *p2_error_string(int);

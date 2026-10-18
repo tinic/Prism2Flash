@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "backup.h"
+#include "eclock_wait.h"
 #include "mock.h"
 #include "sha256.h"
 #include <stdio.h>
@@ -61,8 +62,17 @@ static void transfer_tests(void) {
   uint8_t b[260];
   unsigned ops;
   init_nv(&m);
+  m.min_nv_gap = 1;
+  m.nv_selector_hides_control = true;
+  m.regs[P2_CONTROL / 2] = 0xc000;
   CHECK(!code(p2::Card{m.bus}.read_nv(126, b)));
-  CHECK(!memcmp(b, m.nv_memory + 126, sizeof(b)) && m.aux_space == 1);
+  CHECK(!memcmp(b, m.nv_memory + 126, sizeof(b)) && m.aux_space == 0);
+  CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()));
+  m.aux_space = 1; // Reproduce the retained selector from an older caller.
+  CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()) && m.aux_space == 0);
+  m.bus.nv_word_gap = [](void *opaque) {
+    static_cast<p2_mock *>(opaque)->clock += 2;
+  };
   CHECK(!code(p2::Card{m.bus}.read_nv(0x7ffffe, std::span{b}.first(2))));
   CHECK(!memcmp(b, m.nv_memory + 0x7ffffe, 2));
   ops = m.operations;
@@ -78,7 +88,21 @@ static void transfer_tests(void) {
         !m.configuration_writes);
   p2_mock_free(&m);
 }
-static void capture_tests(int enabled, int mismatch) {
+static void eclock_tests() {
+  CHECK(p2::nv_gap_ticks(709379) == 2);
+  CHECK(p2::nv_gap_ticks(715909) == 2);
+  CHECK(p2::nv_gap_ticks(1000000) == 2);
+  CHECK(p2::nv_gap_ticks(2000001) == 4);
+  for (uint32_t start : {0u, 0xfffffffeu, 0xffffffffu}) {
+    uint32_t clock = start, calls = 0;
+    p2::wait_nv_gap(2, [&] {
+      ++calls;
+      return clock++;
+    });
+    CHECK(calls == 3 && uint32_t(clock - start) == 3);
+  }
+}
+static void capture_tests(int enabled, int mismatch, bool hidden = false) {
   struct p2_mock m;
   p2::backup::CaptureReport result;
   FILE *a = tmpfile(), *b = tmpfile();
@@ -89,6 +113,8 @@ static void capture_tests(int enabled, int mismatch) {
   CHECK(a && b);
   init_nv(&m);
   m.regs[P2_CONTROL / 2] = enabled ? 0xc000 : 0;
+  m.nv_selector_hides_control = hidden;
+  m.aux_space = hidden ? 1 : 0;
   for (i = 0; i < 5; ++i)
     m.regs[regids[i] / 2] = regs[i];
   if (mismatch)
@@ -116,6 +142,46 @@ static void capture_tests(int enabled, int mismatch) {
   fclose(a);
   fclose(b);
   p2_mock_free(&m);
+}
+static void single_capture_tests() {
+  for (bool corrupt_alias : {false, true}) {
+    p2_mock m;
+    init_nv(&m);
+    m.nv_selector_hides_control = true;
+    if (!corrupt_alias)
+      m.nv_unstable_until = m.clock + 2000000;
+    if (corrupt_alias)
+      m.nv_memory[0xe8258] ^= 0x20;
+    FILE *file = tmpfile();
+    CHECK(file);
+    const auto result = p2::backup::capture_single(m.bus, *file, 0x20000);
+    CHECK(result.error == (corrupt_alias ? P2_E_VERIFY : P2_OK));
+    CHECK(result.bytes[0] == p2::backup::NvBytes && !result.bytes[1]);
+    CHECK(result.mismatch_bytes == (corrupt_alias ? 1u : 0u));
+    CHECK(!corrupt_alias || result.first_mismatch == 0xe8258);
+    CHECK(!m.payload_writes && !m.command_writes && !m.configuration_writes);
+    CHECK(ftell(file) == p2::backup::NvBytes);
+    fclose(file);
+    p2_mock_free(&m);
+  }
+}
+static void lost_aux_tests() {
+  for (bool enabled : {false, true}) {
+    p2_mock m;
+    init_nv(&m);
+    m.regs[P2_CONTROL / 2] = enabled ? 0xc000 : 0;
+    m.drop_aux_at_nv_read = 8;
+    FILE *file = tmpfile();
+    CHECK(file);
+    auto result = p2::backup::capture_single(m.bus, *file, 0x20000);
+    CHECK(result.error == P2_E_VERIFY && result.aux_losses == 1);
+    CHECK(!result.bytes[0] && !m.regs[P2_CONTROL / 2]);
+    CHECK(m.aux_enables == (enabled ? 0u : 1u));
+    CHECK(result.cleanup_error == (enabled ? P2_E_VERIFY : P2_OK));
+    CHECK(!m.payload_writes && !m.command_writes && !m.configuration_writes);
+    fclose(file);
+    p2_mock_free(&m);
+  }
 }
 static void failure_tests(void) {
   struct p2_mock m;
@@ -172,9 +238,13 @@ int main(void) {
   hash_tests();
   pda_oracle_test();
   transfer_tests();
+  eclock_tests();
   capture_tests(0, 0);
   capture_tests(1, 0);
+  capture_tests(1, 0, true);
   capture_tests(0, 1);
+  single_capture_tests();
+  lost_aux_tests();
   failure_tests();
   CHECK(p2::backup::valid_utc("20261018T104000Z"));
   CHECK(p2::backup::valid_utc("20240229T235959Z"));

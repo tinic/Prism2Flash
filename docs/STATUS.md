@@ -1,3 +1,23 @@
+# Current hardware status — 2026-10-18
+
+**The actual MA401 runs PRI 1.1.1 / STA 1.7.4 after a cold power cycle.**
+Native SST programming verified all 128 KiB. Two complete saved/reopened 8 MiB
+post-program readbacks matched the intended image, preserving CIS/PDA.
+A later cold-boot INIT returned all three expected NIC/PRI/STA identities without
+loading host RAM code. The slot was released and Claude was notified that the
+A1200 was available at 23:10 UTC for dependent driver testing.
+
+**Open tool issue:** sustained NV reads while the MAC runs can disagree;
+post-INIT capture failed, and per-word GetSysTime pacing subsequently hit its
+240-second deadline. These failed transactions remain recorded as failures.
+E-clock pacing and refusal on mid-capture AUX loss have passed offline checks;
+physical timing qualification remains pending. No further hardware operations
+are running. WPA2 association/traffic testing belongs to the driver handoff.
+
+See [sanitized evidence](evidence/ma401-upgrade-2026-10-18.json),
+[hardware history](HARDWARE-TESTING.md) and [quick start](QUICKSTART.md).
+The sections below retain historical milestones.
+
 # Original implementation and emulator baseline — 2026-10-18
 
 Implemented the first Genesis probe milestone in the separate Prism2Flash

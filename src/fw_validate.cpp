@@ -44,6 +44,8 @@ public:
       const auto id = le16(bytes_.data() + pos + 2);
       if (!id)
         break;
+      if (!words || std::size_t{words} + 1 > (bytes_.size() - pos) / 2)
+        return std::nullopt;
       if (id == type)
         return bytes_.subspan(pos + 4, (words - 1) * 2);
       pos += (words + 1) * 2;
@@ -86,8 +88,17 @@ private:
   explicit PdaView(std::span<const uint8_t> bytes) : bytes_(bytes) {}
   std::span<const uint8_t> bytes_;
 };
+// DOS warns and retains the HEX bytes for missing/short PDRs. Restrict that
+// behavior to known optional configuration fields; identity, regulatory and
+// RF calibration records remain mandatory and byte-exact.
+bool optional_default(uint32_t pdr, PlugPolicy policy) {
+  constexpr std::array<uint32_t, 12> optional{
+      1, 3, 5, 0x402, 0x403, 0x404, 0x408, 0x405, 0x406, 0x302, 0x303, 0x412};
+  return policy == PlugPolicy::DosOptionalDefaults &&
+         std::find(optional.begin(), optional.end(), pdr) != optional.end();
+}
 Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
-                   const PdaView &pda) {
+                   const PdaView &pda, PlugPolicy policy) {
   if (image.component().id != 0x15 && image.component().id != 0x1f)
     return fail(Errc::Incompatible,
                 "Only PRI and STA components are supported for validation");
@@ -129,13 +140,26 @@ Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
     if (!image.contains(plug.address, plug.length))
       return fail(Errc::Incompatible,
                   "PDA plug destination is outside image payload");
-    for (const auto &other : image.plugs().first(i))
+    const auto inactive = [&](const Plug &candidate) {
+      const auto value = pda.find(static_cast<uint16_t>(candidate.pdr));
+      return optional_default(candidate.pdr, policy) &&
+             (!value || value->size() != candidate.length);
+    };
+    if (inactive(plug))
+      continue; // A retained image default performs no destination write.
+    for (const auto &other : image.plugs().first(i)) {
+      if (inactive(other))
+        continue;
       if (plug.address < other.address + other.length &&
           other.address < plug.address + plug.length)
         return fail(Errc::Incompatible, "Overlapping PDA plug destinations");
+    }
     if (plug.pdr == UINT32_MAX)
       continue; // Reserved filename field, not card calibration.
     const auto value = pda.find(static_cast<uint16_t>(plug.pdr));
+    if ((!value || value->size() != plug.length) &&
+        optional_default(plug.pdr, policy))
+      continue;
     if (!value)
       return fail(Errc::Pda,
                   "Required plug PDR is missing; defaults are not accepted");
@@ -288,8 +312,8 @@ private:
 } // namespace
 
 Status Image::validate(Mode mode, const CardSnapshot &input,
-                       std::span<const uint8_t> bytes,
-                       const Image *primary) const {
+                       std::span<const uint8_t> bytes, const Image *primary,
+                       PlugPolicy policy) const {
   auto pda = PdaView::checked(bytes);
   if (!pda)
     return std::unexpected{pda.error()};
@@ -299,7 +323,7 @@ Status Image::validate(Mode mode, const CardSnapshot &input,
   if (primary) {
     if (primary->component().id != 0x15 || component().id != 0x1f)
       return fail(Errc::Incompatible, "Replacement pair must be PRI plus STA");
-    if (auto result = check_image(*primary, mode, *card, *pda); !result)
+    if (auto result = check_image(*primary, mode, *card, *pda, policy); !result)
       return result;
     bool found = false;
     for (const auto &range : primary->ranges()) {
@@ -321,15 +345,16 @@ Status Image::validate(Mode mode, const CardSnapshot &input,
           return fail(Errc::Incompatible,
                       "Primary/station payload ranges overlap");
   }
-  return check_image(*this, mode, *card, *pda);
+  return check_image(*this, mode, *card, *pda, policy);
 }
 
-Result<PreparedImage>
-PreparedImage::create(ImageSource target, Mode mode, const CardSnapshot &card,
-                      std::span<const uint8_t> bytes,
-                      std::optional<ImageSource> primary) {
-  if (auto checked = target.image.validate(mode, card, bytes,
-                                           primary ? &primary->image : nullptr);
+Result<PreparedImage> PreparedImage::create(ImageSource target, Mode mode,
+                                            const CardSnapshot &card,
+                                            std::span<const uint8_t> bytes,
+                                            std::optional<ImageSource> primary,
+                                            PlugPolicy policy) {
+  if (auto checked = target.image.validate(
+          mode, card, bytes, primary ? &primary->image : nullptr, policy);
       !checked)
     return std::unexpected{checked.error()};
   if (mode == Mode::Flash && target.image.component().id == 0x15)
@@ -369,11 +394,27 @@ PreparedImage::create(ImageSource target, Mode mode, const CardSnapshot &card,
         if (plug.pdr == UINT32_MAX) {
           std::fill(destination.begin(), destination.end(), 0);
           const auto count =
-              std::min(source.basename.size(), destination.size() - 1);
-          std::copy_n(source.basename.begin(), count, destination.begin());
+              policy == PlugPolicy::DosOptionalDefaults
+                  ? std::min({source.basename.size(), destination.size(),
+                              std::size_t{20}})
+                  : std::min(source.basename.size(), destination.size() - 1);
+          for (std::size_t i = 0; i < count; ++i) {
+            char c = source.basename[i];
+            if (policy == PlugPolicy::DosOptionalDefaults && c >= 'a' &&
+                c <= 'z')
+              c -= 'a' - 'A';
+            destination[i] = static_cast<uint8_t>(c);
+          }
         } else {
-          // validate() has already required this exact PDR and length.
           const auto value = pda->find(static_cast<uint16_t>(plug.pdr));
+          if ((!value || value->size() != destination.size()) &&
+              optional_default(plug.pdr, policy)) {
+            if (!prepared.fallbacks_.push_back(PlugFallback{
+                    plug.pdr, plug.length,
+                    value ? static_cast<uint32_t>(value->size()) : 0, !value}))
+              return fail(Errc::Memory, "Out of memory recording DOS defaults");
+            continue; // Keep the entire original image field, no partial copy.
+          }
           if (!value || value->size() != destination.size())
             return fail(Errc::Pda, "PDA changed during preparation");
           std::copy(value->begin(), value->end(), destination.begin());
@@ -413,7 +454,7 @@ PreparedImage::create(ImageSource target, Mode mode, const CardSnapshot &card,
           [&](const auto &s) {
             return s.program && s.start == b.address + 2 && s.start == end;
           });
-      if (stamp == target.image.signatures().end() || a.data.size() <= 2 ||
+      if (stamp == target.image.signatures().end() || a.data.size() < 2 ||
           b.address < a.address)
         return fail(Errc::Incompatible,
                     "Prepared primary/station ranges overlap");
@@ -426,6 +467,10 @@ PreparedImage::create(ImageSource target, Mode mode, const CardSnapshot &card,
             signature.start > end - 2)
           return fail(Errc::Incompatible,
                       "STA signature would overwrite a PRI signature");
+      if (a.data.size() == 2) {
+        a.data = {}; // PRI's standalone two-byte signature placeholder.
+        continue;
+      }
       auto shortened = ByteBuffer::allocate(a.data.size() - 2);
       if (!shortened)
         return fail(Errc::Memory, "Out of memory merging signature boundary");
@@ -435,6 +480,15 @@ PreparedImage::create(ImageSource target, Mode mode, const CardSnapshot &card,
     }
   }
   auto &segments = prepared.segments_;
+  std::size_t retained = 0;
+  for (std::size_t i = 0; i < segments.size(); ++i) {
+    if (!segments[i].data.size())
+      continue;
+    if (retained != i)
+      segments[retained] = std::move(segments[i]);
+    ++retained;
+  }
+  segments.truncate(retained);
   std::sort(segments.begin(), segments.end(),
             [](const auto &a, const auto &b) { return a.address < b.address; });
   for (std::size_t i = 1; i < segments.size(); ++i)
@@ -472,5 +526,19 @@ PreparedImage::create(ImageSource target, Mode mode, const CardSnapshot &card,
 }
 Result<CardSnapshot> CardSnapshot::read(FILE &file) {
   return SnapshotParser{}.read(file);
+}
+Result<CardSnapshot> CardSnapshot::from_pda(std::span<const uint8_t> bytes) {
+  auto pda = PdaView::checked(bytes);
+  if (!pda)
+    return std::unexpected{pda.error()};
+  const auto nic = pda->find(8), mac = pda->find(0x101);
+  if (!nic || nic->size() != 8 || !mac || mac->size() != 6)
+    return fail(Errc::Pda, "PDA lacks exact NIC/MAC fields");
+  CardSnapshot card;
+  const auto *n = nic->data();
+  card.nic = {le16(n), le16(n + 2), le16(n + 4), le16(n + 6)};
+  card.mac.emplace();
+  std::copy(mac->begin(), mac->end(), card.mac->begin());
+  return pda->bind(card);
 }
 } // namespace p2::firmware

@@ -1,9 +1,71 @@
 # Hardware testing
 
-The user made the A1200 available on 2026-10-18 and requested that it remain
-reserved for Prism2Flash. The first read-only baseline is complete. Existing
-backup prerequisites still prohibit active inspection, reset, Genesis entry
-and programming until full-flash backup support has been verified.
+The actual A1200 Netgear MA401 V2.5 / PD5LMWP200 is the qualified target.
+On 2026-10-18 it passed x16 Genesis, original initial-code loading, SST BF:D5
+identification, programming and complete intended-image readback. Cold-boot
+NIC/PRI/STA identities also matched without a host RAM bootstrap. The slot was
+released and Claude received the firmware results and A1200 at 23:10 UTC.
+See [the sanitized report](evidence/ma401-upgrade-2026-10-18.json).
+
+## Native programming — 2026-10-18
+
+- Bootstrap qualification: `fa2f459`, transaction `20261018T221517Z`.
+  Both byte-write lanes and all 3434 initial-code bytes passed. Four full
+  saved/reopened 8 MiB captures matched the untouched original SHA-256
+  `f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f`.
+- Programming: `be2215b`, transaction `20261018T223118Z`, 16 KiB guest stack.
+  Fresh before captures matched that original hash. SST BF:D5 erase/program
+  passed, with 57,802 non-FF bytes programmed and all 131,072 physical bytes
+  verified against the intended image.
+- The immediate full after-capture failed at zero bytes: final word verification
+  left AUX NV selected, obscuring CONTROL. The tool persisted failure and held
+  card/RAM ownership. After diagnosing this exact state, explicit Ctrl-E
+  released without reset; the previously qualified scratch cleanup changed
+  CONTROL from 6500 to C000 and restored CIS 000b:7300. No flash command,
+  rewrite or reset was issued during recovery. Original failed manifests remain
+  failure evidence, not a retrospectively successful transaction.
+- Completed after-readback: `20261018T223627Z`, two saved/reopened 8 MiB files.
+  Both SHA-256 values were
+  `043064358631045a04efecd6d13a05722ac9eaeb24902b7e88c9616116819598`.
+  Every exposed byte matched the intended 128 KiB image repeated across aliases.
+  CIS/PDA and all gaps were preserved. Intended image SHA-256:
+  `c86451112ad242c9d375260d8113f848b83e77b86d8c48e4ec6f7be49725cd96`.
+- Fix `2bfbbd4` clears AUXOFFSET after the flash engine's final word reads;
+  its regression checks normal register visibility before the next capture.
+
+## Cold boot and handoff — 2026-10-18
+
+- SyncReboot flushed the system before one power cycle. The wrapper's readiness
+  ping failed because playhouse2 lacked NET_RAW; independent HTTP 200 and an
+  Amiga command exit 0 confirmed startup. No second power cycle was issued.
+- `0d5622b`, run `20261018T224923Z-verify`: the fresh full 8 MiB before capture
+  matched `04306435...`. INIT and all expected identities passed:
+  NIC `800c/0/1/0`, PRI `0015/1/1/1`, STA `001f/4/1/7`.
+  No initial image was loaded by the host. This establishes self-booted
+  PRI 1.1.1 / STA 1.7.4; it does not establish WPA2 association or traffic.
+- That verifier's after-capture failed before any saved bytes because consecutive
+  NV pages disagreed. Later attempts retained every partial file and failure;
+  `0c8cd0d` timed out after 240 seconds and 4,186,112 bytes, before INIT.
+  Cleanup completed and no recovery hold remained. There was no extra erase,
+  rewrite or reset in these attempts.
+- Sustained NV capture with the running MAC remains a tool qualification issue.
+  Offline follow-up replaces per-word GetSysTime conversion with an E-clock
+  wait and fails on an unexpected AUX disable. The 240-second deadline,
+  consecutive-page agreement, all-alias check and intended-image comparison
+  remain enforced. Hardware timing of that follow-up is not yet established.
+- At 23:10:49 UTC, Claude was notified that the A1200 was available for dependent
+  driver tests, with exact firmware identities, complete earlier readback hash
+  and the additional verifier limitation.
+
+Private evidence retains all original, partial and completed raw files,
+commands, exact binaries, hashes, phase manifests and cleanup records under
+`/Users/turo/ai/evidence/prism2flash/hardware/`. Raw card identity/calibration
+and proprietary input files are not distributed. See
+[NATIVE-FLASH.md](NATIVE-FLASH.md) for current commands and restrictions.
+
+The following sections are chronological records of earlier releases and
+experiments; their then-current admission holds do not replace the latest
+qualified card profile above.
 
 ## First real A1200 baseline — 0.2.1-alpha.1
 

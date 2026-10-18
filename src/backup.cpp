@@ -13,7 +13,7 @@
 #define P2_CAPTURE_SIMULATION "true"
 #endif
 namespace p2::backup {
-bool valid_utc(std::string_view timestamp) {
+bool valid_utc(std::string_view timestamp, unsigned min_year) {
   constexpr std::array<unsigned, 12> month_days{31, 28, 31, 30, 31, 30,
                                                 31, 31, 30, 31, 30, 31};
   if (timestamp.size() != 16 || timestamp[8] != 'T' || timestamp[15] != 'Z')
@@ -29,7 +29,7 @@ bool valid_utc(std::string_view timestamp) {
   const unsigned hour = (timestamp[9] - '0') * 10 + timestamp[10] - '0';
   const unsigned minute = (timestamp[11] - '0') * 10 + timestamp[12] - '0';
   const unsigned second = (timestamp[13] - '0') * 10 + timestamp[14] - '0';
-  if (year < 2020 || year > 2099 || month < 1 || month > 12 || hour > 23 ||
+  if (year < min_year || year > 2099 || month < 1 || month > 12 || hour > 23 ||
       minute > 59 || second > 59)
     return false;
   const bool leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
@@ -42,6 +42,9 @@ class NvCapture {
 public:
   NvCapture(p2_bus &bus, FILE &first, FILE &second)
       : bus_(bus), card_(bus), files_{&first, &second} {}
+  NvCapture(p2_bus &bus, FILE &first, uint32_t alias_bytes)
+      : bus_(bus), card_(bus), files_{&first, nullptr},
+        alias_bytes_(alias_bytes), passes_(1) {}
   CaptureReport run() {
     if (files_[0] == files_[1]) {
       report_.error = P2_E_ARGUMENT;
@@ -51,6 +54,17 @@ public:
     if (!buffers_) {
       report_.error = P2_E_IO;
       return report_;
+    }
+    if (passes_ == 1) {
+      if (!alias_bytes_ || alias_bytes_ % 4096 || NvBytes % alias_bytes_) {
+        report_.error = P2_E_ARGUMENT;
+        return report_;
+      }
+      canonical_ = ByteBuffer::allocate(alias_bytes_);
+      if (!canonical_) {
+        report_.error = P2_E_IO;
+        return report_;
+      }
     }
     const auto acquisition = acquire();
     const auto cleanup = acquired_ ? finish() : CardStatus{};
@@ -82,6 +96,17 @@ private:
       for (; attempt < 20; ++attempt) {
         if (auto result = within_deadline(); !result)
           return result;
+        if (attempt) {
+          const auto control = card_.aux_control();
+          if (!control)
+            return std::unexpected{control.error()};
+          if (!(*control & 0xc000)) {
+            // Firmware changed access state during our capture. Preserve its
+            // disabled state; do not silently enable a new AUX session.
+            ++report_.aux_losses;
+            return std::unexpected{P2_E_VERIFY};
+          }
+        }
         auto bytes = attempt ? std::span{next} : out.subspan(page, next.size());
         if (auto result =
                 card_.read_nv(address + static_cast<uint32_t>(page), bytes);
@@ -93,11 +118,22 @@ private:
             break;
           ++report_.page_disagreements;
           std::copy(next.begin(), next.end(), out.begin() + page);
+          // Allow AUX data to settle after firmware commands. Only disagreeing
+          // whole-page reads wait; no payload write, voting or byte repair.
+          const bool startup = address == 0 && page == 0 && attempt >= 3;
+          const auto delay =
+              startup ? std::min(100000u * (attempt - 2), 500000u) : 5000u;
+          bus_.delay_us(bus_.ctx, delay);
         }
       }
       // Two consecutive whole pages; never vote or repair individual bytes.
-      if (attempt == 20)
+      if (attempt == 20) {
+        p2_fprintf(stderr,
+                   "NV page unstable at 0x%06lx after 20 reads; CONTROL=%04x\n",
+                   static_cast<unsigned long>(address + page),
+                   bus_.read16(bus_.ctx, P2_CONTROL));
         return std::unexpected{P2_E_VERIFY};
+      }
     }
     return {};
   }
@@ -105,7 +141,10 @@ private:
     if (auto result = available(); !result)
       return result;
     start_ = bus_.now_us(bus_.ctx);
-    control_ = bus_.read16(bus_.ctx, P2_CONTROL);
+    const auto control = card_.aux_control();
+    if (!control)
+      return std::unexpected{control.error()};
+    control_ = *control;
     report_.before[0] = control_;
     if (auto result = available(); !result)
       return result;
@@ -129,7 +168,7 @@ private:
     bool changed = false;
     auto chunk = std::span<uint8_t, 4096>{buffers_.bytes().data(), 4096};
     auto comparison = buffers_.bytes().subspan(4096);
-    for (std::size_t pass = 0; pass < files_.size(); ++pass) {
+    for (std::size_t pass = 0; pass < passes_; ++pass) {
       if (pass && (fflush(files_[0]) || fseek(files_[0], 0, SEEK_SET)))
         return std::unexpected{P2_E_IO};
       Sha256 hash;
@@ -153,6 +192,21 @@ private:
               ++report_.mismatch_bytes;
             }
         }
+        if (passes_ == 1) {
+          if (address < alias_bytes_)
+            std::copy(chunk.begin(), chunk.end(),
+                      canonical_.bytes().begin() + address);
+          else {
+            const auto expected = canonical_.bytes().subspan(
+                address % alias_bytes_, chunk.size());
+            for (std::size_t i = 0; i < chunk.size(); ++i)
+              if (chunk[i] != expected[i]) {
+                if (!report_.mismatch_bytes)
+                  report_.first_mismatch = address + static_cast<uint32_t>(i);
+                ++report_.mismatch_bytes;
+              }
+          }
+        }
         if (fwrite(chunk.data(), 1, chunk.size(), files_[pass]) != chunk.size())
           return std::unexpected{P2_E_IO};
         changed |= std::any_of(chunk.begin() + 1, chunk.end(),
@@ -172,7 +226,7 @@ private:
       report_.sha256[pass] = hash.hex();
     }
     if (!changed || report_.mismatch_bytes ||
-        report_.sha256[0] != report_.sha256[1])
+        (passes_ == 2 && report_.sha256[0] != report_.sha256[1]))
       return std::unexpected{P2_E_VERIFY};
     return {};
   }
@@ -207,6 +261,9 @@ private:
   Card card_;
   std::array<FILE *, 2> files_;
   ByteBuffer buffers_;
+  ByteBuffer canonical_;
+  uint32_t alias_bytes_ = 0;
+  std::size_t passes_ = 2;
   CaptureReport report_;
   uint32_t start_ = 0;
   uint16_t control_ = 0;
@@ -236,6 +293,9 @@ int verify_file(const char *name, const char *expected, uint32_t size) {
 }
 CaptureReport capture(p2_bus &bus, FILE &first, FILE &second) {
   return NvCapture{bus, first, second}.run();
+}
+CaptureReport capture_single(p2_bus &bus, FILE &file, uint32_t alias_bytes) {
+  return NvCapture{bus, file, alias_bytes}.run();
 }
 int run_command(const char *directory, const char *utc) {
   if (!valid_utc(utc) || !std::strstr(directory, utc) ||

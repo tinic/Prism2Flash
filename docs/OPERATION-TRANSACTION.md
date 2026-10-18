@@ -1,24 +1,18 @@
 # Owned before/after operation transaction
 
-## Implemented checkpoint
+## Current native and model paths
 
-`include/operation.h` and `src/operation_runner.cpp` implement shared session
-ordering. `src/operation.cpp` implements the model file journal and native
-admission refusal. `Prism2GenesisSim inspect|probe` accepts appended
-`--output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ` options. Without them the host
-simulator still runs the original protocol-only checks. Both paths are models.
+`include/operation.h` and `src/operation_runner.cpp` share the owned session
+ordering. `src/operation.cpp` implements persistent model/native journals.
+Native admission permits the qualified MA401 x16 probe/bootstrap, validated SST
+programming and content/RID verification paths. Standalone legacy inspection,
+x8 probing and other cards remain refused. See [native commands](NATIVE-FLASH.md).
 
-The native build now includes the shared transaction library, but its native
-journal admission always returns unsupported before filesystem mutation or card
-access. The model factory is excluded from the native binary. Native `inspect`/`probe`,
-including commands with transaction options, still return 20 before opening the
-slot. No CLI flag, saved manifest, candidate profile or old capture enables them.
-
-The sole file journal uses `protocol-model-nv-linear-8m-v1`: a synthetic device
-whose complete NV storage is the linear 8 MiB selector-1 interval. Its CIS tuple
-is 0274:1613. This profile is explicitly unrelated to approval of the actual
-MA401. All its manifests say `simulation_only: true` and
-`hardware_authorization: false`.
+The host-only `protocol-model-nv-linear-8m-v1` factory remains separate from
+native admission. Its synthetic CIS is 0274:1613; a model manifest or saved file
+cannot authorize hardware. `simulation_only` distinguishes those records;
+`hardware_authorization: false` means a persisted report is not an authorization
+capability, including in actual native records.
 
 ## Session sequence
 
@@ -31,15 +25,18 @@ MA401. All its manifests say `simulation_only: true` and
    are refused, including a previously successful operation's directory.
 2. Claim once and configure the non-reset acquisition path. Never call regular
    configuration, release/reclaim, initialize or reset before the backup gate.
-3. Acquire two full before captures with bounded consecutive whole-page reads.
+3. Native: acquire one full before capture, checking every 128 KiB alias against
+   the first physical image. The host model retains two full captures. Use
+   bounded consecutive whole-page reads in both paths.
    Compare passes, check AUX cleanup, flush/close, reopen and verify both exact
    lengths and SHA-256 hashes. Save, close and reopen-verify the before manifest.
 4. Check sticky removal and cancellation again after filesystem verification.
    Only then call the operation, retaining the same exclusive slot claim.
-5. After the operation, including failure, acquire two full after captures if
+5. After the operation, including failure, acquire one full native after capture
+   (two in the host model) if
    the insertion remains accessible. Mask Ctrl-C for this evidence readback;
    preserve the operation's cancellation error and never mask removal.
-6. Verify saved after files/manifest, recheck all four raw files against their
+6. Verify saved after files/manifest, recheck every raw file against its
    acquisition hashes and compare every before/after byte. RAM operations
    require unchanged NV data. An unexpected difference is a failure.
 7. Finish non-reset acquisition configuration, record separate phase errors,
@@ -53,8 +50,8 @@ the regular configure/close path, which resets a native card.
 
 ## Evidence and errors
 
-Each new directory contains `before-read-1.bin`, `before-read-2.bin`,
-`after-read-1.bin`, `after-read-2.bin`, `before.json`, `after.json` and
+Each native directory contains `before-read-1.bin`, `after-read-1.bin`,
+`before.json`, `after.json` and
 `transaction.json`. The parent directory contains the supplied UTC string;
 before/after names separate phases. Partial/empty files remain on failures.
 
@@ -111,9 +108,9 @@ The project instructions in `AGENTS.md` and the hardware contract require
 independent physical-map and operation-gate verification before native enablement.
 Remaining work includes physical decode/hidden-bank review, SRAM corroboration,
 retaining resolved destination ownership across file opens, a native physical-map
-journal with per-phase checked UTC timestamps, profile binding and independent
+journal with best-effort date labels, profile binding and independent
 gate review. Source revision is now recorded in model manifests. Native preflight
-clock/volume diagnostics are implemented below, but are snapshots rather than
+volume diagnostics are implemented below, but are snapshots rather than
 transaction capabilities. Then run a fresh full before/after
 transaction on the reserved A1200 and require unchanged flash for Genesis.
 No hardware operation was performed to develop or audit this checkpoint.
@@ -124,13 +121,10 @@ No hardware operation was performed to develop or audit this checkpoint.
 Prism2Genesis preflight --output Work:Prism2-20261018T120000Z --utc 20261018T120000Z --utc-offset -420
 ```
 
-This example's offset is minutes **east** of UTC; the negative value means
-local time is behind UTC. Supply the actual current reference time and offset
-for the Amiga, including its configured seasonal adjustment. The utility does
-not infer them from the Mac, locale or time zone names. DateStamp is interpreted
-as local time since 1978-01-01, with 50 ticks/second. Invalid fields, offset outside
-±840 minutes or more than 120 seconds of reference skew refuse. A match checks
-consistency with the operator reference; it does not independently establish UTC.
+The UTC/offset arguments in this legacy diagnostic command are optional label
+metadata, not evidence of a correctly set clock. Native card operations do not
+check clock validity, skew, jumps or agreement with a reference. The current
+flashing commands need neither argument; use [the quick start](QUICKSTART.md).
 
 The destination's existing parent is resolved with `Lock`/`NameFromLock`;
 `Info` and `SameLock` check the actual volume, including through assigns. RAM
@@ -138,7 +132,7 @@ and its aliases, unknown filesystem types, write-protected/validating disks,
 invalid disk statistics and insufficient space are refused. The conservative
 filesystem allowlist is AmigaDOS DOS0–DOS8. Other filesystems require review
 before inclusion; their rejection is not a claim that they are volatile.
-Space must cover four 8 MiB acquisition files plus 64 KiB of journal allowance.
+Space must cover two 8 MiB capture files, intended-image buffers and journal allowance.
 The leaf must be new and consist of letters, digits, hyphens or underscores.
 
 The experimental `backup` command also uses the resolved-volume check before
@@ -146,8 +140,7 @@ creating its directory; an assign to RAM no longer passes the old literal-name
 check. This acquisition still does not authorize an impactful operation.
 
 The preflight command creates no directory/files and does not open card.resource. Its
-locks are released on return. It cannot authorize a later command: storage,
-clock and insertion ownership must be reacquired/retained in the eventual native
+locks are released on return. It cannot authorize a later command: storage and insertion ownership must be reacquired/retained in the eventual native
 journal. Native active commands, including appended transaction options, continue
 to refuse before opening the slot. No user-editable profile or approval flag is
 accepted. The C++ MA401 observation validator also returns no hardware authority.

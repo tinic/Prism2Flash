@@ -14,43 +14,49 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 ## [0.8.0-alpha.1] - 2026-10-18
 
-### Changed
-
-- Address DeepSeek P2R9 F1-F4: walk the bounded candidate CIS chain and check
-  MANFID, bound PDA record byte lengths to 512, exercise saved-file tampering
-  independently for all four raw captures, and retain a transaction failure
-  record when an output open fails after directory creation. Real descriptor
-  exhaustion and short-write tests prove both storage gates prevent work.
-- Corroborate the candidate firmware-name offsets (optional F5); these anchors
-  are observations, not proof of physical flash capacity or controller decode.
-- Build the shared owned transaction runner for Amiga. Native transaction
-  admission still refuses before output creation or slot access: no physical
-  map/capability is approved, and the model journal cannot become native by
-  changing a profile flag. Native refusal tests use an aborting backend.
-- Record the source revision in model phase and transaction manifests.
-
-### Added
-
-- Native `preflight --output PATH --utc YYYYMMDDTHHMMSSZ --utc-offset MINUTES`
-  validates an explicit local-to-UTC offset, calendar fields and clock skew,
-  resolves assigns through AmigaDOS locks, rejects the RAM volume and unknown
-  filesystem types, and requires writable DOS storage and space for four
-  captures. The experimental backup command uses the same volume check
-  before directory creation, closing the literal-RAM-name bypass. Preflight creates no files and never accesses card.resource.
-- Typed offline MA401 CIS/PDA candidate observation validation. Matching
-  NIC/PDR configuration yields only an SRAM-width inference; physical coverage,
-  SRAM capacity and hardware authorization remain false.
-
-- Keep resolved-destination evidence on the checked C heap: returning a large
-  value through the experimental backup caller overflowed the 4096-byte guest
-  stack in final emulator checks. Preserve the original stack test and refusals.
+- Implement native MA401 x16 Genesis/bootstrap and SST BF:D5 programming,
+  derived from original DOS ILHOPFW.EXE 0.5e and independently reviewed by
+  DeepSeek. Pin the initial image; validate compatible user-supplied PRI/STA images and record their hashes.
+- Add `Prism2Flash program|verify` and built-in help. Build the intended image
+  from the same insertion's fresh PDA, preserve CIS/PDA and all gaps, save/reopen
+  it and optionally check an independently prepared expected-image hash.
+- Retain persistent destination locks, automatic local timestamps (optional explicit UTC/offset), one exclusive
+  claim and one full saved/reopened 8 MiB capture before and after each transaction, checking all 128 KiB aliases.
+  Compare the whole exposed interval with the intended image after programming.
+- Qualify actual A1200 Genesis double latch, both true byte-write lanes,
+  initial-code loading and BF:D5 identification with unchanged full captures.
+  Actual SST erase/program and full intended-image readback also passed.
+- Correct Gayle odd-byte reads using aligned GETODD; retain true byte writes.
+  Clear the NV selector after byte accesses and final word-based flash verify,
+  preventing normal CONTROL/CIS reads from seeing stale NV data.
+- Keep the live card/RAM session on programming or required readback failure;
+  persist the failure before waiting. Record explicit reset-free release and
+  actual cleanup separately. Never automatically retry erase/program/reset.
+- Address independent review: bounded PDA lookup, active-Genesis RAM scratch
+  gate, local byte-write/handoff proof, explicit AUX enable checks, F0 read-mode
+  cleanup on identification failure and separate erase-attempt/completion flags.
+- Preserve model fault coverage, four-file tamper checks, real short-write and
+  descriptor-exhaustion evidence, and native/emulator startup/runtime guards.
+- Include all three native executables and their complete corresponding source
+  in release packages. No proprietary firmware or DOS binary is distributed.
 
 ### Scope
 
-No hardware testing, native Genesis, bootstrap, JEDEC/autoselect or flash
-programming. Preflight is a diagnostic snapshot; retained directory locks,
-per-phase checked UTC timestamps, physical map binding, native file journal
-and independent native gate approval remain prerequisites for enablement.
+Qualified MA401 V2.5 / PD5LMWP200, pinned initial and validated compatible PRI/STA inputs. Other card
+profiles, generic dead-card recovery and a running-primary regular-flash path
+remain separate work. Exact hardware runs and their limitations are recorded
+in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
+
+- Put a concise quick start first in README/docs. Generate local timestamps and
+  short backup subdrawers with `--backup-dir`. Dates are optional labels; an
+  unreadable clock uses `untimed`, duplicates get a suffix. Remove wall-clock
+  validity, reference-skew and phase-jump gates entirely. Clock setup is never
+  required and cannot block flashing.
+- Replace per-word GetSysTime pacing with a monotonic E-clock wait. Refuse if
+  firmware disables AUX mid-capture, preserving its disabled state. Add timer
+  wrap, AUX-loss and local-clock boundary tests. Physical timing qualification
+  of the pacing change remains pending; the actual upgrade and cold-boot IDs
+  are recorded separately from the failed additional reader transactions.
 
 ## [0.7.0-alpha.1] - 2026-10-18
 

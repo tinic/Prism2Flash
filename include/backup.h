@@ -13,11 +13,17 @@ struct CaptureReport {
   std::array<std::array<char, 65>, 2> sha256{};
   uint32_t mismatch_bytes = 0, first_mismatch = 0, comparison_read_bytes = 0;
   uint32_t page_reads = 0, page_disagreements = 0;
+  uint32_t aux_losses = 0;
   std::array<uint16_t, 6> before{}, after{};
 };
 // A report retains partial acquisition and cleanup evidence even on failure.
 [[nodiscard]] CaptureReport capture(p2_bus &bus, FILE &first, FILE &second);
-[[nodiscard]] bool valid_utc(std::string_view timestamp);
+// One complete capture, checking every alias against the first physical image.
+// Only qualified maps may supply alias_bytes; no voting or repaired bytes.
+[[nodiscard]] CaptureReport capture_single(p2_bus &, FILE &,
+                                           uint32_t alias_bytes);
+[[nodiscard]] bool valid_utc(std::string_view timestamp,
+                             unsigned min_year = 2020);
 int run_command(const char *directory, const char *utc);
 // Exact length/hash check, including checked read-stream close. Also used for
 // saved transaction manifests; defaults to the complete AUX NV capture size.

@@ -34,9 +34,48 @@
 - Until full backup acquisition/export and its operation gate are implemented
   and verified, native inspect/probe must refuse before opening the slot.
   Do not add force/skip-backup options or accept an old backup as authorization.
+- Human handoff, 2026-10-18 21:22 UTC: hardware testing is authorized now.
+  The user explicitly accepts the full 8 MiB AUX NV layout for the MA401 x16
+  RAM-only Genesis probe and requires that the layout question not be reopened.
+  Implement and verify the owned fresh before/after transaction, then perform
+  the test. Derive entry/detection/bootstrap/programming behavior from the DOS
+  ILHOPFW.EXE; DeepSeek was explicitly assigned its reverse engineering.
+  This updates the earlier layout/admission hold for that RAM-only test. Full
+  fresh saved-file-verified captures, sticky removal and no blind reset/retry
+  remain required. No firmware programming routine is implemented yet.
 
 - Project-owned implementation and native tests use C++23 with exceptions and
   RTTI disabled. Follow LLVM formatting via pinned clang-format 18.1.8 and
   tools/ci.sh format/format-check. Do not reformat retained third-party sources.
 - Native builds use the official AmigaPorts GCC v16.2-rc17 pin. Preserve runtime
   verification gates; do not apply legacy binary repairs to this compiler.
+
+- Human priority, 2026-10-18: focus on real Genesis and firmware upgrade. Do
+  not spend active hardware time monitoring, discussing or optimizing CI. Run
+  only the targeted local checks needed to use changed hardware code safely.
+
+- Hardware qualification, 2026-10-18 22:21 UTC: exact MA401 native bootstrap
+  transaction fa2f459 / 20261018T221517Z passed both byte-write lanes, all
+  3434 initial bytes, BF:D5 ID and four equal full 8 MiB captures with saved
+  file verification and final CIS. DeepSeek's implementation review confirmed
+  the DOS host algorithm; its remaining cleanup/AUX/diagnostic findings were
+  fixed and tested. Proceed with the user's authorized firmware update using
+  the same exact card profile, pinned images, fresh owned captures and intended
+  image hash. Do not reopen the accepted layout or ask for that permission again.
+
+- Human update, 2026-10-18: four captures are excessive when checksums match.
+  Native transactions now require one full timestamped before capture and one
+  full after capture, saved/reopened SHA-256 verification and intended-image
+  comparison. Validate all 64 aliases against the canonical 128 KiB image;
+  reject disagreements without voting, repair or silent retry. This supersedes
+  older four-file/repeated-full-capture requirements for the qualified MA401.
+  Confirm Claude's WPA2 firmware target, complete hardware verification, then
+  finalize a usable tool accepting compatible user-supplied firmware. Put a
+  short step-by-step guide first in README and docs; minimize prose.
+
+- Human simplification, 2026-10-18: this is a simple flashing utility. Correct
+  clock setup is NEVER a prerequisite. Date labels are a nice-to-have only:
+  use best-effort local labels, `untimed` if unavailable, and suffix collisions.
+  Do not gate backup, Genesis, programming or verification on wall-clock
+  validity, skew, reference agreement or clock changes. This supersedes older
+  timestamp/clock checks while preserving full captures and content checks.

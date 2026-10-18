@@ -1,21 +1,50 @@
 # Prism2Flash
 
+## Flash your MA401
+
+**Supported:** Netgear MA401 V2.5 / PD5LMWP200 (`000b:7300`, SST BF:D5).
+Other cards are refused.
+
+1. Extract the latest [Amiga release](https://github.com/tinic/Prism2Flash/releases).
+   Install the included `Libs/pccard.library` in `LIBS:` if version 2.2 or newer is absent.
+2. Download [initial code](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX) and your compatible PRI/STA files.
+   Tested pair: [PRI 1.1.1](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex), [STA 1.7.4](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex).
+3. Stop WirelessManager and disconnect the card from your network stack.
+4. From the extracted drawer, run (substitute your PRI/STA filenames):
+
+```text
+Stack 16384
+MakeDir Work:P2Backups
+C/Prism2Flash program --initial ID010001.HEX --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups
+```
+
+Create the backup drawer once; keep **20 MiB free**. Timestamped subdrawers,
+one full before backup, one full after readback and checksum checks are automatic.
+No clock setup is required.
+
+5. After **success**, power-cycle the card/Amiga and verify:
+
+```text
+C/Prism2Flash verify --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups
+```
+
+**Recovery required:** keep power on; do not retry programming or reboot.
+[Help and recovery details](docs/NATIVE-FLASH.md). No firmware is bundled.
+
 [![CI](https://github.com/tinic/Prism2Flash/actions/workflows/ci.yml/badge.svg)](https://github.com/tinic/Prism2Flash/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/tinic/Prism2Flash/actions/workflows/codeql.yml/badge.svg)](https://github.com/tinic/Prism2Flash/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/tinic/Prism2Flash?include_prereleases)](https://github.com/tinic/Prism2Flash/releases)
 
 Native Amiga utilities for Intersil Prism II/2.5/3 PCMCIA cards, developed
-alongside AmiNetXDuo. The project starts with Genesis recovery and will then
-add a regular firmware flasher using the same programming engine.
+alongside AmiNetXDuo. Project code uses C++23 and the AmigaPorts GCC 16.2-rc17
+toolchain.
 
-**Status: Genesis protocol model and offline firmware parser/validator/preparation
-implemented. Native startup, offline synthetic-file checks and CIS-only
-identification passed on the real A1200, alongside Amiberry/Copperline checks.**
-Repeated AUX NV capture passed on one card reporting MA401RA CIS with bounded page
-agreement and saved-file SHA-256 verification. Physical flash coverage remains
-unverified. Active card inspection, Genesis
-and programming stay blocked pending verified full backups. The user has reserved
-the A1200 for this project. See [the hardware record](docs/HARDWARE-TESTING.md).
+**Current hardware milestone:** the actual Netgear MA401 V2.5 / PD5LMWP200 has
+passed x16 Genesis, original DOS initial-code loading, SST BF:D5 identification,
+native programming and complete intended-image readback. Qualification is
+specific to that card profile and the tested PRI 1.1.1 / STA 1.7.4 pair.
+See [hardware results](docs/HARDWARE-TESTING.md) for the exact runs, including
+failures and recovery. Other cards and general dead-card recovery remain unqualified.
 
 ## Downloads and project workflow
 
@@ -34,71 +63,53 @@ prereleases while real-card validation is pending.
 
 Every impactful operation must save a fresh, verified, timestamped **full flash**
 backup first, followed by a timestamped full readback afterward. This includes
-active inspection, resets and Genesis RAM probes, as well as future loading,
+active inspection, resets and Genesis RAM probes, as well as loading,
 flashing and restores. PDA/CIS-only backups are insufficient. Backup failure
 blocks the operation; no skip/force option is permitted.
 
-**Native `inspect` and `probe` are currently blocked before slot access** until
-full-flash backup support is implemented and verified. `info` and offline file
-inspection/validation remain available. Releases through 0.2.0-alpha.1 lack
-this safeguard; do not run their active commands on cards. See the
+Native operations require the exact card profile, exclusive slot ownership and
+fresh verified captures. There is no force/skip option. Old saved captures do
+not authorize a new operation. See the
 [backup contract](docs/HARDWARE-TESTING.md#mandatory-full-flash-backups).
 
-## First executable: Prism2Genesis
+## Native utilities
 
-This first milestone establishes PCMCIA ownership, AUX memory access and the
-Genesis reset sequence. The protocol model implements the following commands;
-native active commands are currently gated as described above:
+- `Prism2Genesis --help`: CIS information, full NV backup, preflight and the
+  qualified MA401 x16 Genesis/bootstrap transaction. Standalone legacy `inspect`
+  and unqualified width/card combinations remain blocked.
+- `Prism2Firmware --help`: offline S-record inspection, compatibility checks
+  and private-copy preparation. It has no card backend.
+- `Prism2Flash --help`: native programming and post-boot verification with full
+  before/after captures. Use `Stack 16384`. See the
+  [complete command reference](docs/NATIVE-FLASH.md) for compatible inputs, clocks,
+  storage, intended-image checks and recovery behavior.
 
-- `info`: claim the slot and report the CIS manufacturer/product identifiers.
-  This does not configure the card or issue Prism commands.
-- `backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ`: experimentally
-  capture the entire 8 MiB AUX NV address space twice, compare bytes and reopen
-  saved files to verify SHA-256. Requires a new persistent timestamped directory
-  and the exact MA401RA/ISL37300P CIS strings. Partial files are retained. This
-  does not certify physical flash coverage or enable active commands.
-- `inspect`: configure the I/O window, initialize the card, read NIC/primary/
-  station identities and validate a 1024-byte PDA read including its CRC.
-- `probe --sram 8` or `probe --sram 16`: perform those checks, enter Genesis,
-  run the Host AP four-byte SRAM readback test at `0x7e0038`, return to normal
-  mode, and check that primary firmware responds again.
-
-The host simulator can exercise the owned before/after backup transaction:
-
-```sh
-build-host/Prism2GenesisSim probe --sram 16 \
-  --output /persistent/path/probe-20261018T120000Z --utc 20261018T120000Z
+```text
+Stack 16384
+Prism2Flash --help
+Prism2Flash --version
 ```
 
-This saves two before and two after captures, verifies saved raw files and
-manifests, and compares all modeled NV bytes while retaining slot ownership.
-The synthetic 8 MiB model profile cannot approve physical-card coverage.
-Native active commands refuse even with these options. See
-[transaction behavior and remaining gates](docs/OPERATION-TRANSACTION.md).
+The original DOS ILHOPFW.EXE supplies the Genesis double latch, initial-code
+loading/handoff and SST host programming sequence. Amiga adaptations include
+card.resource ownership, Gayle byte lanes, AUX selector cleanup and persistent
+backup transactions; see [the derivation](docs/DOS-REFERENCE.md).
+
+The full NV backup command reads all 8 MiB twice without INIT or reset:
+
+```text
+Prism2Genesis backup --output Work:Prism2Backups/MA401-TIMESTAMP --utc TIMESTAMP
+```
+
+Use current UTC in `YYYYMMDDTHHMMSSZ` form. Keep both complete raw files and
+manifest. For impactful operations, use the owned transaction commands rather
+than treating this standalone capture as authorization.
 
 For read-only analysis of existing MA401 captures, use
-`python3 tools/audit_nv_capture.py FIRST SECOND`. Its report checks the saved-capture CIS/NIC/PDA, alias and firmware-anchor
-[candidate observations](docs/evidence/ma401-pd5lmwp200-candidate.json);
-saved files never authorize a new operation.
-
-Native builds also provide `preflight --output NEW_DIRECTORY --utc TIMESTAMP
---utc-offset MINUTES_EAST_OF_UTC`. It checks the Amiga clock against the supplied
-reference and resolves storage through assigns, without creating files or
-accessing the card. A passing diagnostic cannot authorize an operation; see
-[preflight limits](docs/OPERATION-TRANSACTION.md#native-diagnostic-preflight-08).
-
-The probe resets the card and changes four bytes in its RAM. It requires
-exclusive slot ownership and interrupts any use of that card for networking.
-`--sram` means the card's internal SRAM width, **not** the Amiga's PCMCIA bus
-width. Determine it from documentation for the exact hardware revision.
-There is no automatic width guessing or force option.
-
-The current program requires working primary firmware, readable CIS data and
-a valid PDA. It does not yet load bootstrap firmware, revive a dead card or
-program flash. The experimental capture command is described in
-[the hardware record](docs/HARDWARE-TESTING.md). Those steps are explicit milestones in
-[ROADMAP.md](ROADMAP.md). No command `0x22` programming path is compiled into
-the executable.
+`python3 tools/audit_nv_capture.py FIRST SECOND`. It checks the saved CIS/PDA,
+aliases and firmware anchors without accessing hardware. Host protocol-model
+commands remain available as `Prism2GenesisSim`; simulated results are separate
+from real-card results.
 
 ## Offline tool: Prism2Firmware
 
@@ -114,7 +125,7 @@ See [offline commands and data formats](docs/OFFLINE-FIRMWARE.md) and
 [Flash's incorporated findings](docs/FIRMWARE-FINDINGS.md). The parser was
 compared byte-for-byte with Host AP on seven privately supplied image variants;
 normal CI uses original synthetic fixtures and includes no proprietary firmware.
-Prepared-payload export, bootstrap loading and actual flashing remain later milestones.
+The native flasher builds and verifies its complete intended image from the fresh owned backup; the offline tool continues to report prepared payloads without card access.
 
 ## Native build
 
@@ -130,8 +141,8 @@ cmake -S . -B build-amiga -DCMAKE_TOOLCHAIN_FILE=cmake/amiga.cmake
 cmake --build build-amiga
 ```
 
-The Amiga executables are `build-amiga/Prism2Genesis` and
-`build-amiga/Prism2Firmware`. The host offline executable is `build-host/Prism2Firmware`.
+The Amiga executables are `build-amiga/Prism2Genesis`,
+`build-amiga/Prism2Firmware` and `build-amiga/Prism2Flash`. The host offline executable is `build-host/Prism2Firmware`.
 For a pinned compiler with its startup/ABI checks applied automatically, run
 `tools/ci.sh native` on Linux x86_64 or macOS arm64. This does not require an
 AmiNetXDuo checkout. Host checks use `tools/ci.sh host`.
@@ -144,7 +155,8 @@ The initial configured-card allowlist is deliberately narrow: CIS identifiers
 `0274:1612`, `0274:1613`, `0250:0002`, `028a:0002`, `02aa:0002`,
 `02d2:0001`, followed by a second check of the running NICID. This list comes
 from upstream code; it is **not a hardware-tested compatibility list**.
-Ambiguous NICID `800c`, early HFA3841 cards, multifunction cards and Prism 3
+The qualified MA401 has a separate exact CIS/PDA profile for NICID `800c`;
+other `800c` cards, early HFA3841 cards, multifunction cards and Prism 3
 SSF cards await dedicated profiles. A 3.3 V-only or CardBus card is not a
 target for the A600/A1200 slot.
 
@@ -193,7 +205,8 @@ python3 tests/emulator_smoke.py --emulator amiberry \
 ```
 
 See [docs/EMULATOR-RESULTS.md](docs/EMULATOR-RESULTS.md) for the recorded result
-and its limits. Physical card testing remains deferred.
+and its limits. Actual card results are recorded separately in
+[HARDWARE-TESTING.md](docs/HARDWARE-TESTING.md).
 
 ## License
 

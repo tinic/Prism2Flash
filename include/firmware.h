@@ -17,6 +17,11 @@ inline constexpr unsigned long MaxInputBytes = 8ul * 1024 * 1024;
 inline constexpr unsigned long MaxLines = 65536;
 
 enum class Mode { Ram, Flash };
+enum class PlugPolicy { RequireAll, DosOptionalDefaults };
+struct PlugFallback {
+  uint32_t pdr = 0, expected_bytes = 0, actual_bytes = 0;
+  bool missing = false;
+};
 enum class Errc { Format, Limit, Memory, Io, Incompatible, Pda };
 struct Error {
   Errc code;
@@ -50,8 +55,10 @@ struct CardSnapshot {
   std::optional<std::array<uint8_t, 6>> mac;
   std::array<std::optional<InterfaceRange>, 4> suppliers{};
   [[nodiscard]] static Result<CardSnapshot> read(FILE &file);
+  [[nodiscard]] static Result<CardSnapshot> from_pda(std::span<const uint8_t>);
 };
 class Parser;
+class InitialImage;
 // A successfully parsed image owns its payload and exposes immutable views.
 // Moving transfers ownership; there is no partially initialized public image.
 class Image {
@@ -64,7 +71,8 @@ public:
   [[nodiscard]] static Result<Image> read(FILE &file);
   [[nodiscard]] Status validate(Mode mode, const CardSnapshot &card,
                                 std::span<const uint8_t> pda,
-                                const Image *primary = nullptr) const;
+                                const Image *primary = nullptr,
+                                PlugPolicy = PlugPolicy::RequireAll) const;
   [[nodiscard]] const p2::Identity &component() const { return component_; }
   [[nodiscard]] uint32_t entry() const { return entry_; }
   [[nodiscard]] unsigned long records() const { return records_; }
@@ -85,6 +93,7 @@ public:
 
 private:
   friend class Parser;
+  friend class InitialImage;
   Image() = default;
   p2::Identity component_{};
   uint32_t entry_ = 0;
@@ -98,6 +107,27 @@ private:
   std::array<char, 128> name_{};
   std::array<char, 65> source_sha256_{};
   std::optional<uint16_t> sequence_;
+};
+
+// DOS -i images are raw RAM bootstraps: they have no component metadata and
+// can have S7=0. Keep them distinct from PRI/STA images; never classify them
+// as flash or feed them to PDA plugging/signature preparation.
+class InitialImage {
+public:
+  InitialImage(InitialImage &&) = default;
+  InitialImage &operator=(InitialImage &&) = default;
+  InitialImage(const InitialImage &) = delete;
+  InitialImage &operator=(const InitialImage &) = delete;
+  [[nodiscard]] static Result<InitialImage> parse(std::span<const uint8_t>);
+  [[nodiscard]] static Result<InitialImage> read(FILE &);
+  [[nodiscard]] auto segments() const { return image_.segments(); }
+  [[nodiscard]] auto source_sha256() const { return image_.source_sha256(); }
+  [[nodiscard]] auto payload_bytes() const { return image_.payload_bytes(); }
+  [[nodiscard]] auto records() const { return image_.records(); }
+
+private:
+  explicit InitialImage(Image image) noexcept : image_(std::move(image)) {}
+  Image image_;
 };
 
 // The filename plug uses the source basename, not embedded firmware metadata.
@@ -116,15 +146,18 @@ public:
   PreparedImage &operator=(const PreparedImage &) = delete;
   [[nodiscard]] static Result<PreparedImage>
   create(ImageSource target, Mode mode, const CardSnapshot &card,
-         std::span<const uint8_t> pda, std::optional<ImageSource> primary = {});
+         std::span<const uint8_t> pda, std::optional<ImageSource> primary = {},
+         PlugPolicy = PlugPolicy::RequireAll);
   [[nodiscard]] auto segments() const { return segments_.view(); }
   [[nodiscard]] uint32_t entry() const { return entry_; }
   [[nodiscard]] std::size_t payload_bytes() const { return payload_bytes_; }
+  [[nodiscard]] auto fallbacks() const { return fallbacks_.view(); }
 
 private:
   PreparedImage() = default;
   BoundedVector<Segment, MaxSegments * 2> segments_;
   uint32_t entry_ = 0;
   std::size_t payload_bytes_ = 0;
+  BoundedVector<PlugFallback, MaxItems * 2> fallbacks_;
 };
 } // namespace p2::firmware

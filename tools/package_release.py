@@ -85,7 +85,7 @@ def main():
     commit = git('rev-parse', 'HEAD').decode().strip()
     epoch = int(git('show', '-s', '--format=%ct', 'HEAD'))
     build = args.build_dir.resolve()
-    binaries = {name: (build / name).read_bytes() for name in ('Prism2Genesis', 'Prism2Firmware')}
+    binaries = {name: (build / name).read_bytes() for name in ('Prism2Genesis', 'Prism2Firmware', 'Prism2Flash')}
     for name, binary in binaries.items():
         if binary[:4] != b'\x00\x00\x03\xf3':
             parser.error(f'{name} is not an Amiga HUNK executable')
@@ -114,8 +114,8 @@ def main():
         'binaries': {name: {'sha256': sha(data), 'bytes': len(data)} for name, data in binaries.items()},
         'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
-        'hardware_test_scope': 'Current C++23 binaries: host/emulator only. Previous C-release A1200 capture evidence is historical; see docs/HARDWARE-TESTING.md',
-        'scope': 'Experimental AUX NV capture, verified RAM transfer model and offline firmware validation/preparation; active operations blocked pending verified physical full-flash backups; no flash programming',
+        'hardware_test_scope': 'Exact MA401 Genesis/bootstrap/program/readback hardware builds and results are recorded in docs/HARDWARE-TESTING.md; this flag does not claim every release binary or card is hardware-tested',
+        'scope': 'Native MA401 x16 Genesis/bootstrap and SST BF:D5 flashing with full before/after captures; offline firmware validation/preparation. Compatible image validation and qualified card profile only; no generic dead-card recovery',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()
     (output / 'build-info.json').write_bytes(info_bytes)
@@ -123,7 +123,9 @@ def main():
     bundle[f'{prefix}/build-info.json'] = info_bytes
     include = ['README.md', 'COPYING', 'CHANGELOG.md', 'ROADMAP.md', 'VERSION', 'RELEASE_DATE',
                'docs/INSTALL.md', 'docs/HARDWARE-TESTING.md', 'docs/PROTOCOL.md', 'docs/SOURCES.md',
-               'docs/EMULATOR-RESULTS.md', 'docs/OFFLINE-FIRMWARE.md', 'docs/FIRMWARE-FINDINGS.md', 'third_party/NOTICES', 'third_party/AmiNetXDuo-LICENSE',
+               'docs/EMULATOR-RESULTS.md', 'docs/evidence/ma401-upgrade-2026-10-18.json', 'docs/OFFLINE-FIRMWARE.md', 'docs/FIRMWARE-FINDINGS.md',
+               'docs/DOS-REFERENCE.md', 'docs/OPERATION-TRANSACTION.md', 'docs/NATIVE-FLASH.md', 'docs/QUICKSTART.md',
+               'third_party/NOTICES', 'third_party/AmiNetXDuo-LICENSE',
                'third_party/pccard/GPL', 'third_party/pccard/LGPL', 'third_party/pccard/pccard.lha',
                'third_party/pccard/Libs/pccard.library']
     for name in include:

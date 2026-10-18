@@ -17,28 +17,26 @@ p2::preflight::native(const char *, const char *, int) {
 }
 int main() {
   using namespace p2::preflight;
-  CHECK(!utc_seconds("20260229T000000Z"));
-  auto reference = utc_seconds("20261018T120000Z");
-  CHECK(reference);
-  CHECK(*reference == 1539864000ll);
-  auto stamp = [&](int64_t seconds) {
-    return Clock{int32_t(seconds / 86400), int32_t(seconds % 86400 / 60),
-                 int32_t(seconds % 60 * 50)};
-  };
-  CHECK(check_clock(stamp(*reference), 0, "20261018T120000Z"));
-  CHECK(check_clock(stamp(*reference - 420 * 60), -420, "20261018T120000Z"));
-  CHECK(check_clock(stamp(*reference + 330 * 60), 330, "20261018T120000Z"));
-  for (int delta : {-121, 121, 86400})
-    CHECK(!check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
-  for (int delta : {-120, 120})
-    CHECK(check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
-  CHECK(!check_clock(Clock{-1, 0, 0}, 0, "20261018T120000Z"));
-  CHECK(!check_clock(Clock{17822, 1440, 0}, 0, "20261018T120000Z"));
-  CHECK(!check_clock(Clock{17822, 0, 3000}, 0, "20261018T120000Z"));
-  CHECK(!check_clock(stamp(*reference), 841, "20261018T120000Z"));
-  auto leap = utc_seconds("20240229T000000Z"),
-       march = utc_seconds("20240301T000000Z");
-  CHECK(leap && march && *march - *leap == 86400);
+  const Clock now{17822, 720, 0};
+  CHECK(std::string_view{clock_label(Clock{}).data()} == "19780101T000000L");
+  CHECK(std::string_view{clock_label(Clock{-1, 0, 0}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(Clock{0, 1440, 0}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(Clock{0, 0, 3000}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(Clock{100000, 0, 0}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(now).data()} == "20261018T120000L");
+  CHECK(std::string_view{clock_label(now, -300).data()} == "20261018T170000Z");
+  CHECK(std::string_view{clock_label(Clock{}, 841).data()} == "untimed");
+  static unsigned released = 0;
+  auto release_lock = +[](uintptr_t value) { released += unsigned(value); };
+  {
+    DirectoryLock first_lock{1, release_lock};
+    DirectoryLock second_lock{2, release_lock};
+    auto moved_lock = std::move(first_lock);
+    CHECK(!first_lock.get() && moved_lock.get() == 1);
+    second_lock = std::move(moved_lock);
+    CHECK(released == 2 && !moved_lock.get() && second_lock.get() == 1);
+  }
+  CHECK(released == 3);
   Volume good{0x444f5301, 82, 1000000, 0, 512, false};
   CHECK(check_volume(good));
   for (auto bad : {Volume{0x52414d00, 82, 1000000, 0, 512, false},
@@ -49,7 +47,7 @@ int main() {
                    Volume{0x444f5301, 82, 100, -1, 512, false},
                    Volume{0x444f5301, 82, 1000000, 0, -1, false}})
     CHECK(!check_volume(bad));
-  CHECK(!p2::profile::native_approved());
+  CHECK(p2::profile::programming_approved());
   // Original synthetic PDA with independent polynomial-long-division CRC.
   std::array<uint8_t, P2_PDA_SIZE> pda{};
   auto put = [&](size_t pos, uint16_t value) {
@@ -104,5 +102,5 @@ int main() {
   pda[22] ^= 1;
   CHECK(!p2::profile::observe(cis, pda));
   std::puts("Native preflight policy: "
-            "clock/skew/offset/calendar/volume/space/profile refusals passed");
+            "best-effort labels and volume/space/profile refusals passed");
 }

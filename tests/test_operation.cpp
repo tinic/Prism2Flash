@@ -182,6 +182,26 @@ int main() {
   const auto invalid = p2::operation::run(journal, nullptr, nullptr);
   CHECK(!invalid.success() && invalid.preparation_error == P2_E_ARGUMENT &&
         !state.opens);
+  for (bool removed : {false, true}) {
+    state = State{removed ? Fault::RemoveWork : Fault::Work};
+    TestJournal recovery_journal;
+    unsigned held = 0;
+    const p2::operation::Recovery recovery{
+        [](void *, const p2::operation::Report &) { return true; },
+        [](p2::Card &card, void *ctx) {
+          // Journal/readback already persisted; the slot has not been
+          // configured down or released when the recovery callback runs.
+          CHECK(state.final == 1 && !state.cleanups && !state.closes);
+          CHECK(state.after == 1 &&
+                card.transport().present(card.transport().ctx));
+          ++*static_cast<unsigned *>(ctx);
+        }};
+    const auto result =
+        p2::operation::run(recovery_journal, work, &held, recovery);
+    CHECK(!result.success() && held == unsigned(!removed));
+    CHECK(result.recovery_held == !removed);
+    CHECK(state.final == 1 && state.closes == 1);
+  }
   std::puts("Owned transaction: preflight/acquisition/file-gate/operation/"
             "readback/comparison/cleanup/journal faults refuse success");
 }
