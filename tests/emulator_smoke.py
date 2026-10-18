@@ -98,7 +98,7 @@ def copperline_run(args):
                       f"[cpu]\nmodel = {json.dumps(args.cpu)}\n[memory]\nfast = \"4M\"\n")
     report = {"token": token, "emulator": "copperline", "suite": args.suite, "model": args.model,
               "cpu": args.cpu, "binary_sha256": digest(args.binary),
-              "rom_sha256": digest(args.rom), "guest_stack_bytes": 4096,
+              "rom_sha256": digest(args.rom), "guest_stack_bytes": 4096, "timeout_seconds": args.timeout,
               "real_card_tested": False, "mode": "direct executable launch per case",
               "cases": [], "failures": []}
     print(f"Booting Copperline {args.model}/{args.cpu}: {run}", flush=True)
@@ -244,7 +244,7 @@ def main():
         "token": token, "emulator": args.emulator, "suite": args.suite, "model": args.model,
         "cpu": args.cpu, "binary_sha256": digest(args.binary),
         "rom_sha256": digest(rom), "command": cmd,
-        "guest_stack_bytes": 4096, "real_card_tested": False,
+        "guest_stack_bytes": 4096, "timeout_seconds": args.timeout, "real_card_tested": False,
         "runtime_helper_sha256": digest(args.env_helper),
     }
     print(f"Booting {args.emulator} {args.model}/{args.cpu}: {run}", flush=True)
