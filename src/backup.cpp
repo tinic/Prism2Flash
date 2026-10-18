@@ -109,7 +109,8 @@ private:
           std::copy(next.begin(), next.end(), out.begin() + page);
           // Allow AUX data to settle after firmware commands. Only disagreeing
           // whole-page reads wait; no payload write, voting or byte repair.
-          bus_.delay_us(bus_.ctx, 5000);
+          const bool startup = address == 0 && page == 0 && attempt >= 3;
+          bus_.delay_us(bus_.ctx, startup ? 100000 : 5000);
         }
       }
       // Two consecutive whole pages; never vote or repair individual bytes.

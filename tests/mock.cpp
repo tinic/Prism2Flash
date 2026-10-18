@@ -32,7 +32,9 @@ static uint16_t read16(void *ctx, uint16_t reg) {
     m->aux_address += 2;
     if (m->aux_space == 1) {
       ++m->nv_reads;
-      if (m->unstable_nv && (((m->nv_reads - 1) / 64) & 1))
+      if ((m->unstable_nv ||
+           (m->nv_unstable_until && m->clock < m->nv_unstable_until)) &&
+          (((m->nv_reads - 1) / 64) & 1))
         return v ^ 1;
       if ((m->corrupt_nv_after && m->nv_reads > m->corrupt_nv_after) ||
           m->nv_reads == m->corrupt_nv_once_at)

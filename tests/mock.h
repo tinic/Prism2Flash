@@ -22,6 +22,7 @@ struct p2_mock {
   unsigned drop_ram_after;
   int stick_aux_on_normal;
   int nv_selector_hides_control;
+  uint32_t nv_unstable_until;
   int change_nv_on_normal;
   unsigned corrupt_nv_once_at;
   unsigned scratch_writes_after_disable;
