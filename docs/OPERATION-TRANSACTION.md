@@ -1,24 +1,18 @@
 # Owned before/after operation transaction
 
-## Implemented checkpoint
+## Current native and model paths
 
-`include/operation.h` and `src/operation_runner.cpp` implement shared session
-ordering. `src/operation.cpp` implements the model file journal and native
-admission refusal. `Prism2GenesisSim inspect|probe` accepts appended
-`--output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ` options. Without them the host
-simulator still runs the original protocol-only checks. Both paths are models.
+`include/operation.h` and `src/operation_runner.cpp` share the owned session
+ordering. `src/operation.cpp` implements persistent model/native journals.
+Native admission permits the qualified MA401 x16 probe/bootstrap, pinned SST
+programming and content/RID verification paths. Standalone legacy inspection,
+x8 probing and other cards remain refused. See [native commands](NATIVE-FLASH.md).
 
-The native build now includes the shared transaction library, but its native
-journal admission always returns unsupported before filesystem mutation or card
-access. The model factory is excluded from the native binary. Native `inspect`/`probe`,
-including commands with transaction options, still return 20 before opening the
-slot. No CLI flag, saved manifest, candidate profile or old capture enables them.
-
-The sole file journal uses `protocol-model-nv-linear-8m-v1`: a synthetic device
-whose complete NV storage is the linear 8 MiB selector-1 interval. Its CIS tuple
-is 0274:1613. This profile is explicitly unrelated to approval of the actual
-MA401. All its manifests say `simulation_only: true` and
-`hardware_authorization: false`.
+The host-only `protocol-model-nv-linear-8m-v1` factory remains separate from
+native admission. Its synthetic CIS is 0274:1613; a model manifest or saved file
+cannot authorize hardware. `simulation_only` distinguishes those records;
+`hardware_authorization: false` means a persisted report is not an authorization
+capability, including in actual native records.
 
 ## Session sequence
 

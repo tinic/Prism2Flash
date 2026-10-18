@@ -1,3 +1,10 @@
+# Current hardware status — 2026-10-18
+
+Actual MA401 Genesis/bootstrap and native SST programming have passed, including
+two complete intended-image 8 MiB after-readbacks. The final cold-boot
+identity/content verifier is running. See [the current hardware record](HARDWARE-TESTING.md)
+and [native CLI](NATIVE-FLASH.md). The sections below retain historical milestones.
+
 # Original implementation and emulator baseline — 2026-10-18
 
 Implemented the first Genesis probe milestone in the separate Prism2Flash

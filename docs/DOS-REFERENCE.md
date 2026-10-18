@@ -138,7 +138,7 @@ and full raw diagnostics are retained privately. The bootstrap now tests both
 true byte-write lanes in unused Genesis RAM, verifies with independent word
 reads twice, restores the original scratch word with byte writes and verifies
 it again before loading initial code. Failure retains Genesis and prevents
-JEDEC identification; native erase/program remains disabled.
+JEDEC identification. Native erase/program was still disabled at that checkpoint.
 
 Native bootstrap2026-10-18 22:07UTC (b129eab): both true RAM byte-write
 lanes passed; all3434 initial-code bytes were written and independently
@@ -149,12 +149,12 @@ operation left the NV selector active. Completing the missing AUXOFFSET=0
 cleanup restored CONTROL=C000 and the exact CIS without any reset or payload
 write; subsequent word and byte PDA reads both matched the original. Byte
 read/write APIs now clear the selector before returning. Full owned rerun is
-still required; the failed empty after files remain failure evidence.
+was required and subsequently passed at 22:15 UTC; failed empty after files remain failure evidence.
 
 `Prism2Flash` now has program/verify commands, exact input hashes, preparation
 from the same owned transaction's fresh PDA, a saved/reopened intended128KiB
 image, and comparison of every byte in the final8MiB capture against that
-intended image. Native program admission is still disabled. Any failed erase,
+intended image. Native program admission is restricted to the qualified MA401 path. Any failed erase,
 program or required after-capture retains card ownership and RAM through a
 recovery callback, after persisting the failure journal; explicit Ctrl-E
 releases ownership without a reset. The caller must not power-cycle an
@@ -186,4 +186,5 @@ captures and all runtime checks above. Optional expected-plan SHA pins the
 freshly prepared128KiB image before bootstrap/erase. The independently
 constructed actual-card candidate preserves all gaps, CIS and PDA; its payload
 changes58641bytes. Verification checks prepared flash bytes and firmware RIDs.
-The native firmware update itself remains the next required hardware step.
+The actual update subsequently passed physical programming/full-image verification;
+see HARDWARE-TESTING.md for the complete run and the final word-read selector cleanup.

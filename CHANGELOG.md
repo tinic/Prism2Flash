@@ -14,55 +14,38 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 ## [0.8.0-alpha.1] - 2026-10-18
 
-- Add the owned MA401 x16 RAM-only transaction using the user-accepted full
-  8 MiB AUX NV layout: exact profile checks and dual saved-file-verified
-  captures before and after work, all under one exclusive card claim.
-- Retain resolved parent/destination DOS locks across every stream and compare
-  per-phase UTC against the monotonic timer. The real A1200 storage/lock test
-  passed at a 4 KiB stack; a fresh dual 8 MiB acquisition also passed.
-- Execute the original DOS ILHOPFW.EXE help and trace its hardware routines.
-  Add a distinct initial-bootstrap parser: raw RAM images with S7=0 cannot be
-  treated as PRI/STA flash images or sent through PDA/signature preparation.
-
-### Changed
-
-- Address DeepSeek P2R9 F1-F4: walk the bounded candidate CIS chain and check
-  MANFID, bound PDA record byte lengths to 512, exercise saved-file tampering
-  independently for all four raw captures, and retain a transaction failure
-  record when an output open fails after directory creation. Real descriptor
-  exhaustion and short-write tests prove both storage gates prevent work.
-- Corroborate the candidate firmware-name offsets (optional F5); these anchors
-  are observations, not proof of physical flash capacity or controller decode.
-- Build the shared owned transaction runner for Amiga. Native transaction
-  admission still refuses before output creation or slot access: no physical
-  map/capability is approved, and the model journal cannot become native by
-  changing a profile flag. Native refusal tests use an aborting backend.
-- Record the source revision in model phase and transaction manifests.
-
-### Added
-
-- Native `preflight --output PATH --utc YYYYMMDDTHHMMSSZ --utc-offset MINUTES`
-  validates an explicit local-to-UTC offset, calendar fields and clock skew,
-  resolves assigns through AmigaDOS locks, rejects the RAM volume and unknown
-  filesystem types, and requires writable DOS storage and space for four
-  captures. The experimental backup command uses the same volume check
-  before directory creation, closing the literal-RAM-name bypass. Preflight creates no files and never accesses card.resource.
-- Typed offline MA401 CIS/PDA candidate observation validation. Matching
-  NIC/PDR configuration yields only an SRAM-width inference; physical coverage,
-  SRAM capacity and hardware authorization remain false.
-
-- Keep resolved-destination evidence on the checked C heap: returning a large
-  value through the experimental backup caller overflowed the 4096-byte guest
-  stack in final emulator checks. Preserve the original stack test and refusals.
+- Implement native MA401 x16 Genesis/bootstrap and SST BF:D5 programming,
+  derived from original DOS ILHOPFW.EXE 0.5e and independently reviewed by
+  DeepSeek. Pin the initial image and PRI 1.1.1 / STA 1.7.4 input hashes.
+- Add `Prism2Flash program|verify` and built-in help. Build the intended image
+  from the same insertion's fresh PDA, preserve CIS/PDA and all gaps, save/reopen
+  it and optionally check an independently prepared expected-image hash.
+- Retain persistent destination locks, checked UTC/clock offset, one exclusive
+  claim and four complete saved/reopened 8 MiB captures for each transaction.
+  Compare the whole exposed interval with the intended image after programming.
+- Qualify actual A1200 Genesis double latch, both true byte-write lanes,
+  initial-code loading and BF:D5 identification with unchanged full captures.
+  Actual SST erase/program and full intended-image readback also passed.
+- Correct Gayle odd-byte reads using aligned GETODD; retain true byte writes.
+  Clear the NV selector after byte accesses and final word-based flash verify,
+  preventing normal CONTROL/CIS reads from seeing stale NV data.
+- Keep the live card/RAM session on programming or required readback failure;
+  persist the failure before waiting. Record explicit reset-free release and
+  actual cleanup separately. Never automatically retry erase/program/reset.
+- Address independent review: bounded PDA lookup, active-Genesis RAM scratch
+  gate, local byte-write/handoff proof, explicit AUX enable checks, F0 read-mode
+  cleanup on identification failure and separate erase-attempt/completion flags.
+- Preserve model fault coverage, four-file tamper checks, real short-write and
+  descriptor-exhaustion evidence, and native/emulator startup/runtime guards.
+- Include all three native executables and their complete corresponding source
+  in release packages. No proprietary firmware or DOS binary is distributed.
 
 ### Scope
 
-Fresh non-resetting hardware acquisition and the native filesystem/lock test
-passed. Genesis, bootstrap and flash programming are not yet hardware-tested.
-The first native transaction was cancelled before work to incorporate the
-independent DOS COR-literal correction; cancellation, cleanup and CIS checks
-passed. Native admission is restricted to the accepted MA401 x16 RAM-only transaction;
-normal inspection, x8 probing and programming remain unavailable.
+Qualified MA401 V2.5 / PD5LMWP200 and exact pinned inputs only. Other card
+profiles, generic dead-card recovery and a running-primary regular-flash path
+remain separate work. Exact hardware runs and their limitations are recorded
+in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
 
 ## [0.7.0-alpha.1] - 2026-10-18
 
