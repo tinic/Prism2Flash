@@ -1,18 +1,22 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-#ifndef P2_BACKUP_H
-#define P2_BACKUP_H
+#pragma once
 #include "prism2.h"
 #include <stdio.h>
-#define P2_NV_BYTES UINT32_C(0x800000)
-struct p2_capture_result {
-  uint32_t bytes[2], elapsed_us;
-  int cleanup_error, backend_cleanup_error;
-  char sha256[2][65];
-  uint32_t mismatch_bytes, first_mismatch, comparison_read_bytes;
-  uint32_t page_reads, page_disagreements;
-  uint16_t before[6], after[6];
+#include <string_view>
+namespace p2::backup {
+inline constexpr uint32_t NvBytes = 0x800000;
+struct CaptureReport {
+  p2_error error = P2_OK;
+  std::array<uint32_t, 2> bytes{};
+  uint32_t elapsed_us = 0;
+  int cleanup_error = 0, backend_cleanup_error = 0;
+  std::array<std::array<char, 65>, 2> sha256{};
+  uint32_t mismatch_bytes = 0, first_mismatch = 0, comparison_read_bytes = 0;
+  uint32_t page_reads = 0, page_disagreements = 0;
+  std::array<uint16_t, 6> before{}, after{};
 };
-int p2_capture_nv(struct p2_bus *, FILE *, FILE *, struct p2_capture_result *);
-int p2_backup_command(const char *directory, const char *utc);
-int p2_backup_valid_utc(const char *);
-#endif
+// A report retains partial acquisition and cleanup evidence even on failure.
+[[nodiscard]] CaptureReport capture(p2_bus &bus, FILE &first, FILE &second);
+[[nodiscard]] bool valid_utc(std::string_view timestamp);
+int run_command(const char *directory, const char *utc);
+} // namespace p2::backup

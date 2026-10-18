@@ -3,7 +3,8 @@
 #include "p2_stdio.h"
 #include "platform.h"
 #include "version.h"
-#include <string.h>
+#include <optional>
+#include <string_view>
 
 /* Retained for AmigaOS Version, including when --version is never called. */
 const char p2_version_tag[] __attribute__((used)) =
@@ -29,50 +30,106 @@ static void usage(void) {
        "No firmware loading or flash programming is implemented in this "
        "milestone.");
 }
-static void show_id(const char *label, const struct p2_identity *id) {
-  p2_printf("%s: id=0x%04x variant=%u version=%u.%u\n", label, (unsigned)id->id,
-            (unsigned)id->variant, (unsigned)id->major, (unsigned)id->minor);
-}
-int main(int argc, char **argv) {
-  struct p2_platform *platform = nullptr;
-  struct p2_card_info card;
-  struct p2_bus bus;
-  struct p2_identity nic, pri, sta;
-  struct p2_probe_result probe;
-  char error[192] = "";
-  uint8_t pda[P2_PDA_SIZE];
-  uint32_t pda_address = 0;
+namespace {
+struct Options {
+  enum class Command { Info, Inspect, Probe } command;
   unsigned bits = 0;
-  int rc, cleanup_rc;
-  int probing = argc > 1 && !strcmp(argv[1], "probe");
-  int info = argc == 2 && !strcmp(argv[1], "info");
-  int inspect = argc == 2 && !strcmp(argv[1], "inspect");
-  if (argc == 2 && !strcmp(argv[1], "--version")) {
-    puts("Prism2Genesis " P2_VERSION);
-    return 0;
+  static std::optional<Options> parse(int argc, char **argv) {
+    if (argc == 2 && std::string_view{argv[1]} == "info")
+      return Options{Command::Info};
+    if (argc == 2 && std::string_view{argv[1]} == "inspect")
+      return Options{Command::Inspect};
+    if (argc == 4 && std::string_view{argv[1]} == "probe" &&
+        std::string_view{argv[2]} == "--sram") {
+      const std::string_view width = argv[3];
+      if (width == "8" || width == "16")
+        return Options{Command::Probe, width == "8" ? 8u : 16u};
+    }
+    return std::nullopt;
   }
-  if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "help"))) {
-    usage();
-    return 0;
+};
+void show_id(const char *label, const p2::Identity &id) {
+  p2_printf("%s: id=0x%04x variant=%u version=%u.%u\n", label,
+            static_cast<unsigned>(id.id), static_cast<unsigned>(id.variant),
+            static_cast<unsigned>(id.major), static_cast<unsigned>(id.minor));
+}
+p2::CardStatus inspect(p2::Card &card, const Options &options) {
+  if (auto result = card.initialize(); !result)
+    return result;
+  auto nic = card.identity(P2_RID_NICID);
+  if (!nic)
+    return std::unexpected{nic.error()};
+  show_id("NIC", *nic);
+  if (!p2::Card::supports(nic->id)) {
+    p2_fprintf(stderr, "NIC is outside the initial HFA3842 profile list.\n");
+    return std::unexpected{P2_E_UNSUPPORTED};
   }
-  if (argc == 6 && !strcmp(argv[1], "backup") && !strcmp(argv[2], "--output") &&
-      !strcmp(argv[4], "--utc"))
-    return p2_backup_command(argv[3], argv[5]);
-  if (probing && argc == 4 && !strcmp(argv[2], "--sram")) {
-    if (!strcmp(argv[3], "8"))
-      bits = 8;
-    else if (!strcmp(argv[3], "16"))
-      bits = 16;
+  auto primary = card.identity(P2_RID_PRIID);
+  if (!primary)
+    return std::unexpected{primary.error()};
+  show_id("PRI", *primary);
+  if (auto station = card.identity(P2_RID_STAID); station)
+    show_id("STA", *station);
+  else if (station.error() == P2_E_COMMAND)
+    puts("STA: unavailable (primary-only firmware may be running)");
+  else
+    return std::unexpected{station.error()};
+  std::array<uint8_t, P2_PDA_SIZE> pda;
+  auto address = card.read_pda(pda);
+  if (!address)
+    return std::unexpected{address.error()};
+  p2_printf("PDA: validated 1024-byte read at 0x%08lx\n",
+            static_cast<unsigned long>(*address));
+  if (options.command != Options::Command::Probe)
+    return {};
+  p2_printf("Testing Genesis with %u-bit SRAM; no flash commands.\n",
+            options.bits);
+  const auto report = card.probe(options.bits);
+  p2_printf(
+      "COR before=0x%02x CCSR before=0x%02x readback=%02x %02x %02x %02x\n",
+      report.cor_before, report.ccsr_before, report.readback[0],
+      report.readback[1], report.readback[2], report.readback[3]);
+  if (report.cleanup_error)
+    p2_fprintf(stderr, "Returning to normal mode: %s\n",
+               p2_error_string(report.cleanup_error));
+  if (report.error)
+    return std::unexpected{report.error};
+  // Readback alone does not prove the original firmware restarted.
+  if (auto result = card.initialize(); !result)
+    return result;
+  primary = card.identity(P2_RID_PRIID);
+  if (!primary)
+    return std::unexpected{primary.error()};
+  show_id("PRI after reset", *primary);
+  puts("Genesis RAM probe passed; normal firmware responded.");
+  return {};
+}
+} // namespace
+int main(int argc, char **argv) {
+  if (argc == 2) {
+    const std::string_view command = argv[1];
+    if (command == "--version") {
+      puts("Prism2Genesis " P2_VERSION);
+      return 0;
+    }
+    if (command == "--help" || command == "help") {
+      usage();
+      return 0;
+    }
   }
-  if (!info && !inspect && !(probing && bits)) {
+  if (argc == 6 && std::string_view{argv[1]} == "backup" &&
+      std::string_view{argv[2]} == "--output" &&
+      std::string_view{argv[4]} == "--utc")
+    return p2::backup::run_command(argv[3], argv[5]);
+  const auto options = Options::parse(argc, argv);
+  if (!options) {
     usage();
     return 20;
   }
 #if defined(PRISM2_AMIGA) || defined(PRISM2_REQUIRE_BACKUP)
-  /* Configuration, initialization and cleanup can change/reset the card.
-   * Refuse before opening the slot until full-flash backup is implemented.
-   * An existing filename or a force option must never bypass this gate. */
-  if (!info) {
+  // Refuse before opening the slot. An existing file or force option must
+  // never bypass the unimplemented physical-flash backup approval gate.
+  if (options->command != Options::Command::Info) {
     p2_fprintf(stderr, "Operation blocked: a verified timestamped full-flash "
                        "backup is required.\n"
                        "Full-flash backup is not implemented; no card access "
@@ -81,74 +138,27 @@ int main(int argc, char **argv) {
   }
 #endif
   p2_printf("Prism2Genesis " P2_VERSION " - %s\n", p2_platform_description());
-  rc = p2_platform_open(&platform, &card, error, sizeof(error));
-  if (rc) {
-    p2_fprintf(stderr, "%s\n", error);
+  auto slot = p2::Slot::open();
+  if (!slot) {
+    p2_fprintf(stderr, "%s\n", slot.error().message.data());
     return 20;
   }
+  const auto &info = slot->info();
   p2_printf("PCMCIA: manufacturer=0x%04x product=0x%04x\n",
-            (unsigned)card.manufacturer, (unsigned)card.product);
-  if (info) {
-    p2_platform_close(platform);
+            static_cast<unsigned>(info.manufacturer),
+            static_cast<unsigned>(info.product));
+  if (options->command == Options::Command::Info)
     return 0;
-  }
-  rc = p2_platform_configure(platform, &bus, error, sizeof(error));
-  if (rc) {
-    p2_fprintf(stderr, "%s\n", error);
-    p2_platform_close(platform);
+  auto bus = slot->configure();
+  if (!bus) {
+    p2_fprintf(stderr, "%s\n", bus.error().message.data());
     return 20;
   }
-  rc = p2_initialize(&bus);
-  if (!rc)
-    rc = p2_identity(&bus, P2_RID_NICID, &nic);
-  if (!rc)
-    show_id("NIC", &nic);
-  if (!rc && !p2_supported_nic(nic.id)) {
-    p2_fprintf(stderr, "NIC is outside the initial HFA3842 profile list.\n");
-    rc = P2_E_UNSUPPORTED;
+  p2::Card card{*bus};
+  if (auto result = inspect(card, *options); !result) {
+    p2_fprintf(stderr, "Operation failed: %s\n",
+               p2_error_string(result.error()));
+    return 20;
   }
-  if (!rc)
-    rc = p2_identity(&bus, P2_RID_PRIID, &pri);
-  if (!rc)
-    show_id("PRI", &pri);
-  if (!rc) {
-    int station_rc = p2_identity(&bus, P2_RID_STAID, &sta);
-    if (!station_rc)
-      show_id("STA", &sta);
-    else if (station_rc == P2_E_COMMAND)
-      puts("STA: unavailable (primary-only firmware may be running)");
-    else
-      rc = station_rc;
-  }
-  if (!rc)
-    rc = p2_read_pda(&bus, pda, &pda_address);
-  if (!rc)
-    p2_printf("PDA: validated 1024-byte read at 0x%08lx\n",
-              (unsigned long)pda_address);
-  if (!rc && probing) {
-    p2_printf("Testing Genesis with %u-bit SRAM; no flash commands.\n", bits);
-    rc = p2_genesis_probe(&bus, bits, &probe);
-    p2_printf(
-        "COR before=0x%02x CCSR before=0x%02x readback=%02x %02x %02x %02x\n",
-        probe.cor_before, probe.ccsr_before, probe.readback[0],
-        probe.readback[1], probe.readback[2], probe.readback[3]);
-    cleanup_rc = probe.cleanup_error;
-    if (cleanup_rc)
-      p2_fprintf(stderr, "Returning to normal mode: %s\n",
-                 p2_error_string(cleanup_rc));
-    if (!rc) {
-      /* Readback alone does not prove the original firmware restarted. */
-      rc = p2_initialize(&bus);
-      if (!rc)
-        rc = p2_identity(&bus, P2_RID_PRIID, &pri);
-      if (!rc) {
-        show_id("PRI after reset", &pri);
-        puts("Genesis RAM probe passed; normal firmware responded.");
-      }
-    }
-  }
-  if (rc)
-    p2_fprintf(stderr, "Operation failed: %s\n", p2_error_string(rc));
-  p2_platform_close(platform);
-  return rc ? 20 : 0;
+  return 0;
 }

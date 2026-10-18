@@ -4,6 +4,7 @@
  * netdev_pcmcia.c (MIT), copyright AmiNetXDuo contributors. See
  * third_party/NOTICES and docs/SOURCES.md.
  */
+#include "owned_memory.h"
 #include "p2_stdio.h"
 #include "platform.h"
 #include <bit>
@@ -25,6 +26,7 @@
 decltype(UtilityBase) UtilityBase;
 static struct Library *card_resource;
 struct p2_platform {
+  ~p2_platform();
   struct CardHandle handle;
   struct Interrupt removed;
   struct CardMemoryMap *map;
@@ -189,7 +191,8 @@ static int supported_cis(uint16_t man, uint16_t card) {
 }
 int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
                      char *error, size_t size) {
-  struct p2_platform *p = static_cast<p2_platform *>(calloc(1, sizeof(*p)));
+  auto platform = p2::make_owned<p2_platform>();
+  auto *p = platform.get();
   struct CardHandle *owner;
   UBYTE tuple[263];
   if (!p) {
@@ -201,7 +204,7 @@ int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
       static_cast<Library *>(OpenResource((CONST_STRPTR)CARDRESNAME));
   if (!card_resource) {
     p2_snprintf(error, size, "No card.resource; use an A600/A1200");
-    goto fail;
+    return P2_E_IO;
   }
   p->handle.cah_CardNode.ln_Name = (char *)"Prism2Genesis";
   p->handle.cah_CardFlags = CARDF_IFAVAILABLE;
@@ -214,29 +217,26 @@ int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
   if (owner) {
     p2_snprintf(error, size,
                 "Cannot own PCMCIA card: absent or held by a driver");
-    goto fail;
+    return P2_E_IO;
   }
   p->owned = 1;
   p->map = card_map();
   if (!p->map || !p->map->cmm_AttributeMemory || !p->map->cmm_IOMemory) {
     p2_snprintf(error, size, "PCMCIA attribute/I/O mapping is unavailable");
-    goto fail;
+    return P2_E_IO;
   }
   memset(tuple, 0, sizeof(tuple));
   if (!copy_tuple(&p->handle, tuple, PCCARD_TPL_MANFID) || tuple[1] < 4) {
     p2_snprintf(
         error, size,
         "Cannot read MANFID tuple; damaged CIS recovery is a later milestone");
-    goto fail;
+    return P2_E_IO;
   }
   p->info.manufacturer = (uint16_t)(tuple[2] | ((uint16_t)tuple[3] << 8));
   p->info.product = (uint16_t)(tuple[4] | ((uint16_t)tuple[5] << 8));
   *info = p->info;
-  *out = p;
+  *out = platform.release();
   return P2_OK;
-fail:
-  p2_platform_close(p);
-  return P2_E_IO;
 }
 static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
                      size_t size, int backup_only) {
@@ -399,9 +399,8 @@ int p2_platform_finish_backup(struct p2_platform *p) {
   }
   return P2_OK;
 }
-void p2_platform_close(struct p2_platform *p) {
-  if (!p)
-    return;
+p2_platform::~p2_platform() {
+  auto *p = this;
   if (p->owned) {
     if (p->configured && p->present) {
       if (p->backup_only) {
@@ -427,7 +426,10 @@ void p2_platform_close(struct p2_platform *p) {
     CloseLibrary((struct Library *)UtilityBase);
     UtilityBase = nullptr;
   }
-  free(p);
+}
+void p2_platform_close(p2_platform *platform) {
+  if (platform)
+    p2::DestroyObject<p2_platform>{}(platform);
 }
 const char *p2_platform_description(void) {
   return "NATIVE AMIGA - hardware untested";

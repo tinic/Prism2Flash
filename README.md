@@ -173,3 +173,8 @@ and its limits. Physical card testing remains deferred.
 
 Project source is GPL-2.0-only; see [COPYING](COPYING). Third-party code and
 materials retain their own notices. No Intersil firmware image is bundled.
+
+## Implementation
+
+See [C++ design](docs/CPP-DESIGN.md) for ownership, typed results, bounded
+storage, card interfaces and the Amiga ABI boundary.

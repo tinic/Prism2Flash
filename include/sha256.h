@@ -1,15 +1,26 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-#ifndef P2_SHA256_H
-#define P2_SHA256_H
-#include <stddef.h>
-#include <stdint.h>
-struct p2_sha256 {
-  uint32_t h[8];
-  uint64_t bytes;
-  size_t used;
-  uint8_t block[64];
+#pragma once
+#include <array>
+#include <cstdint>
+#include <span>
+#include <string_view>
+namespace p2 {
+class Sha256 {
+public:
+  void update(std::span<const uint8_t> bytes);
+  void update(std::string_view text) {
+    update({reinterpret_cast<const uint8_t *>(text.data()), text.size()});
+  }
+  // Taking a digest leaves the accumulated state usable for more input.
+  [[nodiscard]] std::array<char, 65> hex() const;
+
+private:
+  void transform();
+  std::array<char, 65> finish();
+  std::array<uint32_t, 8> h_{0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                             0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
+  uint64_t bytes_ = 0;
+  std::size_t used_ = 0;
+  std::array<uint8_t, 64> block_{};
 };
-void p2_sha256_init(struct p2_sha256 *);
-void p2_sha256_update(struct p2_sha256 *, const void *, size_t);
-void p2_sha256_hex(struct p2_sha256 *, char[65]);
-#endif
+} // namespace p2

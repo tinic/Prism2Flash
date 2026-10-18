@@ -53,6 +53,9 @@ if(PRISM2_AMIGA)
   add_executable(emulator_env tests/emulator_env.cpp src/sha256.cpp)
   target_include_directories(emulator_env PRIVATE include)
   target_compile_options(emulator_env PRIVATE -Wall -Wextra -Werror)
+  add_custom_command(TARGET emulator_env POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" "-DBINARY=$<TARGET_FILE:emulator_env>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check-no-float.cmake")
   install(TARGETS Prism2Genesis Prism2Firmware RUNTIME DESTINATION C)
 else()
   add_library(prism2_mock tests/mock.cpp)

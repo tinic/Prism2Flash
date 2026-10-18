@@ -63,7 +63,7 @@ def main():
             names = set(archive.getnames())
             for name in ('COPYING', 'VERSION', 'src/main.cpp', 'src/prism2.cpp', 'src/amiga.cpp',
                          'src/firmware.cpp', 'src/fw_validate.cpp', 'src/firmware_main.cpp', 'src/pda.cpp', 'include/firmware.h',
-                         'src/backup.cpp', 'src/sha256.cpp', 'include/owned_buffer.h',
+                         'src/backup.cpp', 'src/sha256.cpp', 'include/owned_buffer.h', 'include/storage.h', 'include/owned_memory.h', 'include/file.h',
                          '.clang-format', 'tools/format.py', 'CMakeLists.txt', 'tools/ci.sh', 'tools/toolchain.json',
                          'third_party/pccard/pccard.lha', 'third_party/hostap/hostap-utils-0.4.7.tar.gz'):
                 if f'{prefix}/{name}' not in names:

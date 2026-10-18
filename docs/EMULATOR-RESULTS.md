@@ -1,5 +1,24 @@
 # Native emulator smoke results — 2026-10-18
 
+## C++ ownership/domain refactor — 0.5.0-alpha.1
+
+All **56 native CLI cases passed**: Genesis 15/15 and Firmware 13/13 on each
+of Amiberry A600/68000/Kickstart 2.05 and Copperline A1200/68020/Kickstart 3.1.
+The guest stack is 4096 bytes. The runtime helper checks SHA-256, allocator
+alignment/realloc preservation and the actual bounded C++ storage types,
+including ownership transfer, growth and truncation.
+
+The first Amiberry run failed before producing helper/CLI results after linking
+the throwing C++ new/EH runtime. Typed owned allocation now uses the checked C
+heap, with construct_at/destroy_n and normal C++ lifetime/move semantics. The
+same suites pass; a native build guard rejects that throwing runtime. Initial
+failure evidence is retained. Linux Clang uses libc++18 for std::expected.
+
+[Exact results and hashes](evidence/emulator-smoke-0.5.0-alpha.1.json) identify
+the tested Darwin cross builds. Published Linux build hashes are verified
+separately. No physical Amiga/card was accessed; active card operations remain
+blocked. FS-UAE was not used.
+
 ## C++23 / RC17 migration — 0.4.0-alpha.1
 
 All **56 native CLI checks passed**: Genesis 15/15 and Firmware 13/13 on each

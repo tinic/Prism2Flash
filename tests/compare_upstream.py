@@ -45,7 +45,18 @@ def dump(reference):
     code.append(f'for(i=0;i<(size_t){im}->{count};++i) {{ printf("S %lu %lu ",'
                 f'(unsigned long){im}->{array}[i].{address},(unsigned long){im}->{array}[i].{length});'
                 f'for(j=0;j<(size_t){im}->{array}[i].{length};++j) printf("%02x",{im}->{array}[i].data[j]); puts(""); }}')
-    return '\n'.join(code)
+    result = '\n'.join(code)
+    if not reference:
+        for field in ('component', 'entry', 'platforms', 'ranges', 'plugs', 'segments'):
+            result = result.replace('im->' + field, 'im->' + field + '()')
+        for count, array in [('platform_count', 'platforms'), ('range_count', 'ranges'),
+                             ('plug_count', 'plugs'), ('crc_count', 'signatures'),
+                             ('segment_count', 'segments')]:
+            result = result.replace('im->' + count, 'im->' + array + '().size()')
+        result = result.replace('im->crcs', 'im->signatures()')
+        result = result.replace('segments()[i].length', 'segments()[i].data.size()')
+        result = result.replace('segments()[i].data[j]', 'segments()[i].data.bytes()[j]')
+    return result
 
 
 def main():
@@ -71,7 +82,7 @@ def main():
     legacy = legacy[:unused_start] + legacy[unused_end:]
     source = '#include <errno.h>\n#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n#include <assert.h>\n' + legacy
     source += '\nint main(int argc,char **argv) { size_t i,j;struct srec_data *s; if(argc!=2)return 20; s=read_srec(argv[1]); if(!s)return 20;\n' + dump(True) + '\nfree_srec(s);return 0;}\n'
-    current = '#include "firmware.h"\nint main(int argc,char **argv) {size_t i,j; struct p2_fw_image *im=0;struct p2_fw_error e;FILE *f;if(argc!=2)return 20;f=fopen(argv[1],"rb");if(!f)return 20;if(p2_fw_read(f,&im,&e)){fclose(f);return 20;}fclose(f);\n' + dump(False) + '\np2_fw_free(im);return 0;}\n'
+    current = '#include "firmware.h"\n#include "file.h"\nint main(int argc,char **argv) {size_t i,j;if(argc!=2)return 20;auto file=p2::File::open(argv[1],"rb");if(!file)return 20;auto image=p2::firmware::Image::read(*file);if(!image)return 20;const auto *im=&*image;\n' + dump(False) + '\nreturn 0;}\n'
     build = args.build_dir.resolve()
     results = []
     with tempfile.TemporaryDirectory(prefix='upstream-', dir=build) as tmp:

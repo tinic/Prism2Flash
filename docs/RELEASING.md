@@ -39,7 +39,8 @@ Real-card testing stays subject to the hardware gate in ROADMAP.md.
 
 ## Local equivalents
 
-Requires CMake 3.24+, Python 3.9+, a C++23 compiler, curl and tar. Lhasa (`lha`)
+Requires CMake 3.24+, Python 3.9+, a C++23 compiler/library with std::expected, curl and tar. Linux Clang 18
+uses libc++18 (`CXXFLAGS=-stdlib=libc++`); GCC uses libstdc++. Lhasa (`lha`)
 is needed for independent package verification. Install `lhasa` with apt or
 Homebrew. Package generation itself uses Python's standard library.
 

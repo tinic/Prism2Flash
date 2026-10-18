@@ -12,6 +12,30 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.5.0-alpha.1] - 2026-10-18
+
+### Changed
+
+- Replace the procedural firmware API with a move-only Image, private Parser,
+  immutable segment/metadata views and C++23 std::expected results. Remove the
+  raw owning segment arrays, parser callbacks, output pointers and free API.
+- Model PDA records as checked borrowed views and card snapshots as value types
+  with optional MAC/supplier entries. Parse snapshot fields with string_view and
+  from_chars rather than strtok and sentinel buffers.
+- Put the protocol implementation in Card methods using spans and typed results.
+  Return probe/capture reports that preserve acquisition and cleanup failures.
+- Scope file, slot, payload and backend ownership. Keep explicit checked closes
+  and hardware restoration where delayed failures must be reported.
+- Keep typed heap ownership on the checked C allocator and guard against
+  linking the throwing C++ runtime into Kickstart 2.x binaries.
+- Add bounded move-aware storage with nonthrowing allocation, ownership/failure
+  tests, and native runtime storage checks. Keep C++23/RC17/LLVM formatting.
+
+### Scope
+
+Host and emulator checks only; no real card operation is authorized by this
+refactor. The physical-flash backup gate and capture evidence formats remain.
+
 ## [0.4.0-alpha.1] - 2026-10-18
 
 ### Changed

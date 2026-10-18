@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "mock.h"
+#include "owned_memory.h"
 #include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 struct p2_platform {
+  ~p2_platform() { p2_mock_free(&mock); }
   struct p2_mock mock;
 };
 int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
                      char *error, size_t size) {
-  *out = static_cast<p2_platform *>(calloc(1, sizeof(**out)));
+  *out = p2::make_owned<p2_platform>().release();
   if (!*out) {
     snprintf(error, size, "Out of memory");
     return P2_E_IO;
@@ -30,10 +32,8 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
   return rc;
 }
 void p2_platform_close(struct p2_platform *p) {
-  if (p) {
-    p2_mock_free(&p->mock);
-    free(p);
-  }
+  if (p)
+    p2::DestroyObject<p2_platform>{}(p);
 }
 const char *p2_platform_description(void) {
   return "SIMULATION ONLY - no hardware access";

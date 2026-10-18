@@ -2,12 +2,11 @@
  * Byte-oriented SHA-256, implemented from the FIPS 180-4 algorithm.
  */
 #include "sha256.h"
-#include <string.h>
-static uint32_t rotr(uint32_t x, unsigned n) {
-  return (x >> n) | (x << (32 - n));
-}
-static void transform(struct p2_sha256 *s) {
-  static const uint32_t k[64] = {
+#include <algorithm>
+#include <bit>
+namespace p2 {
+void Sha256::transform() {
+  static constexpr std::array<uint32_t, 64> k = {
       0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
       0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
       0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
@@ -19,29 +18,25 @@ static void transform(struct p2_sha256 *s) {
       0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
       0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
       0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
-  uint32_t w[64], a, b, c, d, e, f, g, h, t1, t2;
+  std::array<uint32_t, 64> w;
+  auto [a, b, c, d, e, f, g, h] = h_;
+  uint32_t t1, t2;
   unsigned i;
   for (i = 0; i < 16; ++i)
-    w[i] = ((uint32_t)s->block[i * 4] << 24) |
-           ((uint32_t)s->block[i * 4 + 1] << 16) |
-           ((uint32_t)s->block[i * 4 + 2] << 8) | s->block[i * 4 + 3];
+    w[i] = ((uint32_t)block_[i * 4] << 24) |
+           ((uint32_t)block_[i * 4 + 1] << 16) |
+           ((uint32_t)block_[i * 4 + 2] << 8) | block_[i * 4 + 3];
   for (i = 16; i < 64; ++i)
-    w[i] = w[i - 16] +
-           (rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3)) +
-           w[i - 7] +
-           (rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >> 10));
-  a = s->h[0];
-  b = s->h[1];
-  c = s->h[2];
-  d = s->h[3];
-  e = s->h[4];
-  f = s->h[5];
-  g = s->h[6];
-  h = s->h[7];
+    w[i] =
+        w[i - 16] +
+        (std::rotr(w[i - 15], 7) ^ std::rotr(w[i - 15], 18) ^
+         (w[i - 15] >> 3)) +
+        w[i - 7] +
+        (std::rotr(w[i - 2], 17) ^ std::rotr(w[i - 2], 19) ^ (w[i - 2] >> 10));
   for (i = 0; i < 64; ++i) {
-    t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) +
-         k[i] + w[i];
-    t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) +
+    t1 = h + (std::rotr(e, 6) ^ std::rotr(e, 11) ^ std::rotr(e, 25)) +
+         ((e & f) ^ (~e & g)) + k[i] + w[i];
+    t2 = (std::rotr(a, 2) ^ std::rotr(a, 13) ^ std::rotr(a, 22)) +
          ((a & b) ^ (a & c) ^ (b & c));
     h = g;
     g = f;
@@ -52,58 +47,53 @@ static void transform(struct p2_sha256 *s) {
     b = a;
     a = t1 + t2;
   }
-  s->h[0] += a;
-  s->h[1] += b;
-  s->h[2] += c;
-  s->h[3] += d;
-  s->h[4] += e;
-  s->h[5] += f;
-  s->h[6] += g;
-  s->h[7] += h;
+  h_[0] += a;
+  h_[1] += b;
+  h_[2] += c;
+  h_[3] += d;
+  h_[4] += e;
+  h_[5] += f;
+  h_[6] += g;
+  h_[7] += h;
 }
-void p2_sha256_init(struct p2_sha256 *s) {
-  static const uint32_t initial[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372,
-                                      0xa54ff53a, 0x510e527f, 0x9b05688c,
-                                      0x1f83d9ab, 0x5be0cd19};
-  memcpy(s->h, initial, sizeof(initial));
-  s->bytes = 0;
-  s->used = 0;
-}
-void p2_sha256_update(struct p2_sha256 *s, const void *data, size_t length) {
-  const auto *p = static_cast<const uint8_t *>(data);
-  s->bytes += length;
-  while (length) {
-    size_t n = 64 - s->used;
-    if (n > length)
-      n = length;
-    memcpy(s->block + s->used, p, n);
-    s->used += n;
-    p += n;
-    length -= n;
-    if (s->used == 64) {
-      transform(s);
-      s->used = 0;
+void Sha256::update(std::span<const uint8_t> data) {
+  bytes_ += data.size();
+  while (!data.empty()) {
+    const auto count = std::min(block_.size() - used_, data.size());
+    std::copy_n(data.begin(), count, block_.begin() + used_);
+    used_ += count;
+    data = data.subspan(count);
+    if (used_ == block_.size()) {
+      transform();
+      used_ = 0;
     }
   }
 }
-void p2_sha256_hex(struct p2_sha256 *s, char out[65]) {
+std::array<char, 65> Sha256::hex() const {
+  auto copy = *this;
+  return copy.finish();
+}
+std::array<char, 65> Sha256::finish() {
+  std::array<char, 65> out{};
   static const char hex[] = "0123456789abcdef";
-  uint64_t bits = s->bytes * 8;
+  uint64_t bits = bytes_ * 8;
   unsigned i;
-  s->block[s->used++] = 0x80;
-  if (s->used > 56) {
-    memset(s->block + s->used, 0, 64 - s->used);
-    transform(s);
-    s->used = 0;
+  block_[used_++] = 0x80;
+  if (used_ > 56) {
+    std::fill(block_.begin() + used_, block_.end(), 0);
+    transform();
+    used_ = 0;
   }
-  memset(s->block + s->used, 0, 56 - s->used);
+  std::fill(block_.begin() + used_, block_.begin() + 56, 0);
   for (i = 0; i < 8; ++i)
-    s->block[63 - i] = (uint8_t)(bits >> (i * 8));
-  transform(s);
+    block_[63 - i] = (uint8_t)(bits >> (i * 8));
+  transform();
   for (i = 0; i < 32; ++i) {
-    uint8_t b = (uint8_t)(s->h[i / 4] >> (24 - (i % 4) * 8));
+    uint8_t b = (uint8_t)(h_[i / 4] >> (24 - (i % 4) * 8));
     out[i * 2] = hex[b >> 4];
     out[i * 2 + 1] = hex[b & 15];
   }
-  out[64] = 0;
+  return out;
 }
+
+} // namespace p2
