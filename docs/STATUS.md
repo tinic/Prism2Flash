@@ -61,3 +61,21 @@ startup/no-card regressions on Amiberry A600 and Copperline A1200. Host and
 sanitizer CTest runs passed all ten registered checks, including 17 offline
 CLI test groups, 120 deterministic input mutations and the C API byte/ownership
 checks. Detailed current binary hashes are in EMULATOR-RESULTS.md.
+
+## Mandatory-backup gate — 0.2.1-alpha.1
+
+The user now requires a fresh, timestamped full physical-flash backup before
+any impactful card operation, with a timestamped full readback afterward.
+Native active inspection and probing refuse before slot access until backup
+acquisition/export is implemented and independently verified. CIS-only `info`
+and offline file validation remain available; host simulation retains the
+protocol paths for development. Earlier executable/emulator results above are
+historical and do not imply this new gate has backup acquisition implemented.
+See HARDWARE-TESTING.md for the complete acquisition and verification contract.
+No hardware has been accessed.
+
+The 0.2.1-alpha.1 native executables passed 52 guest checks across Amiberry
+A600/68000 and Copperline A1200/68020, including mandatory-backup refusal,
+CIS-only empty-slot behavior and offline synthetic firmware validation.
+All eleven host CTests passed, including the aborting-backend gate regression.
+Exact binaries and outputs are retained in EMULATOR-RESULTS.md.

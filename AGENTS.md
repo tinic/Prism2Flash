@@ -22,3 +22,13 @@
   for releases. Tags must match it exactly. See docs/RELEASING.md.
 - Run tools/ci.sh host and tools/ci.sh native for native changes. Release
   packages require a clean checkout and include complete corresponding source.
+
+- User requirement: every impactful card operation requires a fresh, timestamped
+  full physical-flash backup verified and saved before the operation, followed
+  by a timestamped full readback afterward when the card remains accessible.
+  Apply this to active inspection/initialization, resets, Genesis RAM probing,
+  bootstrap loading, and flash/restore operations. PDA/CIS-only saves do not
+  satisfy it. See docs/HARDWARE-TESTING.md for the required backup contract.
+- Until full backup acquisition/export and its operation gate are implemented
+  and verified, native inspect/probe must refuse before opening the slot.
+  Do not add force/skip-backup options or accept an old backup as authorization.

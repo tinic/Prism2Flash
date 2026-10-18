@@ -26,10 +26,25 @@ identifier. Version tags run host tests, sanitizers, native compilation and
 archive verification before publishing. Initial releases are experimental
 prereleases while real-card validation is pending.
 
+## Mandatory backups before active card operations
+
+Every impactful operation must save a fresh, verified, timestamped **full flash**
+backup first, followed by a timestamped full readback afterward. This includes
+active inspection, resets and Genesis RAM probes, as well as future loading,
+flashing and restores. PDA/CIS-only backups are insufficient. Backup failure
+blocks the operation; no skip/force option is permitted.
+
+**Native `inspect` and `probe` are currently blocked before slot access** until
+full-flash backup support is implemented and verified. `info` and offline file
+inspection/validation remain available. Releases through 0.2.0-alpha.1 lack
+this safeguard; do not run their active commands on cards. See the
+[backup contract](docs/HARDWARE-TESTING.md#mandatory-full-flash-backups).
+
 ## First executable: Prism2Genesis
 
 This first milestone establishes PCMCIA ownership, AUX memory access and the
-Genesis reset sequence. It implements:
+Genesis reset sequence. The protocol model implements the following commands;
+native active commands are currently gated as described above:
 
 - `info`: claim the slot and report the CIS manufacturer/product identifiers.
   This does not configure the card or issue Prism commands.

@@ -17,6 +17,7 @@ static void usage(void)
          "  Prism2Genesis probe --sram 8|16\n"
          "info reads CIS only; inspect initializes the card and reads firmware/PDA.\n"
          "probe resets the card and writes four RAM bytes, then restores normal mode.\n"
+         "Native inspect/probe are blocked until verified full-flash backup is available.\n"
          "Select SRAM width from the exact card's hardware documentation.\n"
          "No firmware loading or flash programming is implemented in this milestone.");
 }
@@ -52,6 +53,16 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[3], "16")) bits = 16;
     }
     if (!info && !inspect && !(probing && bits)) { usage(); return 20; }
+#if defined(PRISM2_AMIGA) || defined(PRISM2_REQUIRE_BACKUP)
+    /* Configuration, initialization and cleanup can change/reset the card.
+     * Refuse before opening the slot until full-flash backup is implemented.
+     * An existing filename or a force option must never bypass this gate. */
+    if (!info) {
+        p2_fprintf(stderr, "Operation blocked: a verified timestamped full-flash backup is required.\n"
+                   "Full-flash backup is not implemented; no card access was attempted.\n");
+        return 20;
+    }
+#endif
     p2_printf("Prism2Genesis " P2_VERSION " - %s\n", p2_platform_description());
     rc = p2_platform_open(&platform, &card, error, sizeof(error));
     if (rc) { p2_fprintf(stderr, "%s\n", error); return 20; }

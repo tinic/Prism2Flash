@@ -113,7 +113,7 @@ def main():
         'binaries': {name: {'sha256': sha(data), 'bytes': len(data)} for name, data in binaries.items()},
         'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
-        'scope': 'Experimental Genesis probe and offline firmware validation; no firmware loading or flash programming',
+        'scope': 'Native active operations blocked pending mandatory full-flash backups; offline firmware validation; no flash programming',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()
     (output / 'build-info.json').write_bytes(info_bytes)
