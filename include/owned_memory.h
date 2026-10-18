@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #pragma once
+#include <cstddef>
 #include <cstdlib>
 #include <limits>
 #include <memory>
