@@ -68,7 +68,10 @@ def valid_output(name, text, suite="genesis"):
         if name == "missing_image":
             return "Cannot open image" in text
         return f"Prism2Firmware {VERSION} - offline" in text
-    active = name in ("info", "inspect", "probe8", "probe16", "info_again", "inspect_again")
+    if name in ("inspect", "probe8", "probe16", "inspect_again"):
+        return ("Operation blocked: a verified timestamped full-flash backup is required." in text
+                and "no card access was attempted" in text)
+    active = name in ("info", "info_again")
     if active:
         return f"Prism2Genesis {VERSION} - NATIVE AMIGA" in text and (
             "Cannot own PCMCIA card" in text or "No card.resource" in text)

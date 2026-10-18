@@ -2,6 +2,20 @@
 
 Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
+## [0.2.1-alpha.1] - 2026-10-18
+
+### Changed
+
+- Require fresh, verified, timestamped full physical-flash backups before every
+  impactful card operation and timestamped full readbacks afterward. Document
+  identity/range/checksum manifests, persistent file verification, failure
+  handling and the prohibition on partial/stale backups or force overrides.
+- Native active `inspect` and Genesis `probe` now refuse before slot access
+  until full backup acquisition/export is implemented and verified. CIS-only
+  `info`, offline firmware tools and host protocol simulation remain available.
+- Add a refusal-path regression with an aborting backend, and update emulator
+  expectations. No hardware access or flash backup implementation is claimed.
+
 ## [0.2.0-alpha.1] - 2026-10-18
 
 ### Added

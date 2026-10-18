@@ -65,6 +65,13 @@ else()
   target_link_libraries(test_genesis PRIVATE prism2_mock)
   target_compile_options(test_genesis PRIVATE -Wall -Wextra -Werror)
   add_test(NAME genesis_protocol COMMAND test_genesis)
+  # Exercise the native refusal path with a backend that aborts on any call.
+  add_executable(test_backup_gate src/main.c tests/blocked_platform.c)
+  target_compile_definitions(test_backup_gate PRIVATE PRISM2_REQUIRE_BACKUP=1)
+  target_link_libraries(test_backup_gate PRIVATE prism2_core)
+  target_compile_options(test_backup_gate PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME backup_required COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_backup_gate.py" "$<TARGET_FILE:test_backup_gate>")
   add_test(NAME cli_info COMMAND Prism2GenesisSim info)
   add_test(NAME cli_version COMMAND Prism2GenesisSim --version)
   set_tests_properties(cli_version PROPERTIES PASS_REGULAR_EXPRESSION "Prism2Genesis ${P2_VERSION}")

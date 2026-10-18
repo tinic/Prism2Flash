@@ -1,5 +1,22 @@
 # Roadmap
 
+## Required gate: timestamped full-flash readback
+
+- [x] Refuse native active inspection/probing before slot access while full
+      backup support is unavailable; retain the host simulation for development.
+- [ ] Independently review AUX NV addressing and exact physical flash maps.
+- [ ] Implement non-resetting acquisition/cleanup, full repeated reads, persistent
+      timestamped raw dump plus identity/map/SHA-256 manifest, and file verification.
+- [ ] Require a fresh verified full backup before every impactful operation and
+      timestamped full readback afterward; reject partial/failed/stale backups.
+- [ ] Verify failure/removal/storage handling and operation gating offline, then
+      validate the acquisition on spare hardware when explicitly made available.
+
+This gate precedes any active hardware inspection, initialization, reset,
+Genesis probe, bootstrap, flashing or restore. No skip/force path. See
+[the backup contract](docs/HARDWARE-TESTING.md#mandatory-full-flash-backups).
+PDA/CIS exports alone never satisfy it. Offline parser work can continue.
+
 ## 1. Establish Genesis access
 
 - [x] Separate Git repository and GPL source/license setup.
@@ -14,7 +31,8 @@
 - [ ] A600/A1200 validation of CIS layout, register/payload byte order, timing,
       entry/readback/exit, cancellation, and firmware restart.
 
-Implementation is experimental until the hardware gate passes. A successful
+The protocol implementation is experimental; native active commands are
+currently blocked by the mandatory-backup gate above. A successful
 four-byte RAM probe does not establish that bootstrap firmware will execute.
 
 ## 2. Offline images and Genesis RAM bootstrap
@@ -60,10 +78,13 @@ Implement a shared flash engine that can run from the temporary primary
 firmware. Read download-buffer RID FD01, validate its capacity, enable AUX,
 stage bounded blocks and issue download/program commands with long deadlines.
 
-Prepare the entire update in RAM before erasing anything. Validate image
-addresses, compatibility, PDA patching and companion primary/station images.
-Preserve CIS/PDA storage and implement readback against the correct physical
-flash map. Confirm restart and identities. Log the last completed phase/block.
+Save and verify the mandatory timestamped full-flash backup before entering
+this operation. Prepare the entire update in RAM before erasing anything.
+Validate image addresses, compatibility, PDA patching and companion
+primary/station images.
+Preserve CIS/PDA storage and save the timestamped full post-operation readback
+against the correct physical flash map, comparing every changed/unchanged
+range. Confirm restart and identities. Log the last completed phase/block.
 After a programming failure, preserve the recovery session where possible;
 do not blindly retry/reset or release a card still dependent on RAM firmware.
 

@@ -39,7 +39,11 @@ and pccard.library 2.2 or later. Install the included pccard.library into
 `LIBS:` only if no suitable version is already installed. Keep any newer
 library. The library source and notices accompany the executable.
 
-Before any active card test, read [HARDWARE-TESTING.md](HARDWARE-TESTING.md).
+Native `inspect` and `probe` currently refuse before slot access: mandatory
+verified, timestamped full-flash backups are not implemented yet. Do not use
+older releases to bypass this gate. Offline `Prism2Firmware` remains usable.
+
+Before any future active card test, read [HARDWARE-TESTING.md](HARDWARE-TESTING.md).
 The tool must own the slot exclusively; stop the card's network driver first.
 A probe resets the card and changes four bytes in its RAM. It does not program
 flash, but real-card entry/exit and recovery behavior still need testing.
