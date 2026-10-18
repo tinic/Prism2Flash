@@ -28,7 +28,7 @@
     "NIC800c SST family permits both x8/x16 RAM",
     "prepared payloads are held in memory; CLI reports hashes only",
     "no independent hardware/profile/backup-gate approval",
-    "The earlier label photo is an online reference. The actual-card photo binds FCC PD5LMWP200/V2.5 to the saved PDA by matching MAC. Matching internal photos and physical memory map are not yet reviewed."
+    "Actual PD5LMWP200/V2.5 label matches saved PDA MAC. Matching filing PNG photos show SST39VF010 and apparent ISL3873AIK; U1 SRAM marking unreadable. Physical map and operation gate still need independent review."
   ],
   "primary_datasheet_sha256": "8d9bf148b7f1b9e4b18b4b8c5d7bcc4fb0b7b88e0ad6aa43e1950dcecdeb27b3",
   "pda_0400": "0x0003; x16 SRAM configuration inference; not independent physical-map approval",
@@ -42,5 +42,7 @@
   "actual_fcc_id": "PD5LMWP200",
   "actual_printed_version": "V2.5",
   "actual_fitted_memory_parts_verified": false,
-  "actual_label_revision_verified": true
+  "actual_label_revision_verified": true,
+  "matching_fcc_photos_inspected": true,
+  "matching_filing_flash": "SST39VF010 90-4C-WH; 128 KiB x8"
 }

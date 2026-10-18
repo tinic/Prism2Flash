@@ -19,9 +19,10 @@ flash backup. The two 8 MiB captures establish repeatable AUX NV data, with
 The saved CRC-valid PDA's configuration PDR 0x0400=0x0003 points toward x16
 SRAM according to Host AP's bit assignment. Record it as a card-specific clue
 awaiting independent corroboration; it does not identify flash geometry.
-The rev.D FCC photos show a candidate 128 KiB SST39VF010 on that reference
-sample. Inspect the matching PD5LMWP200 internal-photo exhibit and independently
-review the correct profile/address map before treating captured aliases as
+The matching PD5LMWP200 PNG exhibits now show SST39VF010 flash at U5 and an
+apparent ISL3873AIK controller at U4. The 128 KiB flash family corroborates the
+alias period; U1 SRAM markings remain unreadable. Independently review the
+correct profile/address map before treating captured aliases as
 proof of complete physical coverage on this unit.
 
 ## Gates before a real Genesis probe

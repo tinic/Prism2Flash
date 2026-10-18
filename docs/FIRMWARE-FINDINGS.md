@@ -109,15 +109,45 @@ Electronics model LMWP200, granted 2001-08-30. It is a different filing from
 PY3MA401RD. Its matching [internal-photo exhibit 166912](https://fccid.io/PD5LMWP200/Internal-Photos/Internal-Photos-166912)
 is listed as two pages, 1,075,562 bytes, with SHA-256
 `3c9f8f05d3eab63637f4d5c4b2ae9df0f154989af252a4b2682fa1c5e2a8e68f`.
-That exhibit has not yet been visually inspected. Do not apply the rev.D
-sample's apparent flash marking or ISL3873B example diagram as this unit's BOM.
+The user subsequently supplied matching PNG page exports, inspected below.
+Do not apply the rev.D sample's apparent flash marking or ISL3873B example
+diagram as this unit's BOM.
 The printed V2.5 is a label observation, not a read firmware version or decoded
 controller part number. See [actual-card-identity.json](evidence/actual-card-identity.json).
 
 The actual card's PDA configuration remains `0x0400=0x0003`, pointing toward
-x16 SRAM according to Host AP. Exact flash geometry and a complete physical
-map still need independent corroboration and the fresh full-backup operation
+x16 SRAM according to Host AP. The matching filing's SST39VF010 corroborates
+a 128 KiB candidate. A complete physical map still needs independent review
+and the fresh full-backup operation
 gate remains required. No additional hardware access was performed.
+
+### Matching PD5LMWP200 PNG exhibits
+
+The user supplied `download0.png` and `download3.png`, report **900809R01**,
+pages labeled **3** and **4**, respectively. `download1.png` and `download2.png`
+are byte-identical duplicate exports, not additional evidence. Both unique
+pages were visually inspected at native resolution and details were cropped
+for inspection without changing source images. Private evidence retains the
+originals; the public repository records hashes and observations only.
+
+| Export | SHA-256 |
+| --- | --- |
+| Page 3 | `d431a26a55bd750f9e2d8415ff9bb9218319d3f6bcc3d2f921c937d3fabf091d` |
+| Page 4 | `758d5ba6049a5148dc52662d9bf6b5914b186996b5b171c98f26edb1068e5d30` |
+
+Page 4's underside **U5** clearly reads **SST 39VF010, 90-4C-WH**. This is
+the 128 KiB x8 parallel flash family described by the manufacturer data sheet
+linked below. The board is marked **Delta Networks P/N 2976167401**. The
+controller at **U4** appears to read **ISL3873AIK**, consistent with the earlier
+Prism 2.5 controller design; that faint controller reading is less certain than
+the flash marking. **U1's SRAM marking is unreadable**; do not invent a vendor
+or capacity. The card's saved PDA configuration points toward x16 SRAM.
+
+This is now the correct FCC filing, bound to the actual unit through the label
+and matching PDA MAC. The 128 KiB part marking corroborates the observed AUX
+alias period and advances the physical-profile evidence. It remains a filing
+sample rather than direct inspection of the user's PCB; independent profile/
+address-map review and the fresh before/after backup gate are still required.
 
 ## MA401 rev.D reference material, not the actual card
 

@@ -1,0 +1,29 @@
+{
+  "fcc_id": "PD5LMWP200",
+  "report": "900809R01",
+  "pages_inspected": [
+    3,
+    4
+  ],
+  "board_part_number": "2976167401",
+  "flash": {
+    "reference": "U5",
+    "marking": "SST 39VF010, 90-4C-WH",
+    "capacity_bytes": 131072,
+    "organization": "128K x8",
+    "source": "matching FCC filing sample; legible photo"
+  },
+  "controller": {
+    "reference": "U4",
+    "apparent_marking": "ISL3873AIK",
+    "confidence": "faint; lower than flash identification"
+  },
+  "sram": {
+    "reference": "U1",
+    "marking": "unreadable",
+    "configuration_from_backed_up_PDA": "x16 inference from PDR0400=0003"
+  },
+  "actual_unit_label_mac_matches_PDA": true,
+  "full_physical_flash_coverage_approved": false,
+  "hardware_operation_enabled": false
+}
