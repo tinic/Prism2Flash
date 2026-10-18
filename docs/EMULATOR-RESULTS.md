@@ -1,5 +1,31 @@
 # Native emulator smoke results — 2026-10-18
 
+## Mandatory-backup gate 0.2.1-alpha.1
+
+All **52 native guest checks passed**, using a 4096-byte Shell stack.
+
+| Utility | Emulator | Machine / CPU | Kickstart | Passed |
+| --- | --- | --- | --- | --- |
+| Prism2Genesis | Amiberry 8.4.1 | A600 / 68000 | 2.05 | 13/13 |
+| Prism2Genesis | Copperline 1.0.0 | A1200 / 68020 | 3.1 | 13/13 |
+| Prism2Firmware | Amiberry 8.4.1 | A600 / 68000 | 2.05 | 13/13 |
+| Prism2Firmware | Copperline 1.0.0 | A1200 / 68020 | 3.1 | 13/13 |
+
+Native `inspect` and both `probe` widths returned the mandatory full-backup
+refusal before slot access. `info` retained its clean empty-slot exit; help,
+version and argument handling also passed. The offline suite passed with
+original synthetic images and saved card/PDA fixtures. Full-flash acquisition
+is not implemented or tested. No hardware was accessed; no FS-UAE was used.
+
+Binary sizes and SHA-256 values:
+
+- `Prism2Genesis`: 53,952 bytes, `e1ff2f5fc52e48b0db1be59a7a3d20a57fefc337ec881f44db83860d929ff9bf`.
+- `Prism2Firmware`: 69,176 bytes, `e960023f1945715aa01bff0f7ee3fc3e78c02d87d230f0a8e3d07df2efb57fe6`.
+
+[Detailed evidence](evidence/emulator-smoke-0.2.1-alpha.1.json) retains all
+outputs and return codes for these exact binaries. Earlier results below
+predate the mandatory-backup policy.
+
 ## Offline parser milestone 0.2.0-alpha.1
 
 All **78 native guest checks passed**, each using a 4096-byte Shell stack.

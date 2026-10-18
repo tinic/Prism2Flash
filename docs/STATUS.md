@@ -73,3 +73,9 @@ protocol paths for development. Earlier executable/emulator results above are
 historical and do not imply this new gate has backup acquisition implemented.
 See HARDWARE-TESTING.md for the complete acquisition and verification contract.
 No hardware has been accessed.
+
+The 0.2.1-alpha.1 native executables passed 52 guest checks across Amiberry
+A600/68000 and Copperline A1200/68020, including mandatory-backup refusal,
+CIS-only empty-slot behavior and offline synthetic firmware validation.
+All eleven host CTests passed, including the aborting-backend gate regression.
+Exact binaries and outputs are retained in EMULATOR-RESULTS.md.
