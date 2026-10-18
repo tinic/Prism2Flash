@@ -89,6 +89,16 @@ private:
       return std::unexpected{P2_E_TIMEOUT};
     return {};
   }
+  CardStatus require_aux() {
+    const auto control = card_.aux_control();
+    if (!control)
+      return std::unexpected{control.error()};
+    if (!(*control & 0xc000)) {
+      ++report_.aux_losses;
+      return std::unexpected{P2_E_VERIFY};
+    }
+    return {};
+  }
   CardStatus stable_chunk(uint32_t address, std::span<uint8_t, 4096> out) {
     std::array<uint8_t, 128> next;
     for (std::size_t page = 0; page < out.size(); page += next.size()) {
@@ -97,15 +107,8 @@ private:
         if (auto result = within_deadline(); !result)
           return result;
         if (attempt) {
-          const auto control = card_.aux_control();
-          if (!control)
-            return std::unexpected{control.error()};
-          if (!(*control & 0xc000)) {
-            // Firmware changed access state during our capture. Preserve its
-            // disabled state; do not silently enable a new AUX session.
-            ++report_.aux_losses;
-            return std::unexpected{P2_E_VERIFY};
-          }
+          if (auto result = require_aux(); !result)
+            return result;
         }
         auto bytes = attempt ? std::span{next} : out.subspan(page, next.size());
         if (auto result =
@@ -114,8 +117,13 @@ private:
           return result;
         ++report_.page_reads;
         if (attempt) {
-          if (std::equal(next.begin(), next.end(), out.begin() + page))
+          if (std::equal(next.begin(), next.end(), out.begin() + page)) {
+            // Agreement can include an idle bus value. Require access to
+            // remain enabled through the accepted read; never re-enable it.
+            if (auto result = require_aux(); !result)
+              return result;
             break;
+          }
           ++report_.page_disagreements;
           std::copy(next.begin(), next.end(), out.begin() + page);
           // Allow AUX data to settle after firmware commands. Only disagreeing
@@ -353,49 +361,50 @@ int run_command(const char *directory, const char *utc) {
   }
   auto manifest = File::open(paths[2].data(), "wb");
   if (manifest) {
-    p2_fprintf(manifest.get(),
-               "{\n  \"format\": \"Prism2 AUX NV capture 1\",\n  "
-               "\"tool_version\": \"" P2_VERSION "\",\n"
-               "  \"utc_supplied\": \"%s\",\n  \"timestamp_basis\": "
-               "\"operator-supplied UTC; host must retain actual start/end and "
-               "build-info.json\",\n"
-               "  \"simulation_only\": " P2_CAPTURE_SIMULATION ",\n"
-               "  \"cis_manufacturer\": %u,\n  \"cis_product\": %u,\n  "
-               "\"space\": \"NV\",\n  \"selector\": 1,\n"
-               "  \"address_start\": 0,\n  \"address_end_exclusive\": "
-               "8388608,\n  \"byte_order\": \"little-endian word bytes\",\n"
-               "  \"bytes_read\": [%lu, %lu],\n  \"sha256\": [\"%s\", "
-               "\"%s\"],\n  \"elapsed_us\": %lu,\n"
-               "  \"cleanup_error\": %d,\n  \"error\": %d,\n  "
-               "\"nv_address_space_complete\": %s,\n"
-               "  \"backend_cleanup_error\": %d,\n"
-               "  \"page_verification\": \"two consecutive identical 128-byte "
-               "reads; maximum twenty reads per page per pass\",\n"
-               "  \"page_reads\": %lu,\n  \"page_disagreements\": %lu,\n"
-               "  \"mismatch_bytes\": %lu,\n  \"first_mismatch\": %lu,\n  "
-               "\"comparison_read_bytes\": %lu,\n"
-               "  \"register_order\": "
-               "[\"CONTROL\",\"PARAM0\",\"PARAM1\",\"PARAM2\",\"AUXPAGE\","
-               "\"AUXOFFSET\"],\n"
-               "  \"registers_before\": [%u,%u,%u,%u,%u,%u],\n  "
-               "\"registers_after\": [%u,%u,%u,%u,%u,%u],\n"
-               "  \"files_reopened_and_verified\": %s,\n  "
-               "\"physical_flash_coverage_verified\": false,\n"
-               "  \"authorizes_impactful_operation\": false\n}\n",
-               utc, card.manufacturer, card.product,
-               (unsigned long)result.bytes[0], (unsigned long)result.bytes[1],
-               result.sha256[0].data(), result.sha256[1].data(),
-               (unsigned long)result.elapsed_us, result.cleanup_error, rc,
-               rc ? "false" : "true", result.backend_cleanup_error,
-               (unsigned long)result.page_reads,
-               (unsigned long)result.page_disagreements,
-               (unsigned long)result.mismatch_bytes,
-               (unsigned long)result.first_mismatch,
-               (unsigned long)result.comparison_read_bytes, result.before[0],
-               result.before[1], result.before[2], result.before[3],
-               result.before[4], result.before[5], result.after[0],
-               result.after[1], result.after[2], result.after[3],
-               result.after[4], result.after[5], verify ? "true" : "false");
+    p2_fprintf(
+        manifest.get(),
+        "{\n  \"format\": \"Prism2 AUX NV capture 1\",\n  "
+        "\"tool_version\": \"" P2_VERSION "\",\n"
+        "  \"utc_supplied\": \"%s\",\n  \"timestamp_basis\": "
+        "\"operator-supplied UTC; host must retain actual start/end and "
+        "build-info.json\",\n"
+        "  \"simulation_only\": " P2_CAPTURE_SIMULATION ",\n"
+        "  \"cis_manufacturer\": %u,\n  \"cis_product\": %u,\n  "
+        "\"space\": \"NV\",\n  \"selector\": 1,\n"
+        "  \"address_start\": 0,\n  \"address_end_exclusive\": "
+        "8388608,\n  \"byte_order\": \"little-endian word bytes\",\n"
+        "  \"bytes_read\": [%lu, %lu],\n  \"sha256\": [\"%s\", "
+        "\"%s\"],\n  \"elapsed_us\": %lu,\n"
+        "  \"cleanup_error\": %d,\n  \"error\": %d,\n  "
+        "\"nv_address_space_complete\": %s,\n"
+        "  \"backend_cleanup_error\": %d,\n"
+        "  \"page_verification\": \"two consecutive identical 128-byte "
+        "reads; maximum twenty reads per page per pass\",\n"
+        "  \"page_reads\": %lu,\n  \"page_disagreements\": %lu,\n"
+        "  \"aux_losses\": %lu,\n"
+        "  \"mismatch_bytes\": %lu,\n  \"first_mismatch\": %lu,\n  "
+        "\"comparison_read_bytes\": %lu,\n"
+        "  \"register_order\": "
+        "[\"CONTROL\",\"PARAM0\",\"PARAM1\",\"PARAM2\",\"AUXPAGE\","
+        "\"AUXOFFSET\"],\n"
+        "  \"registers_before\": [%u,%u,%u,%u,%u,%u],\n  "
+        "\"registers_after\": [%u,%u,%u,%u,%u,%u],\n"
+        "  \"files_reopened_and_verified\": %s,\n  "
+        "\"physical_flash_coverage_verified\": false,\n"
+        "  \"authorizes_impactful_operation\": false\n}\n",
+        utc, card.manufacturer, card.product, (unsigned long)result.bytes[0],
+        (unsigned long)result.bytes[1], result.sha256[0].data(),
+        result.sha256[1].data(), (unsigned long)result.elapsed_us,
+        result.cleanup_error, rc, rc ? "false" : "true",
+        result.backend_cleanup_error, (unsigned long)result.page_reads,
+        (unsigned long)result.page_disagreements,
+        (unsigned long)result.aux_losses, (unsigned long)result.mismatch_bytes,
+        (unsigned long)result.first_mismatch,
+        (unsigned long)result.comparison_read_bytes, result.before[0],
+        result.before[1], result.before[2], result.before[3], result.before[4],
+        result.before[5], result.after[0], result.after[1], result.after[2],
+        result.after[3], result.after[4], result.after[5],
+        verify ? "true" : "false");
     if (ferror(manifest.get()))
       rc = P2_E_IO;
     if (!manifest.close())

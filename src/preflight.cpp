@@ -75,7 +75,8 @@ int run_command(const char *directory, const char *utc, const char *offset) {
     return 20;
   const char *end = offset + std::strlen(offset);
   const auto parsed = std::from_chars(offset, end, east);
-  if (parsed.ec != std::errc{} || parsed.ptr != end || parsed.ptr == offset) {
+  if (parsed.ec != std::errc{} || parsed.ptr != end || parsed.ptr == offset ||
+      east < -840 || east > 840) {
     puts("Native preflight rejected: invalid UTC offset; no card access was "
          "attempted.");
     return 20;

@@ -156,9 +156,10 @@ CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
         // An active MAC shares the external flash bus. Gayle/Emu68 can
         // issue the next AUX strobe before the NV word has advanced.
         if (space == 0x1000) {
-          if (bus_.nv_word_gap)
-            bus_.nv_word_gap(bus_.ctx);
-          else
+          if (bus_.nv_word_gap) {
+            if (!bus_.nv_word_gap(bus_.ctx))
+              return std::unexpected{P2_E_TIMEOUT};
+          } else
             bus_.delay_us(bus_.ctx, 1);
         }
       }

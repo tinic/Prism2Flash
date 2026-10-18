@@ -57,7 +57,7 @@ struct p2_bus {
   uint8_t (*read8)(void *, uint16_t) = nullptr;
   void (*write8)(void *, uint16_t, uint8_t) = nullptr;
   // Optional fast, hardware-clocked minimum 1 us gap for streamed NV words.
-  void (*nv_word_gap)(void *) = nullptr;
+  bool (*nv_word_gap)(void *) = nullptr;
 };
 namespace p2 {
 struct Identity {
