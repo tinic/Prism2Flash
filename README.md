@@ -11,8 +11,9 @@ add a regular firmware flasher using the same programming engine.
 **Status: Genesis protocol model and offline firmware parser/validator
 implemented. Native startup, offline synthetic-file checks and CIS-only
 identification passed on the real A1200, alongside Amiberry/Copperline checks.**
-Active card inspection, AUX/full-flash access, Genesis and programming remain
-unvalidated and blocked pending verified full backups. The user has reserved
+Experimental AUX NV capture is now implemented; physical flash coverage and
+read reliability remain under investigation. Active card inspection, Genesis
+and programming stay blocked pending verified full backups. The user has reserved
 the A1200 for this project. See [the hardware record](docs/HARDWARE-TESTING.md).
 
 ## Downloads and project workflow
@@ -50,6 +51,11 @@ native active commands are currently gated as described above:
 
 - `info`: claim the slot and report the CIS manufacturer/product identifiers.
   This does not configure the card or issue Prism commands.
+- `backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ`: experimentally
+  capture the entire 8 MiB AUX NV address space twice, compare bytes and reopen
+  saved files to verify SHA-256. Requires a new persistent timestamped directory
+  and the exact MA401RA/ISL37300P CIS strings. Partial files are retained. This
+  does not certify physical flash coverage or enable active commands.
 - `inspect`: configure the I/O window, initialize the card, read NIC/primary/
   station identities and validate a 1024-byte PDA read including its CRC.
 - `probe --sram 8` or `probe --sram 16`: perform those checks, enter Genesis,
@@ -63,8 +69,9 @@ width. Determine it from documentation for the exact hardware revision.
 There is no automatic width guessing or force option.
 
 The current program requires working primary firmware, readable CIS data and
-a valid PDA. It does not yet load bootstrap firmware, revive a dead card, save
-backups, or program flash. Those steps are explicit milestones in
+a valid PDA. It does not yet load bootstrap firmware, revive a dead card or
+program flash. The experimental capture command is described in
+[the hardware record](docs/HARDWARE-TESTING.md). Those steps are explicit milestones in
 [ROADMAP.md](ROADMAP.md). No command `0x22` programming path is compiled into
 the executable.
 
@@ -99,7 +106,7 @@ The Amiga executables are `build-amiga/Prism2Genesis` and
 For a pinned compiler with its startup/ABI checks applied automatically, run
 `tools/ci.sh native` on Linux x86_64 or macOS arm64. This does not require an
 AmiNetXDuo checkout. Host checks use `tools/ci.sh host`.
-`inspect` and `probe` require `utility.library` and **pccard.library 2.2 or
+`backup`, `inspect` and `probe` require `utility.library` and **pccard.library 2.2 or
 newer**. An unmodified pccard.library 2.2 is provided in
 `third_party/pccard/Libs`, together with its complete original source archive
 and license notices. Do not replace a newer installed library.

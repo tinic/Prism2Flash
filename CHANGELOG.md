@@ -19,12 +19,22 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - `Prism2Genesis backup --output NEW_DIRECTORY --utc YYYYMMDDTHHMMSSZ`:
   two complete 8 MiB AUX NV address-space reads, byte comparison, saved-file
   reopen verification and SHA-256 manifests in a new timestamped directory.
+  Require consecutive whole-page agreement with bounded retries, and count
+  disagreements; never majority-vote or repair bytes in captured files.
 - Exact MA401RA/ISL37300P CIS matching for acquisition, separate from the
   active-card allowlist. No INIT, Genesis, AUX payload write or programming
-  command is used. Restore AUX state and any temporary COR selection without
-  resetting the slot. Preserve partial captures on failure.
+  command is used. Clear the AUX selector, disable only an AUX session opened
+  by the reader, and restore any temporary COR selection without resetting the
+  slot. Never replay unreadable scratch-register values. Preserve partial captures on failure.
 - NV-selector/page/bounds, hash-vector, full-read, mismatch, removal,
   cancellation, timeout, file-preservation and native startup checks.
+
+### Fixed
+
+- PDA CRC uses CRC-16/ARC (reflected polynomial 0xa001, initial zero), matching
+  the retained Host AP and linux-wlan-ng tables. Earlier synthetic fixtures
+  shared an incorrect 0x8408 implementation. An independent fixed CRC oracle
+  now checks the parser; previous metadata/payload comparisons did not test PDA CRC.
 
 ### Scope
 

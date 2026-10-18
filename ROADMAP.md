@@ -5,8 +5,10 @@
 - [x] Refuse native active inspection/probing before slot access while full
       backup support is unavailable; retain the host simulation for development.
 - [ ] Independently review AUX NV addressing and exact physical flash maps.
-- [ ] Implement non-resetting acquisition/cleanup, full repeated reads, persistent
-      timestamped raw dump plus identity/map/SHA-256 manifest, and file verification.
+- [x] Implement experimental non-resetting AUX address-space acquisition, repeated
+      reads, timestamped raw files, SHA-256 manifests and saved-file verification.
+- [ ] Establish reliable real-card reads and complete physical coverage. Initial
+      8 MiB acquisition has sparse differences and is not an approved backup.
 - [ ] Require a fresh verified full backup before every impactful operation and
       timestamped full readback afterward; reject partial/failed/stale backups.
 - [ ] Verify failure/removal/storage handling and operation gating offline, then
