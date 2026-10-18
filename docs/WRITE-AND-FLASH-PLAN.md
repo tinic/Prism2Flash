@@ -27,6 +27,11 @@ proof of complete physical coverage on this unit.
 
 ## Gates before a real Genesis probe
 
+The host-only [owned transaction](OPERATION-TRANSACTION.md) now implements and
+tests the session ordering with a synthetic linear NV profile. The
+[candidate profile](evidence/ma401-pd5lmwp200-candidate.json) records the actual
+card's evidence and outstanding checks. Neither enables native commands.
+
 1. Establish the exact card profile: PCB/chip evidence or equivalent primary
    documentation, NIC/variant binding, SRAM width, memory decode, physical flash
    extent and every flash/CIS/PDA/calibration range. Inspect the exact FCC filing

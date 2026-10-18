@@ -19,4 +19,7 @@ struct CaptureReport {
 [[nodiscard]] CaptureReport capture(p2_bus &bus, FILE &first, FILE &second);
 [[nodiscard]] bool valid_utc(std::string_view timestamp);
 int run_command(const char *directory, const char *utc);
+// Exact length/hash check, including checked read-stream close. Also used for
+// saved transaction manifests; defaults to the complete AUX NV capture size.
+int verify_file(const char *name, const char *sha256, uint32_t size = NvBytes);
 } // namespace p2::backup

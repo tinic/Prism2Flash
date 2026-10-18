@@ -18,6 +18,7 @@ struct p2_mock {
   unsigned access_delay_us;
   int drop_ram_writes, unstable_ram;
   int stick_aux_on_normal;
+  int change_nv_on_normal;
   unsigned corrupt_nv_once_at;
   unsigned scratch_writes_after_disable;
   int aux_disabled_by_host;

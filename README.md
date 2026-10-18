@@ -63,6 +63,24 @@ native active commands are currently gated as described above:
   run the Host AP four-byte SRAM readback test at `0x7e0038`, return to normal
   mode, and check that primary firmware responds again.
 
+The host simulator can exercise the owned before/after backup transaction:
+
+```sh
+build-host/Prism2GenesisSim probe --sram 16 \
+  --output /persistent/path/probe-20261018T120000Z --utc 20261018T120000Z
+```
+
+This saves two before and two after captures, verifies saved raw files and
+manifests, and compares all modeled NV bytes while retaining slot ownership.
+The synthetic 8 MiB model profile cannot approve physical-card coverage.
+Native active commands refuse even with these options. See
+[transaction behavior and remaining gates](docs/OPERATION-TRANSACTION.md).
+
+For read-only analysis of existing MA401 captures, use
+`python3 tools/audit_nv_capture.py FIRST SECOND`. Its report checks the exact
+[candidate observations](docs/evidence/ma401-pd5lmwp200-candidate.json);
+saved files never authorize a new operation.
+
 The probe resets the card and changes four bytes in its RAM. It requires
 exclusive slot ownership and interrupts any use of that card for networking.
 `--sram` means the card's internal SRAM width, **not** the Amiga's PCMCIA bus

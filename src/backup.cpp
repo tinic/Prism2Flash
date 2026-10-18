@@ -212,7 +212,8 @@ private:
   uint16_t control_ = 0;
   bool opened_ = false, acquired_ = false;
 };
-int verify_file(const char *name, const char *expected) {
+} // namespace
+int verify_file(const char *name, const char *expected, uint32_t size) {
   auto file = File::open(name, "rb");
   auto buffer = ByteBuffer::allocate(4096);
   if (!file || !buffer)
@@ -221,19 +222,18 @@ int verify_file(const char *name, const char *expected) {
   uint32_t total = 0;
   while (const auto count =
              fread(buffer.bytes().data(), 1, buffer.size(), file.get())) {
-    if (count > NvBytes - total)
+    if (count > size - total)
       return P2_E_IO;
     total += static_cast<uint32_t>(count);
     hash.update(buffer.bytes().first(count));
   }
-  if (ferror(file.get()) || total != NvBytes)
+  if (ferror(file.get()) || total != size)
     return P2_E_IO;
   const auto actual = hash.hex();
   if (!file.close())
     return P2_E_IO;
   return std::strcmp(actual.data(), expected) ? P2_E_VERIFY : P2_OK;
 }
-} // namespace
 CaptureReport capture(p2_bus &bus, FILE &first, FILE &second) {
   return NvCapture{bus, first, second}.run();
 }

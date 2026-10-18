@@ -118,6 +118,10 @@ static void write_cfg(void *ctx, uint8_t reg, uint8_t value) {
       ++m->genesis_entries;
     if (value == 0x17 || value == 0x07) {
       ++m->normal_returns;
+      if (m->change_nv_on_normal && m->nv_memory) {
+        m->nv_memory[0] ^= 1;
+        m->change_nv_on_normal = 0;
+      }
       if (m->stick_aux_on_normal)
         m->stuck_aux = 1;
     }

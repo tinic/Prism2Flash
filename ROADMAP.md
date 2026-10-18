@@ -13,6 +13,11 @@
       verified AUX capture does not yet authorize active operations.
 - [ ] Require a fresh verified full backup before every impactful operation and
       timestamped full readback afterward; reject partial/failed/stale backups.
+- [x] Exercise the owned before/after transaction with a synthetic NV profile,
+      durable-file checks, storage/phase fault injection and unchanged-byte
+      comparison in the host model. Native implementation/approval is pending.
+- [x] Record the exact PD5LMWP200 candidate and reproducibly audit existing
+      captures for matching raw bytes, aliases, CRC and PDA configuration.
 - [ ] Verify failure/removal/storage handling and operation gating offline, then
       validate the acquisition on spare hardware when explicitly made available.
 

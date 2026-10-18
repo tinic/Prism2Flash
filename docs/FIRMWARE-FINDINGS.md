@@ -249,3 +249,20 @@ Do not infer an SRAM vendor, capacity or replacement part from the package
 outline. The saved PDA's x16 configuration clue remains the stronger evidence
 for selecting a future, independently corroborated Genesis profile. No hardware
 gate is enabled by this photographic analysis.
+
+## Independent AgentNet corroboration — 2026-10-18 12:34 UTC
+
+DeepSeek Flash independently reported reading **SST39VF010 / 90-4C-WH** at
+U5 in the matching **PD5LMWP200** filing scans after correcting their mirrored
+orientation. This agrees with our inspection of the user's PNG exports and
+corroborates the candidate 128 KiB part against the measured alias period.
+Its report explicitly distinguishes the filing sample from the user's unit;
+it does not prove the fitted part or approve physical coverage. The earlier
+12:32 report that markings were unreadable was superseded by this corrected
+inspection. Treat the printed V2.5 as a label observation, not a silicon ID.
+
+The sanitized [candidate profile](evidence/ma401-pd5lmwp200-candidate.json) and
+[offline audit](evidence/ma401-candidate-audit.json) collect the current evidence.
+The audit rereads existing files only; no new card access or JEDEC/autoselect
+command was issued. The original channel messages, including private identifiers,
+remain outside public source. This corroboration does not enable native Genesis.
