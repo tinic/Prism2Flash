@@ -14,7 +14,7 @@ Every release needs a matching dated `CHANGELOG.md` heading. Tags are exactly
 
 ## Continuous integration
 
-Every push to main or a codex branch, pull request, and manual CI run performs:
+Every push to main, pull request, and manual CI run performs:
 
 - Host protocol/CLI and release-format tests on Linux GCC, Linux Clang and
   macOS Clang, with warnings treated as errors.
@@ -24,6 +24,12 @@ Every push to main or a codex branch, pull request, and manual CI run performs:
   and independent Lhasa extraction/CRC verification. The uploaded artifact is
   downloaded and verified again so artifact-action changes are covered by CI.
 - Upload of binary/source packages as the `prism2flash-release` CI artifact.
+
+Host and sanitizer builds use `-O1 -g` with assertions enabled. Full-size NV
+captures and every fault case remain enabled. The target is at most two minutes
+for CI, measured from workflow start to completion; hosted runner queue time is
+recorded separately. Topic branches use the pull-request trigger to avoid a
+duplicate push run.
 
 A separate LLVM formatting job uses pinned clang-format 18.1.8.
 
