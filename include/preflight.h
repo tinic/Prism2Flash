@@ -27,6 +27,10 @@ struct Evidence {
   int64_t checked_utc_seconds = 0;
   std::array<char, 384> resolved_directory{};
 };
+// Resolve/check a new destination without creating it. Used by experimental
+// acquisition as well as diagnostic preflight; it grants no operation
+// authority.
+[[nodiscard]] CardResult<Evidence> destination(const char *directory);
 // Read filesystem/clock only. No card resource, directory creation or files.
 [[nodiscard]] CardResult<Evidence> native(const char *directory,
                                           const char *utc, int offset_east);

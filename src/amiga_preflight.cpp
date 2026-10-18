@@ -24,10 +24,8 @@ private:
   BPTR value_;
 };
 } // namespace
-CardResult<Evidence> native(const char *directory, const char *utc, int east) {
-  if (!directory || !utc || std::strlen(directory) > 320 ||
-      !backup::valid_utc(utc) || !std::strstr(directory, utc) || east < -840 ||
-      east > 840)
+CardResult<Evidence> destination(const char *directory) {
+  if (!directory || std::strlen(directory) > 320)
     return std::unexpected{P2_E_ARGUMENT};
   const char *colon = std::strchr(directory, ':');
   const char *slash = std::strrchr(directory, '/');
@@ -74,6 +72,16 @@ CardResult<Evidence> native(const char *directory, const char *utc, int east) {
     if (existing.get() || IoErr() != ERROR_OBJECT_NOT_FOUND)
       return std::unexpected{P2_E_IO};
   }
+  return result;
+}
+CardResult<Evidence> native(const char *directory, const char *utc, int east) {
+  if (!directory || !utc || !backup::valid_utc(utc) ||
+      !std::strstr(directory, utc) || east < -840 || east > 840)
+    return std::unexpected{P2_E_ARGUMENT};
+  auto resolved = destination(directory);
+  if (!resolved)
+    return std::unexpected{resolved.error()};
+  auto &result = *resolved;
   struct DateStamp stamp {};
   DateStamp(&stamp);
   result.clock = Clock{stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick};

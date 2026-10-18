@@ -141,7 +141,11 @@ before inclusion; their rejection is not a claim that they are volatile.
 Space must cover four 8 MiB acquisition files plus 64 KiB of journal allowance.
 The leaf must be new and consist of letters, digits, hyphens or underscores.
 
-This command creates no directory/files and does not open card.resource. Its
+The experimental `backup` command also uses the resolved-volume check before
+creating its directory; an assign to RAM no longer passes the old literal-name
+check. This acquisition still does not authorize an impactful operation.
+
+The preflight command creates no directory/files and does not open card.resource. Its
 locks are released on return. It cannot authorize a later command: storage,
 clock and insertion ownership must be reacquired/retained in the eventual native
 journal. Native active commands, including appended transaction options, continue

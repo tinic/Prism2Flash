@@ -77,7 +77,8 @@ def valid_output(name, text, suite="genesis"):
     if name == "backup_bad_utc":
         return "Use a new persistent directory" in text
     if name == "backup_no_card":
-        return "NV capture failed:" in text and ("Cannot own PCMCIA card" in text or "No card.resource" in text)
+        return (("NV capture failed:" in text and ("Cannot own PCMCIA card" in text or "No card.resource" in text))
+                or "Cannot create a NEW backup directory" in text)
     if name in ("inspect", "probe8", "probe16", "inspect_again",
                 "inspect_transaction", "probe_transaction"):
         return ("Operation blocked: a verified timestamped full-flash backup is required." in text

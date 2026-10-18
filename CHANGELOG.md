@@ -35,7 +35,8 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
   validates an explicit local-to-UTC offset, calendar fields and clock skew,
   resolves assigns through AmigaDOS locks, rejects the RAM volume and unknown
   filesystem types, and requires writable DOS storage and space for four
-  captures. It creates no files and never accesses card.resource.
+  captures. The experimental backup command uses the same volume check
+  before directory creation, closing the literal-RAM-name bypass. Preflight creates no files and never accesses card.resource.
 - Typed offline MA401 CIS/PDA candidate observation validation. Matching
   NIC/PDR configuration yields only an SRAM-width inference; physical coverage,
   SRAM capacity and hardware authorization remain false.

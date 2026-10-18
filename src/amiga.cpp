@@ -7,6 +7,7 @@
 #include "owned_memory.h"
 #include "p2_stdio.h"
 #include "platform.h"
+#include "preflight.h"
 #include <bit>
 #include <devices/timer.h>
 #include <dos/dos.h>
@@ -370,17 +371,19 @@ int p2_platform_configure_backup(struct p2_platform *p, struct p2_bus *bus,
   return configure(p, bus, error, size, 1);
 }
 int p2_platform_backup_directory(const char *path) {
-  BPTR lock;
-  /* Use a persistent volume explicitly; never stage a backup in RAM/T. */
-  if (!strchr(path, ':') || !strncasecmp(path, "RAM:", 4) ||
-      !strncasecmp(path, "T:", 2))
-    return P2_E_ARGUMENT;
-  lock = CreateDir((CONST_STRPTR)path);
+  auto destination = p2::preflight::destination(path);
+  if (!destination)
+    return destination.error();
+  // Validate the actual volume behind assigns, then create on its canonical
+  // path. This remains experimental acquisition, not operation authorization.
+  const auto lock =
+      CreateDir((CONST_STRPTR)destination->resolved_directory.data());
   if (!lock)
-    return P2_E_IO; /* Existing directory is never reused. */
+    return P2_E_IO;
   UnLock(lock);
   return P2_OK;
 }
+
 int p2_platform_finish_backup(struct p2_platform *p) {
   if (!p || !p->backup_only)
     return P2_E_ARGUMENT;
