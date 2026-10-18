@@ -57,9 +57,9 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
         out->before[i+1]=b->read16(b->ctx,saved_regs[i]);
     }
     rc=available(b);if(rc){free(buffers);return rc;}
-    /* An existing AUX session has unknown ownership and must be left alone. */
-    if(control&0xc000){free(buffers);return P2_E_UNSUPPORTED;}
-    opened=1;rc=p2_aux_enable(b,1);
+    /* Exclusive slot ownership also covers firmware that leaves AUX enabled.
+     * Do not toggle it in that case; only disable a session opened here. */
+    if(!(control&0xc000)){opened=1;rc=p2_aux_enable(b,1);}
     for(pass=0;!rc && pass<2;++pass){
         if(pass && (fflush(first)||fseek(first,0,SEEK_SET))) {rc=P2_E_IO;break;}
         p2_sha256_init(&hash);
@@ -90,10 +90,8 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
     /* linux-wlan-ng clears AUXOFFSET's selector while AUX is enabled;
      * Host AP disables AUX with PARAM0/1/2 zero. These are scratch registers,
      * not persistent settings. Never replay old values after disabling AUX. */
-    if(opened){
-        if(b->present(b->ctx))b->write16(b->ctx,P2_AUXOFFSET,0);
-        cleanup=p2_aux_enable(b,0);
-    }
+    if(b->present(b->ctx))b->write16(b->ctx,P2_AUXOFFSET,0);
+    if(opened)cleanup=p2_aux_enable(b,0);
     if(!b->present(b->ctx) && !cleanup)cleanup=P2_E_REMOVED;
     if(b->present(b->ctx)){
         out->after[0]=b->read16(b->ctx,P2_CONTROL);
