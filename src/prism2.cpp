@@ -89,16 +89,33 @@ CardStatus Card::enable_aux(bool enable) {
   bus_.delay_us(bus_.ctx, 5);
   return wait_mask(P2_CONTROL, 0xc000, enable ? 0xc000 : 0, 100000);
 }
-CardStatus Card::ensure_aux_enabled() {
+CardResult<uint16_t> Card::aux_control() {
   if (auto r = interrupted(); !r)
-    return r;
-  const auto control = bus_.read16(bus_.ctx, P2_CONTROL);
+    return std::unexpected{r.error()};
+  auto control = bus_.read16(bus_.ctx, P2_CONTROL);
   if (auto r = interrupted(); !r)
-    return r;
+    return std::unexpected{r.error()};
+  // A retained NV selector can expose flash data in CONTROL on Gayle.
+  // Complete that scratch access once, without reset/INIT or flash commands.
+  if (control != 0xffff && (control & 0xc000) != 0 &&
+      (control & 0xc000) != 0xc000) {
+    bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+    if (auto r = interrupted(); !r)
+      return std::unexpected{r.error()};
+    control = bus_.read16(bus_.ctx, P2_CONTROL);
+    if (auto r = interrupted(); !r)
+      return std::unexpected{r.error()};
+  }
   if (control == 0xffff ||
       ((control & 0xc000) != 0 && (control & 0xc000) != 0xc000))
     return std::unexpected{P2_E_IO};
-  return (control & 0xc000) == 0xc000 ? CardStatus{} : enable_aux(true);
+  return control;
+}
+CardStatus Card::ensure_aux_enabled() {
+  const auto control = aux_control();
+  if (!control)
+    return std::unexpected{control.error()};
+  return (*control & 0xc000) == 0xc000 ? CardStatus{} : enable_aux(true);
 }
 CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
                           std::span<const uint8_t> write, uint16_t space,
@@ -150,7 +167,17 @@ CardStatus Card::read_aux(uint32_t address, std::span<uint8_t> data) {
   return transfer(address, data, {}, 0);
 }
 CardStatus Card::read_nv(uint32_t address, std::span<uint8_t> data) {
-  return transfer(address, data, {}, 0x1000);
+  auto result = transfer(address, data, {}, 0x1000);
+  if (!result && result.error() == P2_E_ARGUMENT)
+    return result;
+  // Every caller, including bootstrap PDA validation, must see normal
+  // registers after a word NV transfer. Ignore cancellation only for cleanup.
+  if (bus_.present(bus_.ctx)) {
+    bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+    if (auto state = alive(); !state && result)
+      result = state;
+  }
+  return result;
 }
 CardStatus Card::seek_byte(uint32_t address, uint16_t space) {
   if (address >= 0x800000)

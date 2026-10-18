@@ -29,11 +29,12 @@ public:
       : directory_(directory), utc_(utc), operation_(operation),
         native_(native), offset_east_(offset_east), expected_(expected) {}
   CardStatus prepare() override {
-    // Only the explicit RAM profile can reach native storage/slot acquisition.
+    // Only the qualified MA401 operations reach native storage/slot
+    // acquisition.
     if (native_) {
 #ifdef PRISM2_AMIGA
-      // The human accepted the complete 8 MiB AUX NV layout for one RAM-only
-      // x16 test. This is not an approval of erase/programming geometry.
+      // Admission is narrow; fresh same-claim captures, exact PDA/CIS/input
+      // checks and runtime bootstrap/JEDEC proof remain mandatory for flash.
       const bool flash = !std::strcmp(operation_, "flash-sst");
       if ((std::strcmp(operation_, "probe-x16") &&
            std::strcmp(operation_, "bootstrap-x16") &&

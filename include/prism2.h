@@ -92,6 +92,7 @@ public:
   Card(const Card &) = delete;
   Card &operator=(const Card &) = delete;
   [[nodiscard]] CardStatus enable_aux(bool enable);
+  [[nodiscard]] CardResult<uint16_t> aux_control();
   [[nodiscard]] CardStatus ensure_aux_enabled();
   [[nodiscard]] CardStatus read_aux(uint32_t address, std::span<uint8_t> data);
   [[nodiscard]] CardStatus read_nv(uint32_t address, std::span<uint8_t> data);

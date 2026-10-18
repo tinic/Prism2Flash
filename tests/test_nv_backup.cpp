@@ -61,8 +61,13 @@ static void transfer_tests(void) {
   uint8_t b[260];
   unsigned ops;
   init_nv(&m);
+  m.nv_selector_hides_control = true;
+  m.regs[P2_CONTROL / 2] = 0xc000;
   CHECK(!code(p2::Card{m.bus}.read_nv(126, b)));
-  CHECK(!memcmp(b, m.nv_memory + 126, sizeof(b)) && m.aux_space == 1);
+  CHECK(!memcmp(b, m.nv_memory + 126, sizeof(b)) && m.aux_space == 0);
+  CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()));
+  m.aux_space = 1; // Reproduce the retained selector from an older caller.
+  CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()) && m.aux_space == 0);
   CHECK(!code(p2::Card{m.bus}.read_nv(0x7ffffe, std::span{b}.first(2))));
   CHECK(!memcmp(b, m.nv_memory + 0x7ffffe, 2));
   ops = m.operations;
@@ -78,7 +83,7 @@ static void transfer_tests(void) {
         !m.configuration_writes);
   p2_mock_free(&m);
 }
-static void capture_tests(int enabled, int mismatch) {
+static void capture_tests(int enabled, int mismatch, bool hidden = false) {
   struct p2_mock m;
   p2::backup::CaptureReport result;
   FILE *a = tmpfile(), *b = tmpfile();
@@ -89,6 +94,8 @@ static void capture_tests(int enabled, int mismatch) {
   CHECK(a && b);
   init_nv(&m);
   m.regs[P2_CONTROL / 2] = enabled ? 0xc000 : 0;
+  m.nv_selector_hides_control = hidden;
+  m.aux_space = hidden ? 1 : 0;
   for (i = 0; i < 5; ++i)
     m.regs[regids[i] / 2] = regs[i];
   if (mismatch)
@@ -174,6 +181,7 @@ int main(void) {
   transfer_tests();
   capture_tests(0, 0);
   capture_tests(1, 0);
+  capture_tests(1, 0, true);
   capture_tests(0, 1);
   failure_tests();
   CHECK(p2::backup::valid_utc("20261018T104000Z"));

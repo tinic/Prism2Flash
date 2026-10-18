@@ -18,6 +18,8 @@ static uint16_t read16(void *ctx, uint16_t reg) {
     return 0xffff;
   if (reg == P2_CMD && m->stuck_command)
     return 0x8000;
+  if (reg == P2_CONTROL && m->nv_selector_hides_control && m->aux_space)
+    return 0x6500;
   if (reg == P2_AUXDATA) {
     uint16_t v;
     const uint8_t *source = m->aux_space == 1 ? m->nv_memory : m->memory;

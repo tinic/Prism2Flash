@@ -105,7 +105,10 @@ private:
     if (auto result = available(); !result)
       return result;
     start_ = bus_.now_us(bus_.ctx);
-    control_ = bus_.read16(bus_.ctx, P2_CONTROL);
+    const auto control = card_.aux_control();
+    if (!control)
+      return std::unexpected{control.error()};
+    control_ = *control;
     report_.before[0] = control_;
     if (auto result = available(); !result)
       return result;

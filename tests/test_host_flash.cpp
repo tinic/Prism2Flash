@@ -20,6 +20,7 @@ struct FlashModel {
     assert(!p2_mock_init(&mock, 16));
     mock.nv_memory = static_cast<uint8_t *>(std::malloc(0x800000));
     assert(mock.nv_memory);
+    mock.nv_selector_hides_control = true;
     before[0] = 0x12;
     before[0xfe00] = 0x91; // CIS and PDA must survive the whole-chip erase.
     before[0x10020] = 0x31;
