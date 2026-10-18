@@ -264,6 +264,13 @@ def main():
                 time.sleep(0.1)
         finally:
             stop_child(proc)
+    # Amiberry can defer host-directory writes until child shutdown. Require
+    # this run's exact completion token after flushing too; case/helper exit
+    # codes and outputs must still all match below.
+    observed_before_stop = completed
+    marker = drive / "completed"
+    completed = marker.exists() and marker.read_text().strip() == token
+    report["completion_flushed_on_stop"] = completed and not observed_before_stop
     failures = []
     if not completed:
         failures.append("guest did not write this run's completion token")
