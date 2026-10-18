@@ -10,10 +10,12 @@ struct Report {
   int readback_error = 0, comparison_error = 0, cleanup_error = 0;
   int journal_error = 0;
   bool operation_started = false, readback_attempted = false;
+  bool recovery_held = false;
   [[nodiscard]] bool success() const {
     return operation_started && readback_attempted && !preparation_error &&
            !acquisition_error && !operation_error && !readback_error &&
-           !comparison_error && !cleanup_error && !journal_error;
+           !comparison_error && !cleanup_error && !journal_error &&
+           !recovery_held;
   }
 };
 // A journal must save, close and reopen-verify both raw captures and the phase
@@ -29,11 +31,21 @@ public:
   virtual CardStatus finish(const Report &) = 0;
 };
 using Work = CardStatus (*)(Card &, void *);
+struct Expected {
+  CardStatus (*compare)(const char *before, const char *after,
+                        void *) = nullptr;
+  void *context = nullptr;
+};
+struct Recovery {
+  bool (*required)(void *, const Report &) = nullptr;
+  void (*hold)(Card &, void *) = nullptr;
+};
 // Own once, configure only the non-reset acquisition path, retain ownership
 // through file verification, operation and readback. Never reclaim/retry/reset.
-[[nodiscard]] Report run(Journal &, Work, void *context);
+[[nodiscard]] Report run(Journal &, Work, void *context, Recovery = {});
 int run_native(const char *directory, const char *utc, const char *operation,
-               Work, void *context, int offset_east = 10000);
+               Work, void *context, int offset_east = 10000, Expected = {},
+               Recovery = {});
 // Host model only. This factory cannot select a physical backend.
 [[nodiscard]] Owned<Journal> make_model_journal(const char *directory,
                                                 const char *utc,

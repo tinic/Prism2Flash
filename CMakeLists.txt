@@ -72,6 +72,14 @@ if(PRISM2_AMIGA)
   target_include_directories(Prism2Genesis PRIVATE third_party/pccard/include)
   target_link_libraries(Prism2Genesis PRIVATE prism2_operation)
   target_compile_options(Prism2Genesis PRIVATE -Wall -Wextra -Werror)
+  add_executable(Prism2Flash src/flash_main.cpp src/amiga.cpp src/amiga_preflight.cpp)
+  target_compile_definitions(Prism2Flash PRIVATE PRISM2_AMIGA=1)
+  target_include_directories(Prism2Flash PRIVATE third_party/pccard/include)
+  target_link_libraries(Prism2Flash PRIVATE prism2_operation prism2_flash_plan)
+  target_compile_options(Prism2Flash PRIVATE -Wall -Wextra -Werror)
+  add_custom_command(TARGET Prism2Flash POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" "-DBINARY=$<TARGET_FILE:Prism2Flash>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check-no-float.cmake")
   add_custom_command(TARGET Prism2Genesis POST_BUILD
     COMMAND "${CMAKE_COMMAND}" "-DBINARY=$<TARGET_FILE:Prism2Genesis>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check-no-float.cmake")
@@ -101,7 +109,7 @@ if(PRISM2_AMIGA)
   add_custom_command(TARGET emulator_env POST_BUILD
     COMMAND "${CMAKE_COMMAND}" "-DBINARY=$<TARGET_FILE:emulator_env>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/check-no-float.cmake")
-  install(TARGETS Prism2Genesis Prism2Firmware RUNTIME DESTINATION C)
+  install(TARGETS Prism2Genesis Prism2Firmware Prism2Flash RUNTIME DESTINATION C)
 else()
   add_library(prism2_mock tests/mock.cpp)
   target_include_directories(prism2_mock PUBLIC tests)

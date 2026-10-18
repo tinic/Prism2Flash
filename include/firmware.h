@@ -55,6 +55,7 @@ struct CardSnapshot {
   std::optional<std::array<uint8_t, 6>> mac;
   std::array<std::optional<InterfaceRange>, 4> suppliers{};
   [[nodiscard]] static Result<CardSnapshot> read(FILE &file);
+  [[nodiscard]] static Result<CardSnapshot> from_pda(std::span<const uint8_t>);
 };
 class Parser;
 class InitialImage;

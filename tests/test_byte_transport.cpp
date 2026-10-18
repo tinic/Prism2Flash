@@ -9,6 +9,7 @@ struct ByteModel {
   unsigned reads = 0, writes = 0;
   uint32_t address = 0;
   uint16_t port = 0;
+  unsigned space = 0;
   uint8_t value = 0;
   ByteModel() {
     assert(!p2_mock_init(&mock, 16));
@@ -19,6 +20,7 @@ struct ByteModel {
       ++m.reads;
       m.port = reg;
       m.address = m.mock.aux_address;
+      m.space = m.mock.aux_space;
       return m.value;
     };
     mock.bus.write8 = [](void *ctx, uint16_t reg, uint8_t value) {
@@ -26,6 +28,7 @@ struct ByteModel {
       ++m.writes;
       m.port = reg;
       m.address = m.mock.aux_address;
+      m.space = m.mock.aux_space;
       m.value = value;
     };
     mock.bus.ctx = this;
@@ -43,7 +46,8 @@ int main() {
     p2::Card card{m.mock.bus};
     assert(card.write_nv_byte(address, 0xa5));
     assert(m.writes == 1 && !m.reads && m.value == 0xa5);
-    assert(m.address == (address & ~1u) && m.mock.aux_space == 1);
+    assert(m.address == (address & ~1u) && m.space == 1 &&
+           m.mock.aux_space == 0);
     assert(m.port == P2_AUXDATA + (address & 1));
     auto read = card.read_nv_byte(address);
     assert(read && *read == 0xa5 && m.reads == 1);

@@ -54,6 +54,12 @@ def stop_child(proc):
 
 
 def valid_output(name, text, suite="genesis"):
+    if suite == "flash":
+        if name == "version":
+            return text.strip() == f"Prism2Flash {VERSION}"
+        if name in ("program_missing_files", "verify_missing_files"):
+            return not text.strip() or "Native programming admission remains disabled; no card access." in text
+        return f"Prism2Flash {VERSION}" in text and "Fresh full before/after captures" in text
     if suite == "firmware":
         if name == "initial_bootstrap":
             return "Initial RAM bootstrap: 24 bytes, 3 S3 records" in text and "No card access or loading" in text
@@ -181,13 +187,13 @@ def main():
     parser.add_argument("--model", choices=("A600", "A1200", "A3000"), required=True)
     parser.add_argument("--cpu", choices=("68000", "68020", "68030", "68060"), required=True)
     parser.add_argument("--rom", type=Path, required=True)
-    parser.add_argument("--suite", choices=("genesis", "firmware"), default="genesis")
+    parser.add_argument("--suite", choices=("genesis", "firmware", "flash"), default="genesis")
     parser.add_argument("--binary", type=Path)
     parser.add_argument("--env-helper", type=Path, default=Path("build-amiga/emulator_env"))
     parser.add_argument("--output", type=Path, default=Path("build-emulator"))
     parser.add_argument("--timeout", type=float, default=45)
     args = parser.parse_args()
-    args.program = "Prism2Firmware" if args.suite == "firmware" else "Prism2Genesis"
+    args.program = {"firmware": "Prism2Firmware", "genesis": "Prism2Genesis", "flash": "Prism2Flash"}[args.suite]
     if args.binary is None:
         args.binary = Path("build-amiga") / args.program
     if args.suite == "firmware":
@@ -211,6 +217,17 @@ def main():
             ("bad_checksum", f"inspect {prefix}bad.hex", 20),
             ("missing_image", f"inspect {prefix}missing.hex", 20),
             ("missing_args", "validate", 20), ("reject_flash", "flash", 20),
+            ("help_after_errors", "--help", 0),
+        ]
+    elif args.suite == "flash":
+        options = " --primary missing-primary.hex --station missing-station.hex --output Work:20261018T104000Z --utc 20261018T104000Z --utc-offset 0"
+        CASES = [
+            ("help", "--help", 0), ("version", "--version", 0),
+            ("missing_args", "program", 20),
+            ("program_missing_files", "program --initial missing-initial.hex" + options, 20),
+            ("verify_missing_files", "verify" + options, 20),
+            ("bad_offset", "program --initial missing-initial.hex" + options.replace("--utc-offset 0", "--utc-offset 9999"), 20),
+            ("reject_force", "program --force yes" + options, 20),
             ("help_after_errors", "--help", 0),
         ]
     else:

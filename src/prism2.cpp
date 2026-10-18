@@ -165,13 +165,21 @@ CardResult<uint8_t> Card::read_nv_byte(uint32_t address) {
   const auto value = bus_.read8(bus_.ctx, P2_AUXDATA + (address & 1));
   if (auto result = interrupted(); !result)
     return std::unexpected{result.error()};
+  // Complete the Amiga NV access before the caller reads normal registers
+  // or CIS. The next byte always re-seeks; no streaming pointer is exposed.
+  bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+  if (auto result = alive(); !result)
+    return std::unexpected{result.error()};
   return value;
 }
 CardStatus Card::write_nv_byte(uint32_t address, uint8_t value) {
   if (auto result = seek_byte(address, 0x1000); !result)
     return result;
   bus_.write8(bus_.ctx, P2_AUXDATA + (address & 1), value);
-  return interrupted();
+  if (auto result = interrupted(); !result)
+    return result;
+  bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+  return alive();
 }
 CardStatus Card::test_ram_byte_access(uint32_t address) {
   if (address & 1)

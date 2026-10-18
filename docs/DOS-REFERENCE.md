@@ -139,3 +139,24 @@ true byte-write lanes in unused Genesis RAM, verifies with independent word
 reads twice, restores the original scratch word with byte writes and verifies
 it again before loading initial code. Failure retains Genesis and prevents
 JEDEC identification; native erase/program remains disabled.
+
+Native bootstrap2026-10-18 22:07UTC (b129eab): both true RAM byte-write
+lanes passed; all3434 initial-code bytes were written and independently
+verified; low07 handoff completed; NV PDA remained valid; JEDEC read BF:D5
+(SST39VF010), then F0 returned the flash to read mode. No erase/program.
+The full after-capture failed at its first register read because the byte
+operation left the NV selector active. Completing the missing AUXOFFSET=0
+cleanup restored CONTROL=C000 and the exact CIS without any reset or payload
+write; subsequent word and byte PDA reads both matched the original. Byte
+read/write APIs now clear the selector before returning. Full owned rerun is
+still required; the failed empty after files remain failure evidence.
+
+`Prism2Flash` now has program/verify commands, exact input hashes, preparation
+from the same owned transaction's fresh PDA, a saved/reopened intended128KiB
+image, and comparison of every byte in the final8MiB capture against that
+intended image. Native program admission is still disabled. Any failed erase,
+program or required after-capture retains card ownership and RAM through a
+recovery callback, after persisting the failure journal; explicit Ctrl-E
+releases ownership without a reset. The caller must not power-cycle an
+unverified partial flash. Standalone firmware verification also takes fresh
+before/after captures around INIT/RID queries.

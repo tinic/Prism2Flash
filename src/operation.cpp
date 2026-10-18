@@ -24,18 +24,23 @@ constexpr std::array Names{"before-read-1.bin", "before-read-2.bin",
 class CaptureJournal final : public Journal {
 public:
   CaptureJournal(const char *directory, const char *utc, const char *operation,
-                 bool native = false, int offset_east = 10000) noexcept
+                 bool native = false, int offset_east = 10000,
+                 Expected expected = {}) noexcept
       : directory_(directory), utc_(utc), operation_(operation),
-        native_(native), offset_east_(offset_east) {}
+        native_(native), offset_east_(offset_east), expected_(expected) {}
   CardStatus prepare() override {
     // Only the explicit RAM profile can reach native storage/slot acquisition.
     if (native_) {
 #ifdef PRISM2_AMIGA
       // The human accepted the complete 8 MiB AUX NV layout for one RAM-only
       // x16 test. This is not an approval of erase/programming geometry.
+      const bool flash = !std::strcmp(operation_, "flash-sst");
       if ((std::strcmp(operation_, "probe-x16") &&
-           std::strcmp(operation_, "bootstrap-x16")) ||
+           std::strcmp(operation_, "bootstrap-x16") &&
+           std::strcmp(operation_, "verify-current") && !flash) ||
           offset_east_ < -840 || offset_east_ > 840)
+        return std::unexpected{P2_E_UNSUPPORTED};
+      if (flash && (!expected_.compare || !profile::programming_approved()))
         return std::unexpected{P2_E_UNSUPPORTED};
       auto session =
           preflight::NativeSession::create(directory_, utc_, offset_east_);
@@ -187,6 +192,9 @@ public:
       if (int error = backup::verify_file(
               paths_[i].data(), captures_[i / 2].sha256[i % 2].data()))
         return std::unexpected{static_cast<p2_error>(error)};
+    if (expected_.compare)
+      return expected_.compare(paths_[0].data(), paths_[2].data(),
+                               expected_.context);
     auto before = File::open(paths_[0].data(), "rb");
     auto after = File::open(paths_[2].data(), "rb");
     auto buffer = ByteBuffer::allocate(8192);
@@ -224,11 +232,13 @@ public:
         "  \"operation_started\": %s,\n  \"operation_error\": %d,\n"
         "  \"readback_attempted\": %s,\n  \"readback_error\": %d,\n"
         "  \"comparison_error\": %d,\n  \"cleanup_error\": %d,\n"
+        "  \"recovery_session_held\": %s,\n"
         "  \"success\": %s\n}\n",
         native_ ? "false" : "true", operation_, utc_, result.preparation_error,
         result.acquisition_error, result.operation_started ? "true" : "false",
         result.operation_error, result.readback_attempted ? "true" : "false",
         result.readback_error, result.comparison_error, result.cleanup_error,
+        result.recovery_held ? "true" : "false",
         result.success() ? "true" : "false");
     const int error = save_text(6, text, count);
     return error ? CardStatus{std::unexpected{static_cast<p2_error>(error)}}
@@ -270,6 +280,7 @@ private:
   const char *directory_, *utc_, *operation_;
   bool native_ = false, created_ = false;
   int offset_east_ = 10000;
+  Expected expected_;
   std::array<std::array<char, 384>, 7> paths_{};
   std::array<File, 7> files_;
   std::array<backup::CaptureReport, 2> captures_;
@@ -312,14 +323,15 @@ int run_model(const char *directory, const char *utc, const char *operation,
 }
 #else
 int run_native(const char *directory, const char *utc, const char *operation,
-               Work work, void *context, int offset_east) {
+               Work work, void *context, int offset_east, Expected expected,
+               Recovery recovery) {
   if (!directory || !utc || !operation || !work)
     return 20;
-  auto journal =
-      make_owned<CaptureJournal>(directory, utc, operation, true, offset_east);
+  auto journal = make_owned<CaptureJournal>(directory, utc, operation, true,
+                                            offset_east, expected);
   if (!journal)
     return 20;
-  const auto result = run(*journal, work, context);
+  const auto result = run(*journal, work, context, recovery);
   if (result.preparation_error) {
     p2_fprintf(stderr,
                "Operation blocked: a verified timestamped full-flash backup is "

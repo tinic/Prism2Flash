@@ -31,6 +31,8 @@ int main(int argc, char **argv) {
   const auto original_pda = bytes;
   auto card = CardSnapshot::read(*snapshot);
   assert(card);
+  const auto derived = CardSnapshot::from_pda(bytes);
+  assert(derived && derived->nic == card->nic && derived->mac == card->mac);
   const auto basename = [](std::string_view name) {
     return name.substr(name.find_last_of('/') + 1);
   };

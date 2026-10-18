@@ -19,7 +19,7 @@ struct Volume {
   int32_t disk_state = 0, blocks = 0, used = 0, bytes_per_block = 0;
   bool same_as_ram = true;
 };
-inline constexpr uint64_t RequiredBytes = 4ull * 0x800000 + 65536;
+inline constexpr uint64_t RequiredBytes = 4ull * 0x800000 + 2 * 0x20000 + 65536;
 [[nodiscard]] CardStatus check_volume(const Volume &);
 // Move-only DOS lock ownership. The callback keeps SDK types out of policy
 // code; an Evidence object retains the resolved parent until its last use.

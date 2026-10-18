@@ -525,4 +525,18 @@ Result<PreparedImage> PreparedImage::create(ImageSource target, Mode mode,
 Result<CardSnapshot> CardSnapshot::read(FILE &file) {
   return SnapshotParser{}.read(file);
 }
+Result<CardSnapshot> CardSnapshot::from_pda(std::span<const uint8_t> bytes) {
+  auto pda = PdaView::checked(bytes);
+  if (!pda)
+    return std::unexpected{pda.error()};
+  const auto nic = pda->find(8), mac = pda->find(0x101);
+  if (!nic || nic->size() != 8 || !mac || mac->size() != 6)
+    return fail(Errc::Pda, "PDA lacks exact NIC/MAC fields");
+  CardSnapshot card;
+  const auto *n = nic->data();
+  card.nic = {le16(n), le16(n + 2), le16(n + 4), le16(n + 6)};
+  card.mac.emplace();
+  std::copy(mac->begin(), mac->end(), card.mac->begin());
+  return pda->bind(card);
+}
 } // namespace p2::firmware
