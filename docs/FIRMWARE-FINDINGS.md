@@ -96,14 +96,17 @@ This private-image comparison covers parsing only. The separate preparation
 tests compare every prepared byte against the retained upstream plug/stamp/merge
 routines on synthetic fixtures. No proprietary prepared image is redistributed.
 
-## MA401 revision evidence from the supplied label
+## MA401 revision evidence from the reference label
 
-The user's 2026-10-18 underside photo reads **FCC ID PY3MA401RD**, **5 Volt**,
-and **16-bit PCMCIA**. The FCC filing identifies model MA401RD, granted
-2003-02-09. This is stronger physical-revision evidence than the generic
-MA401RA/ISL37300P/Eval-RevA CIS strings observed on the inserted card. The
+The supplied 2026-10-18 reference underside photo reads **FCC ID PY3MA401RD**,
+**5 Volt**, and **16-bit PCMCIA**. The user confirmed it is an online reference
+image, not their card. Its printed MAC does not match the saved PDA; raw
+identifiers are not repeated here. The filing identifies model MA401RD, granted
+2003-02-09. It characterizes that reference revision, **not the backed-up unit's
+physical revision**. MA401RA/ISL37300P/Eval-RevA are the generic CIS strings
+observed on the inserted card. The
 PCMCIA bus width on the label does not identify the internal SRAM width.
-The user's MAC/serial and photograph are not included in the public repository.
+Raw MAC/serial values and the reference photograph are not included in the public repository.
 
 The filing lists internal-photo exhibits 301850 (two pages) and 301854 (five
 pages). Automated PDF retrieval initially failed; the user later supplied
@@ -114,7 +117,7 @@ listed as confidential metadata. Sources:
 [SAR photos 301854](https://fccid.io/PY3MA401RD/Internal-Photos/EUT-Photo-for-SAR-report-301854).
 
 The Intersil ISL37300P reference-evaluation data sheet describes a 3.3 V board;
-its electrical assumptions must not be substituted for this retail card's 5 V
+its electrical assumptions must not be substituted for the reference retail card's 5 V
 label ([manufacturer data sheet transcription](https://dtsheet.com/doc/160214/intersil-isl37300p-cd)).
 Neither the FCC ID alone nor 128 KiB AUX aliasing closes the full physical
 flash coverage requirement. The native allowlist/Genesis gate stays unchanged.
@@ -182,9 +185,10 @@ suffix is less certain than the family identification. Microchip identifies
 SST39VF010 as **1 Mbit, 128K x8 (128 KiB)** parallel flash, with uniform 4 KiB
 erase sectors ([product](https://www.microchip.com/en-us/product/sst39vf010),
 [manufacturer data sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/MPD/ProductDocuments/DataSheets/SST39LF010-SST39LF020-SST39LF040-SST39VF010-SST39VF020-SST39VF040-Data-Sheet-DS20005023.pdf)).
-This corroborates a candidate 128 KiB flash profile and the observed alias period.
-It does not prove the exact fitted part or complete physical coverage of this
-unit without independent profile/address-map review.
+This corroborates a candidate 128 KiB flash profile for the reference design,
+consistent with the observed alias period. The user confirmed the label photo
+is an online reference, so these photographs do not establish the backed-up
+unit's physical revision, fitted flash or complete coverage.
 
 The front-side U1 device's marking remains unreadable in these images. A large
 controller is visible, but its exact suffix is not confidently legible either.
