@@ -41,6 +41,10 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
   NIC/PDR configuration yields only an SRAM-width inference; physical coverage,
   SRAM capacity and hardware authorization remain false.
 
+- Keep resolved-destination evidence on the checked C heap: returning a large
+  value through the experimental backup caller overflowed the 4096-byte guest
+  stack in final emulator checks. Preserve the original stack test and refusals.
+
 ### Scope
 
 No hardware testing, native Genesis, bootstrap, JEDEC/autoselect or flash

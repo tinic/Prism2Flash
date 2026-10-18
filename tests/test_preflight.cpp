@@ -11,7 +11,7 @@
     }                                                                          \
   } while (0)
 // Pure policy test must never resolve a real path or talk to a backend.
-p2::CardResult<p2::preflight::Evidence>
+p2::CardResult<p2::Owned<p2::preflight::Evidence>>
 p2::preflight::native(const char *, const char *, int) {
   std::abort();
 }

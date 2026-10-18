@@ -24,7 +24,7 @@ private:
   BPTR value_;
 };
 } // namespace
-CardResult<Evidence> destination(const char *directory) {
+CardResult<Owned<Evidence>> destination(const char *directory) {
   if (!directory || std::strlen(directory) > 320)
     return std::unexpected{P2_E_ARGUMENT};
   const char *colon = std::strchr(directory, ':');
@@ -46,18 +46,20 @@ CardResult<Evidence> destination(const char *directory) {
   LockHandle parent_lock{parent.data()}, ram{"RAM:"};
   if (!parent_lock.get() || !ram.get())
     return std::unexpected{P2_E_IO};
-  Evidence result;
+  auto result = make_owned<Evidence>();
+  if (!result)
+    return std::unexpected{P2_E_IO};
   alignas(4) InfoData disk{};
   if (!Info(parent_lock.get(), &disk))
     return std::unexpected{P2_E_IO};
-  result.volume =
+  result->volume =
       Volume{uint32_t(disk.id_DiskType),
              disk.id_DiskState,
              disk.id_NumBlocks,
              disk.id_NumBlocksUsed,
              disk.id_BytesPerBlock,
              SameLock(parent_lock.get(), ram.get()) != LOCK_DIFFERENT};
-  if (auto checked = check_volume(result.volume); !checked)
+  if (auto checked = check_volume(result->volume); !checked)
     return std::unexpected{checked.error()};
   // Resolve assigns via a lock; later output paths use the canonical volume
   // path. A RAM assign is refused even when its spelling is unrelated to RAM.
@@ -65,26 +67,27 @@ CardResult<Evidence> destination(const char *directory) {
     return std::unexpected{P2_E_IO};
   const auto length = std::strlen(parent.data());
   const auto count =
-      p2_snprintf(result.resolved_directory.data(),
-                  result.resolved_directory.size(), "%s%s%s", parent.data(),
+      p2_snprintf(result->resolved_directory.data(),
+                  result->resolved_directory.size(), "%s%s%s", parent.data(),
                   length && parent[length - 1] == ':' ? "" : "/", leaf);
-  if (count <= 0 || size_t(count) >= result.resolved_directory.size())
+  if (count <= 0 || size_t(count) >= result->resolved_directory.size())
     return std::unexpected{P2_E_ARGUMENT};
   {
-    LockHandle existing{result.resolved_directory.data()};
+    LockHandle existing{result->resolved_directory.data()};
     if (existing.get() || IoErr() != ERROR_OBJECT_NOT_FOUND)
       return std::unexpected{P2_E_IO};
   }
   return result;
 }
-CardResult<Evidence> native(const char *directory, const char *utc, int east) {
+CardResult<Owned<Evidence>> native(const char *directory, const char *utc,
+                                   int east) {
   if (!directory || !utc || !backup::valid_utc(utc) ||
       !std::strstr(directory, utc) || east < -840 || east > 840)
     return std::unexpected{P2_E_ARGUMENT};
   auto resolved = destination(directory);
   if (!resolved)
     return std::unexpected{resolved.error()};
-  auto &result = *resolved;
+  auto &result = **resolved;
   struct DateStamp stamp {};
   DateStamp(&stamp);
   result.clock = Clock{stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick};
@@ -93,6 +96,6 @@ CardResult<Evidence> native(const char *directory, const char *utc, int east) {
     return std::unexpected{checked.error()};
   result.checked_utc_seconds = *checked;
   result.offset_east = east;
-  return result;
+  return resolved;
 }
 } // namespace p2::preflight
