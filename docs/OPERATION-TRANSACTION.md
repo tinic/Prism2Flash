@@ -108,9 +108,9 @@ The project instructions in `AGENTS.md` and the hardware contract require
 independent physical-map and operation-gate verification before native enablement.
 Remaining work includes physical decode/hidden-bank review, SRAM corroboration,
 retaining resolved destination ownership across file opens, a native physical-map
-journal with per-phase checked UTC timestamps, profile binding and independent
+journal with best-effort date labels, profile binding and independent
 gate review. Source revision is now recorded in model manifests. Native preflight
-clock/volume diagnostics are implemented below, but are snapshots rather than
+volume diagnostics are implemented below, but are snapshots rather than
 transaction capabilities. Then run a fresh full before/after
 transaction on the reserved A1200 and require unchanged flash for Genesis.
 No hardware operation was performed to develop or audit this checkpoint.
@@ -121,13 +121,10 @@ No hardware operation was performed to develop or audit this checkpoint.
 Prism2Genesis preflight --output Work:Prism2-20261018T120000Z --utc 20261018T120000Z --utc-offset -420
 ```
 
-This example's offset is minutes **east** of UTC; the negative value means
-local time is behind UTC. Supply the actual current reference time and offset
-for the Amiga, including its configured seasonal adjustment. The utility does
-not infer them from the Mac, locale or time zone names. DateStamp is interpreted
-as local time since 1978-01-01, with 50 ticks/second. Invalid fields, offset outside
-±840 minutes or more than 120 seconds of reference skew refuse. A match checks
-consistency with the operator reference; it does not independently establish UTC.
+The UTC/offset arguments in this legacy diagnostic command are optional label
+metadata, not evidence of a correctly set clock. Native card operations do not
+check clock validity, skew, jumps or agreement with a reference. The current
+flashing commands need neither argument; use [the quick start](QUICKSTART.md).
 
 The destination's existing parent is resolved with `Lock`/`NameFromLock`;
 `Info` and `SameLock` check the actual volume, including through assigns. RAM
@@ -143,8 +140,7 @@ creating its directory; an assign to RAM no longer passes the old literal-name
 check. This acquisition still does not authorize an impactful operation.
 
 The preflight command creates no directory/files and does not open card.resource. Its
-locks are released on return. It cannot authorize a later command: storage,
-clock and insertion ownership must be reacquired/retained in the eventual native
+locks are released on return. It cannot authorize a later command: storage and insertion ownership must be reacquired/retained in the eventual native
 journal. Native active commands, including appended transaction options, continue
 to refuse before opening the slot. No user-editable profile or approval flag is
 accepted. The C++ MA401 observation validator also returns no hardware authority.

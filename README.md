@@ -20,7 +20,7 @@ C/Prism2Flash program --initial ID010001.HEX --primary pk010101.hex --station sf
 
 Create the backup drawer once; keep **20 MiB free**. Timestamped subdrawers,
 one full before backup, one full after readback and checksum checks are automatic.
-Timestamps use the Amiga’s local clock (`L` suffix).
+No clock setup is required.
 
 5. After **success**, power-cycle the card/Amiga and verify:
 

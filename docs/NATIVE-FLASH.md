@@ -13,31 +13,22 @@ alone does not approve another card. Generic dead-card recovery is not exposed.
 
 ## Simple commands
 
-Use `--backup-dir EXISTING_DRAWER` to create a short timestamped subdrawer
-automatically. Both `program` and `verify` accept this form. Local timestamps
-end in `L`; the manifests identify them as local time with an unknown UTC
-offset. The tool still checks for wall-clock jumps against its monotonic timer.
-No timezone argument is required. Local labels use the clock as set (including
-1978 on a machine without a working clock battery); they never claim verified
-UTC. An existing subdrawer is always refused.
+Use `--backup-dir EXISTING_DRAWER`. The tool creates a fresh subdrawer,
+saves the before/after captures and checks their hashes automatically.
+**No clock setup is required.** Dates are best-effort labels only. If the clock
+is unreadable, the label is `untimed`; duplicate labels get a numeric suffix.
+An unset, incorrect, frozen or changing clock cannot block flashing.
 
-For automatic UTC instead, add `--utc-offset MINUTES_EAST` (for example,
-`0` for a UTC clock or `-300` for UTC minus five hours). UTC timestamps end in
-`Z`. These options affect backup labels, not firmware compatibility.
-
-## Explicit timestamp commands
+For a chosen output name, use `--output NEW_DRAWER` instead:
 
 ```text
-Stack 16384
-Prism2Flash program --initial ID010001.HEX --primary pk010101.hex --station sf010704.hex --output Work:Prism2Backups/Program-TIMESTAMP --utc TIMESTAMP --utc-offset MINUTES_EAST --expected-plan-sha SHA256
-Prism2Flash verify --primary pk010101.hex --station sf010704.hex --output Work:Prism2Backups/Verify-TIMESTAMP --utc TIMESTAMP --utc-offset MINUTES_EAST --expected-plan-sha SHA256
+Prism2Flash program --initial ID010001.HEX --primary pk010101.hex --station sf010704.hex --output Work:P2Backups/Upgrade1
+Prism2Flash verify --primary pk010101.hex --station sf010704.hex --output Work:P2Backups/Check1
 ```
 
-Replace `TIMESTAMP` with current UTC in `YYYYMMDDTHHMMSSZ` form and use a new
-directory for each operation. Its persistent parent must already exist. Reserve
-at least 20 MiB per transaction. `MINUTES_EAST` is the
-offset of the **Amiga's clock** from UTC; for example, -300 means UTC minus five
-hours. The tool checks the clock at phase boundaries. Do not copy an old date.
+The parent must exist and have 20 MiB free. Existing output drawers are refused
+to preserve backups. Legacy `--utc`/`--utc-offset` arguments affect labels only;
+they are optional and never validate the system clock.
 
 `--expected-plan-sha` additionally pins the entire prepared 128 KiB image. The
 image includes this card's own PDA, CIS and unchanged gaps, so its hash is

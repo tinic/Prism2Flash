@@ -60,12 +60,19 @@ std::optional<Options> parse(int argc, char **argv) {
   }
   if (!options.primary || !options.station ||
       (bool(options.directory) == bool(options.backup_parent)) ||
-      (options.directory && !options.utc) ||
-      (options.utc && options.east == 10000) ||
       (!options.verify && !options.initial))
     return {};
   if (options.east == 10000)
     options.east = preflight::LocalTime;
+  if (options.utc) {
+    const std::string_view label{options.utc};
+    if (label.empty() || label.size() > 31 ||
+        !std::all_of(label.begin(), label.end(), [](char c) {
+          return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
+                 (c >= 'A' && c <= 'Z') || c == '-' || c == '_';
+        }))
+      return {};
+  }
   if (options.expected_plan) {
     const std::string_view digest = options.expected_plan;
     if (digest.size() != 64 ||
@@ -267,41 +274,54 @@ int main(int argc, char **argv) {
          "    --backup-dir EXISTING_DRAWER\n"
          "Fresh full before/after captures are mandatory; no skip/force "
          "option.");
-    puts(
-        "Use Stack 16384. Supply your compatible PRI/STA files. One full "
-        "before and one full after capture.\n"
-        "Backup drawers use the Amiga local date/time automatically (L "
-        "suffix).\n"
-        "Optional: --expected-plan-sha SHA256; advanced: --output NEW_DRAWER "
-        "--utc YYYYMMDDTHHMMSSZ --utc-offset MINUTES_EAST instead of "
-        "--backup-dir. --utc-offset alone generates automatic UTC timestamps.");
+    puts("Use Stack 16384. Supply your compatible PRI/STA files. One full "
+         "before and one full after capture.\n"
+         "Backups are automatic. No clock setup is required.\n"
+         "Optional: --expected-plan-sha SHA256; --output NEW_DRAWER instead "
+         "of --backup-dir.\n");
     return argc == 2 && (std::string_view{argv[1]} == "--help" ||
                          std::string_view{argv[1]} == "help")
                ? 0
                : 20;
   }
+  auto primary = load<firmware::Image>(options->primary, {});
+  auto station = load<firmware::Image>(options->station, {});
+  if (!primary || !station)
+    return 20;
   std::array<char, 17> generated_utc{};
   std::array<char, 384> generated_directory{};
   if (!options->utc) {
     struct DateStamp stamp {};
     DateStamp(&stamp);
-    const auto utc = preflight::format_clock(
+    generated_utc = preflight::clock_label(
         {stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick}, options->east);
-    if (!utc) {
-      p2_fprintf(stderr, "Cannot read a valid Amiga date/time.\n");
-      return 20;
-    }
-    generated_utc = *utc;
     options->utc = generated_utc.data();
   }
   if (options->backup_parent) {
-    const auto count =
-        p2_snprintf(generated_directory.data(), generated_directory.size(),
-                    "%s/P2-%s", options->backup_parent, options->utc);
-    if (count <= 0 ||
-        static_cast<std::size_t>(count) >= generated_directory.size())
-      return 20;
-    options->directory = generated_directory.data();
+    // Clock labels are cosmetic. Pick a fresh name even if time is frozen,
+    // moves backwards or is unavailable; never overwrite an earlier backup.
+    for (unsigned serial = 0;; ++serial) {
+      const auto count =
+          serial ? p2_snprintf(generated_directory.data(),
+                               generated_directory.size(), "%s/P2-%s-%u",
+                               options->backup_parent, options->utc, serial)
+                 : p2_snprintf(generated_directory.data(),
+                               generated_directory.size(), "%s/P2-%s",
+                               options->backup_parent, options->utc);
+      if (count <= 0 || size_t(count) >= generated_directory.size() ||
+          serial >= 10000)
+        return 20;
+      const auto existing =
+          Lock((CONST_STRPTR)generated_directory.data(), ACCESS_READ);
+      if (existing) {
+        UnLock(existing);
+        continue;
+      }
+      if (IoErr() != ERROR_OBJECT_NOT_FOUND)
+        return 20;
+      options->directory = generated_directory.data();
+      break;
+    }
   }
   p2_printf("Backups: %s\n", options->directory);
   if (!options->verify && !profile::programming_approved()) {
@@ -310,10 +330,6 @@ int main(int argc, char **argv) {
         "Native programming admission remains disabled; no card access.\n");
     return 20;
   }
-  auto primary = load<firmware::Image>(options->primary, {});
-  auto station = load<firmware::Image>(options->station, {});
-  if (!primary || !station)
-    return 20;
   const auto pri = primary->component(), sta = station->component();
   p2_printf("Target PRI %u.%u.%u / STA %u.%u.%u\n", pri.major, pri.minor,
             pri.variant, sta.major, sta.minor, sta.variant);

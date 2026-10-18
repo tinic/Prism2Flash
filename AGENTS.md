@@ -72,3 +72,10 @@
   Confirm Claude's WPA2 firmware target, complete hardware verification, then
   finalize a usable tool accepting compatible user-supplied firmware. Put a
   short step-by-step guide first in README and docs; minimize prose.
+
+- Human simplification, 2026-10-18: this is a simple flashing utility. Correct
+  clock setup is NEVER a prerequisite. Date labels are a nice-to-have only:
+  use best-effort local labels, `untimed` if unavailable, and suffix collisions.
+  Do not gate backup, Genesis, programming or verification on wall-clock
+  validity, skew, reference agreement or clock changes. This supersedes older
+  timestamp/clock checks while preserving full captures and content checks.

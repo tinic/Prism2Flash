@@ -84,8 +84,8 @@ CardResult<Owned<Evidence>> destination(const char *directory) {
 }
 CardResult<Owned<Evidence>> native(const char *directory, const char *utc,
                                    int east) {
-  if (!directory || !utc || !valid_timestamp(utc, east) ||
-      !std::strstr(directory, utc))
+  (void)utc;
+  if (!directory || !valid_offset(east))
     return std::unexpected{P2_E_ARGUMENT};
   auto resolved = destination(directory);
   if (!resolved)
@@ -94,10 +94,6 @@ CardResult<Owned<Evidence>> native(const char *directory, const char *utc,
   struct DateStamp stamp {};
   DateStamp(&stamp);
   result.clock = Clock{stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick};
-  auto checked = check_clock(result.clock, east, utc);
-  if (!checked)
-    return std::unexpected{checked.error()};
-  result.checked_utc_seconds = *checked;
   result.offset_east = east;
   return resolved;
 }
@@ -114,7 +110,6 @@ NativeSession::create(const char *directory, const char *utc, int east) {
   if (!session)
     return std::unexpected{P2_E_IO};
   session->evidence_ = std::move(*checked);
-  std::memcpy(session->reference_.data(), utc, 16);
   // Parent remains locked while the unique child is created and throughout
   // the operation. CurrentDir is per DOS process; no assign is resolved again.
   const auto previous = CurrentDir(BPTR(session->evidence_->parent.get()));
@@ -130,12 +125,10 @@ NativeSession::create(const char *directory, const char *utc, int east) {
   session->old_directory_ = uintptr_t(CurrentDir(created));
   return session;
 }
-CardResult<std::array<char, 17>> NativeSession::stamp(Checkpoint point,
-                                                      p2_bus &bus) {
+std::array<char, 17> NativeSession::label() const {
   struct DateStamp stamp {};
   DateStamp(&stamp);
-  return timeline_.stamp(
-      point, Clock{stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick},
-      evidence_->offset_east, reference_.data(), bus.now_us(bus.ctx));
+  return clock_label({stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick},
+                     evidence_->offset_east);
 }
 } // namespace p2::preflight

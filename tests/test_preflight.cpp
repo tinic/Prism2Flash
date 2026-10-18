@@ -17,86 +17,15 @@ p2::preflight::native(const char *, const char *, int) {
 }
 int main() {
   using namespace p2::preflight;
-  CHECK(!utc_seconds("20260229T000000Z"));
-  auto reference = utc_seconds("20261018T120000Z");
-  CHECK(reference);
-  CHECK(*reference == 1539864000ll);
-  auto stamp = [&](int64_t seconds) {
-    return Clock{int32_t(seconds / 86400), int32_t(seconds % 86400 / 60),
-                 int32_t(seconds % 60 * 50)};
-  };
-  CHECK(check_clock(stamp(*reference), 0, "20261018T120000Z"));
-  CHECK(check_clock(stamp(*reference - 420 * 60), -420, "20261018T120000Z"));
-  CHECK(check_clock(stamp(*reference + 330 * 60), 330, "20261018T120000Z"));
-  auto automatic = format_clock(stamp(*reference - 300 * 60), -300);
-  CHECK(automatic && std::string_view{automatic->data()} == "20261018T120000Z");
-  CHECK(!format_clock(stamp(*reference), 841));
-  auto local = format_clock(stamp(*reference - 300 * 60), LocalTime);
-  CHECK(local && std::string_view{local->data()} == "20261018T070000L");
-  CHECK(valid_timestamp(local->data(), LocalTime));
-  CHECK(!valid_timestamp(local->data(), 0));
-  CHECK(!valid_timestamp("20261018T070000Z", LocalTime));
-  CHECK(!valid_timestamp("20260229T070000L", LocalTime));
-  auto unset = format_clock(Clock{}, LocalTime);
-  CHECK(unset && std::string_view{unset->data()} == "19780101T000000L");
-  CHECK(check_clock(Clock{}, LocalTime, unset->data()));
-  CHECK(!valid_timestamp("19780101T000000Z", 0));
-  CHECK(!valid_timestamp("19770101T000000L", LocalTime));
-  CHECK(!valid_timestamp("19780229T000000L", LocalTime));
-  CHECK(check_clock(stamp(*reference - 300 * 60), LocalTime, local->data()));
-  CHECK(!check_clock(stamp(*reference - 300 * 60 + 121), LocalTime,
-                     local->data()));
-  Timeline local_timeline;
-  auto midnight = utc_seconds("20261018T235959Z");
-  CHECK(midnight);
-  auto local_start =
-      local_timeline.stamp(Checkpoint::BeforeStart, stamp(*midnight), LocalTime,
-                           "20261018T235959L", 0);
-  CHECK(local_start &&
-        std::string_view{local_start->data()} == "20261018T235959L");
-  auto local_end =
-      local_timeline.stamp(Checkpoint::BeforeEnd, stamp(*midnight + 2),
-                           LocalTime, "20261018T235959L", 2000000);
-  CHECK(local_end && std::string_view{local_end->data()} == "20261019T000001L");
-  CHECK(!local_timeline.stamp(Checkpoint::AfterStart, stamp(*midnight + 3602),
-                              LocalTime, "20261018T235959L", 3000000));
-
-  for (int delta : {-121, 121, 86400})
-    CHECK(!check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
-  for (int delta : {-120, 120})
-    CHECK(check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
-  // A several-minute capture advances past the initial reference's skew
-  // window, including a wrapping 32-bit timer. Wall-clock jumps still fail.
-  Timeline timeline;
-  constexpr uint32_t timer_start = 0xffff0000;
-  auto boundary = [&](Checkpoint point, unsigned seconds) {
-    return timeline.stamp(point, stamp(*reference + seconds - 300 * 60), -300,
-                          "20261018T120000Z", timer_start + seconds * 1000000u);
-  };
-  auto first = boundary(Checkpoint::BeforeStart, 0);
-  CHECK(first && std::string_view{first->data()} == "20261018T120000Z");
-  CHECK(boundary(Checkpoint::BeforeEnd, 183));
-  CHECK(boundary(Checkpoint::AfterStart, 184));
-  auto last = boundary(Checkpoint::AfterEnd, 367);
-  CHECK(last && std::string_view{last->data()} == "20261018T120607Z");
-  CHECK(!boundary(Checkpoint::AfterEnd, 368));
-  for (int delta : {-60, 60, 3600}) {
-    Timeline jumping;
-    CHECK(jumping.stamp(Checkpoint::BeforeStart, stamp(*reference), 0,
-                        "20261018T120000Z", 0));
-    CHECK(!jumping.stamp(Checkpoint::BeforeEnd, stamp(*reference + 183 + delta),
-                         0, "20261018T120000Z", 183000000));
-    CHECK(!jumping.stamp(Checkpoint::BeforeEnd, stamp(*reference + 183), 0,
-                         "20261018T120000Z", 183000000));
-  }
-  Timeline reversed;
-  CHECK(!reversed.stamp(Checkpoint::AfterStart, stamp(*reference), 0,
-                        "20261018T120000Z", 0));
-  Timeline expired;
-  CHECK(expired.stamp(Checkpoint::BeforeStart, stamp(*reference), 0,
-                      "20261018T120000Z", 0));
-  CHECK(!expired.stamp(Checkpoint::BeforeEnd, stamp(*reference + 1801), 0,
-                       "20261018T120000Z", 1801000000));
+  const Clock now{17822, 720, 0};
+  CHECK(std::string_view{clock_label(Clock{}).data()} == "19780101T000000L");
+  CHECK(std::string_view{clock_label(Clock{-1, 0, 0}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(Clock{0, 1440, 0}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(Clock{0, 0, 3000}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(Clock{100000, 0, 0}).data()} == "untimed");
+  CHECK(std::string_view{clock_label(now).data()} == "20261018T120000L");
+  CHECK(std::string_view{clock_label(now, -300).data()} == "20261018T170000Z");
+  CHECK(std::string_view{clock_label(Clock{}, 841).data()} == "untimed");
   static unsigned released = 0;
   auto release_lock = +[](uintptr_t value) { released += unsigned(value); };
   {
@@ -108,13 +37,6 @@ int main() {
     CHECK(released == 2 && !moved_lock.get() && second_lock.get() == 1);
   }
   CHECK(released == 3);
-  CHECK(!check_clock(Clock{-1, 0, 0}, 0, "20261018T120000Z"));
-  CHECK(!check_clock(Clock{17822, 1440, 0}, 0, "20261018T120000Z"));
-  CHECK(!check_clock(Clock{17822, 0, 3000}, 0, "20261018T120000Z"));
-  CHECK(!check_clock(stamp(*reference), 841, "20261018T120000Z"));
-  auto leap = utc_seconds("20240229T000000Z"),
-       march = utc_seconds("20240301T000000Z");
-  CHECK(leap && march && *march - *leap == 86400);
   Volume good{0x444f5301, 82, 1000000, 0, 512, false};
   CHECK(check_volume(good));
   for (auto bad : {Volume{0x52414d00, 82, 1000000, 0, 512, false},
@@ -180,5 +102,5 @@ int main() {
   pda[22] ^= 1;
   CHECK(!p2::profile::observe(cis, pda));
   std::puts("Native preflight policy: "
-            "clock/skew/offset/calendar/volume/space/profile refusals passed");
+            "best-effort labels and volume/space/profile refusals passed");
 }

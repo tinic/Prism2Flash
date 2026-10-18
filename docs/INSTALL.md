@@ -44,7 +44,7 @@ library. The library source and notices accompany the executable.
 The native flasher is restricted to the exact MA401 V2.5 / PD5LMWP200 profile
 with pinned initial code and validated compatible PRI/STA inputs. Read
 [NATIVE-FLASH.md](NATIVE-FLASH.md) before hardware use. It describes the fresh
-full captures, persistent storage, clock offset, command syntax and recovery
+full captures, persistent storage, command syntax and recovery
 hold. No firmware, Kickstart ROM or DOS utility is included. General dead-card
 recovery and other card profiles are not enabled.
 

@@ -21,11 +21,8 @@ int main(int argc, char **argv) {
     struct DateStamp now {};
     DateStamp(&now);
     east = p2::preflight::LocalTime;
-    auto stamp = p2::preflight::format_clock(
+    generated_stamp = p2::preflight::clock_label(
         {now.ds_Days, now.ds_Minute, now.ds_Tick}, east);
-    if (!stamp)
-      return 20;
-    generated_stamp = *stamp;
     timestamp = generated_stamp.data();
     const auto length = std::strlen(argv[2]);
     const auto count = p2_snprintf(
@@ -61,18 +58,9 @@ int main(int argc, char **argv) {
       p2::backup::verify_file("session-test.bin", digest.data(),
                               sizeof(content) - 1))
     return 20;
-  p2_bus clock{};
-  clock.now_us = [](void *) -> uint32_t { return 0; };
-  for (const auto point : {p2::preflight::Checkpoint::BeforeStart,
-                           p2::preflight::Checkpoint::BeforeEnd,
-                           p2::preflight::Checkpoint::AfterStart,
-                           p2::preflight::Checkpoint::AfterEnd}) {
-    auto stamp = (*session)->stamp(point, clock);
-    if (!stamp)
-      return 20;
-    p2_printf("Native phase %u %s: %s\n", unsigned(point),
-              east == p2::preflight::LocalTime ? "local" : "UTC",
-              stamp->data());
+  for (unsigned point = 0; point < 4; ++point) {
+    const auto stamp = (*session)->label();
+    p2_printf("Native phase %u label: %s\n", point, stamp.data());
   }
   if (!DeleteFile((CONST_STRPTR) "session-test.bin"))
     return 20;

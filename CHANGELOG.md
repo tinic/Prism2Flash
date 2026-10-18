@@ -48,8 +48,10 @@ remain separate work. Exact hardware runs and their limitations are recorded
 in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
 
 - Put a concise quick start first in README/docs. Generate local timestamps and
-  short backup subdrawers from the Amiga clock with `--backup-dir`; timezone
-  arguments are optional. Local labels end in L and never claim UTC.
+  short backup subdrawers with `--backup-dir`. Dates are optional labels; an
+  unreadable clock uses `untimed`, duplicates get a suffix. Remove wall-clock
+  validity, reference-skew and phase-jump gates entirely. Clock setup is never
+  required and cannot block flashing.
 - Replace per-word GetSysTime pacing with a monotonic E-clock wait. Refuse if
   firmware disables AUX mid-capture, preserving its disabled state. Add timer
   wrap, AUX-loss and local-clock boundary tests. Physical timing qualification
