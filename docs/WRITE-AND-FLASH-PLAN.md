@@ -7,9 +7,11 @@ No native active inspection/probe is enabled. No DOWNLOAD/PROGRAM command 0x22
 or executable bootstrap loader is present. Model and emulator results cannot
 approve a physical card or establish recovery after a failed flash.
 
-The user's online reference label identifies FCC PY3MA401RD, 5 V; it is not a
-photo of the backed-up unit. Its printed MAC differs from the saved PDA.
-Actual physical revision remains unestablished. Earlier captures used
+The actual card's photograph identifies **NETGEAR MA401 V2.5, 5 V,
+FCC PD5LMWP200**. Its printed MAC matches the saved PDA exactly. The earlier
+PY3MA401RD label and supplied rev.D FCC photographs are online reference
+material from a different filing. They do not identify this unit's fitted parts.
+Earlier captures used
 MA401RA, the observed CIS text, as their evidence-directory name. Preserve those
 names/hashes; do not silently reclassify the captures as a complete physical
 flash backup. The two 8 MiB captures establish repeatable AUX NV data, with
@@ -17,10 +19,10 @@ flash backup. The two 8 MiB captures establish repeatable AUX NV data, with
 The saved CRC-valid PDA's configuration PDR 0x0400=0x0003 points toward x16
 SRAM according to Host AP's bit assignment. Record it as a card-specific clue
 awaiting independent corroboration; it does not identify flash geometry.
-The user-supplied FCC photos now corroborate a candidate 128 KiB SST39VF010
-flash on that reference filing sample. Its apparent part marking and the captured alias
-period need independent profile/address-map review before the operation gate
-can treat them as proof of full coverage on the user's unit.
+The rev.D FCC photos show a candidate 128 KiB SST39VF010 on that reference
+sample. Inspect the matching PD5LMWP200 internal-photo exhibit and independently
+review the correct profile/address map before treating captured aliases as
+proof of complete physical coverage on this unit.
 
 ## Gates before a real Genesis probe
 

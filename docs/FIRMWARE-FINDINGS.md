@@ -96,7 +96,30 @@ This private-image comparison covers parsing only. The separate preparation
 tests compare every prepared byte against the retained upstream plug/stamp/merge
 routines on synthetic fixtures. No proprietary prepared image is redistributed.
 
-## MA401 revision evidence from the reference label
+## Actual card label: PD5LMWP200, V2.5
+
+The user supplied a photograph of the actual card after confirming that the
+earlier photo was an online reference. Its printed MAC **matches the saved
+CRC-valid PDA exactly**; raw identifiers and the photograph remain private.
+The label reads **NETGEAR MA401**, **V2.5**, **5 V**, **FCC ID PD5LMWP200**.
+This binds the physical label to the card captured in our existing backup.
+
+The corresponding [FCC filing](https://fccid.io/PD5LMWP200) identifies Delta
+Electronics model LMWP200, granted 2001-08-30. It is a different filing from
+PY3MA401RD. Its matching [internal-photo exhibit 166912](https://fccid.io/PD5LMWP200/Internal-Photos/Internal-Photos-166912)
+is listed as two pages, 1,075,562 bytes, with SHA-256
+`3c9f8f05d3eab63637f4d5c4b2ae9df0f154989af252a4b2682fa1c5e2a8e68f`.
+That exhibit has not yet been visually inspected. Do not apply the rev.D
+sample's apparent flash marking or ISL3873B example diagram as this unit's BOM.
+The printed V2.5 is a label observation, not a read firmware version or decoded
+controller part number. See [actual-card-identity.json](evidence/actual-card-identity.json).
+
+The actual card's PDA configuration remains `0x0400=0x0003`, pointing toward
+x16 SRAM according to Host AP. Exact flash geometry and a complete physical
+map still need independent corroboration and the fresh full-backup operation
+gate remains required. No additional hardware access was performed.
+
+## MA401 rev.D reference material, not the actual card
 
 The supplied 2026-10-18 reference underside photo reads **FCC ID PY3MA401RD**,
 **5 Volt**, and **16-bit PCMCIA**. The user confirmed it is an online reference

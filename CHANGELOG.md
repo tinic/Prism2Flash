@@ -37,6 +37,9 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the user-supplied MA401 reference label: FCC ID PY3MA401RD, 5 V.
   The user confirmed this is an online reference, not the backed-up unit;
   its printed MAC differs from the saved PDA. Actual revision remains unknown.
+- Bind the subsequently supplied actual-card photo to the backup PDA by exact
+  MAC match: MA401 V2.5, FCC PD5LMWP200, 5 V. Keep this filing separate from
+  rev.D reference photos; the matching internal photos and physical map await review.
   The generic MA401RA/ISL37300P CIS does not select an exact physical memory map.
 - Retrieve Intersil's original memory-layout data sheet through playhouse2 and
   record an offline x16 SRAM configuration clue from the existing CRC-valid PDA.
