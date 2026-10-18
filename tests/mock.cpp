@@ -5,6 +5,7 @@
 
 static int touch(struct p2_mock *m) {
   ++m->operations;
+  m->clock += m->access_delay_us;
   if (m->remove_at && m->operations >= m->remove_at)
     m->present = 0;
   if (m->cancel_at && m->operations >= m->cancel_at)
@@ -33,6 +34,12 @@ static uint16_t read16(void *ctx, uint16_t reg) {
         return v ^ 1;
       if ((m->corrupt_nv_after && m->nv_reads > m->corrupt_nv_after) ||
           m->nv_reads == m->corrupt_nv_once_at)
+        return v ^ 1;
+    }
+    if (m->aux_space == 0) {
+      ++m->ram_reads;
+      if (m->ram_reads == m->corrupt_ram_once_at ||
+          (m->unstable_ram && (((m->ram_reads - 1) / 64) & 1)))
         return v ^ 1;
     }
     if ((m->ccsr == 0x1f || m->ccsr == 0x0f) && (m->cor & 0x80) == 0 &&
@@ -77,8 +84,11 @@ static void write16(void *ctx, uint16_t reg, uint16_t value) {
   } else if (reg == P2_CONTROL && !m->stuck_aux) {
     value = (value & 0xc000) == 0x8000 ? 0xc000 : 0;
   } else if (reg == P2_AUXDATA && m->aux_address < 0x800000 - 1) {
-    m->memory[m->aux_address++] = (uint8_t)value;
-    m->memory[m->aux_address++] = (uint8_t)(value >> 8);
+    if (!m->drop_ram_writes) {
+      m->memory[m->aux_address] = static_cast<uint8_t>(value);
+      m->memory[m->aux_address + 1] = static_cast<uint8_t>(value >> 8);
+    }
+    m->aux_address += 2;
     ++m->payload_writes;
   } else if (reg == P2_SELECT0 || reg == P2_OFFSET0)
     m->data_index = 0;
@@ -106,8 +116,11 @@ static void write_cfg(void *ctx, uint8_t reg, uint8_t value) {
     m->ccsr = value;
     if (value == 0x1f || value == 0x0f)
       ++m->genesis_entries;
-    if (value == 0x17 || value == 0x07)
+    if (value == 0x17 || value == 0x07) {
       ++m->normal_returns;
+      if (m->stick_aux_on_normal)
+        m->stuck_aux = 1;
+    }
   }
 }
 static void delay_us(void *ctx, uint32_t us) {

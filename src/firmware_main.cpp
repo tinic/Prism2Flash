@@ -2,6 +2,7 @@
 #include "file.h"
 #include "firmware.h"
 #include "p2_stdio.h"
+#include "sha256.h"
 #include "version.h"
 #include <optional>
 #include <stdlib.h>
@@ -18,15 +19,20 @@ static void usage(void) {
        "  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda "
        "PDA\n"
        "                         [--primary PRIMARY_IMAGE]\n"
+       "  Prism2Firmware prepare IMAGE --mode ram|flash --card SNAPSHOT --pda "
+       "PDA\n"
+       "                        [--primary PRIMARY_IMAGE]\n"
        "PDA must be a CRC-checked 1024-byte binary backup. See "
        "docs/OFFLINE-FIRMWARE.md.\n"
-       "This utility reads files only. It does not access cards or write "
-       "firmware.");
+       "prepare builds a private in-memory copy and reports its hashes.\n"
+       "This utility reads files only. It does not access cards, export "
+       "prepared "
+       "payloads or write firmware.");
 }
 namespace {
 using namespace p2::firmware;
 struct Options {
-  enum class Command { Inspect, Validate } command;
+  enum class Command { Inspect, Validate, Prepare } command;
   const char *image;
   std::optional<Mode> mode;
   const char *card = nullptr;
@@ -37,9 +43,11 @@ struct Options {
     if (argc < 3)
       return std::nullopt;
     const std::string_view command = argv[1];
-    if (command != "inspect" && command != "validate")
+    if (command != "inspect" && command != "validate" && command != "prepare")
       return std::nullopt;
-    Options options{command == "inspect" ? Command::Inspect : Command::Validate,
+    Options options{command == "inspect"    ? Command::Inspect
+                    : command == "validate" ? Command::Validate
+                                            : Command::Prepare,
                     argv[2], std::nullopt};
     if (options.command == Command::Inspect)
       return argc == 3 ? std::optional{options} : std::nullopt;
@@ -66,6 +74,7 @@ struct Options {
   }
 };
 void show(const Image &image) {
+  p2_printf("Source SHA-256: %s\n", image.source_sha256().data());
   const auto &id = image.component();
   p2_printf("Component: id=0x%04x major=%u minor=%u variant=%u\n", id.id,
             id.major, id.minor, id.variant);
@@ -157,6 +166,51 @@ int validate(const Options &options, const Image &image) {
                result.error().message);
     return 20;
   }
+  if (options.command == Options::Command::Prepare) {
+    const auto basename = [](std::string_view path) {
+      const auto separator = path.find_last_of("/\\:");
+      if (separator != path.npos)
+        path.remove_prefix(separator + 1);
+      return path;
+    };
+    std::optional<ImageSource> source;
+    if (primary)
+      source.emplace(*primary, basename(options.primary));
+    auto prepared =
+        PreparedImage::create({image, basename(options.image)}, *options.mode,
+                              *card, pda.bytes(), source);
+    if (!prepared) {
+      p2_fprintf(stderr, "Offline preparation rejected: %s\n",
+                 prepared.error().message);
+      return 20;
+    }
+    p2_printf("Source SHA-256: %s\n", image.source_sha256().data());
+    if (primary)
+      p2_printf("Primary source SHA-256: %s\n",
+                primary->source_sha256().data());
+    p2::Sha256 pda_hash;
+    pda_hash.update(pda.bytes());
+    p2_printf("PDA SHA-256: %s\n", pda_hash.hex().data());
+    p2_printf("Prepared: %lu bytes in %lu segments; entry=0x%08lx\n",
+              static_cast<unsigned long>(prepared->payload_bytes()),
+              static_cast<unsigned long>(prepared->segments().size()),
+              static_cast<unsigned long>(prepared->entry()));
+    for (const auto &segment : prepared->segments()) {
+      p2::Sha256 hash;
+      hash.update(segment.data.bytes());
+      p2_printf("Prepared segment: address=0x%08lx bytes=%lu sha256=%s\n",
+                static_cast<unsigned long>(segment.address),
+                static_cast<unsigned long>(segment.data.size()),
+                hash.hex().data());
+    }
+    puts("Offline preparation passed. PDA plugs, filename fields and C0DE "
+         "stamps\n"
+         "were applied to private copies. Source/PDA files are unchanged.\n"
+         "No payload was exported. Hardware profile, full-backup operation "
+         "gate\n"
+         "and card programming are not approved by this report.");
+    return 0;
+  }
   puts("Offline metadata and PDA checks passed. Firmware bytes are unchanged.\n"
        "Hardware profile/address-map approval and prepare/merge are still "
        "required.");
@@ -183,7 +237,7 @@ int main(int argc, char **argv) {
   auto image = load(options->image);
   if (!image)
     return 20;
-  if (options->command == Options::Command::Validate)
+  if (options->command != Options::Command::Inspect)
     return validate(*options, *image);
   show(*image);
   puts("Structural inspection passed; card compatibility is not established.");

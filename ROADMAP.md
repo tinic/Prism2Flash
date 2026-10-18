@@ -29,6 +29,8 @@ PDA/CIS exports alone never satisfy it. Offline parser work can continue.
 - [x] pccard.library CIS decoding and mapped I/O access.
 - [x] Deadline-based commands, AUX transfers and validated PDA reads.
 - [x] Explicit x8/x16 Genesis RAM-access probe and normal-mode return.
+- [x] Bounded write-once RAM chunks, consecutive exact readback and preserved
+      AUX state; model fault coverage includes cancellation/removal during cleanup.
 - [x] Host tests and native 68000 cross build.
 - [x] Native startup, argument handling and empty-slot exits in Amiberry and
       Copperline on A600/68000 and A1200/68020 profiles.
@@ -50,15 +52,17 @@ four-byte RAM probe does not establish that bootstrap firmware will execute.
 - [x] Saved card NIC/MAC binding and strict missing-calibration rejection.
 - [x] Replacement PRI/STA metadata/payload-overlap validation.
 - [x] Synthetic malformed-input tests and valid-image comparison with Host AP.
-- [ ] Apply PDA plugs and special filename records to a private prepared copy.
-- [ ] Implement signature stamping and transactional merge with upstream comparisons.
+- [x] Apply PDA plugs and special filename records to a private prepared copy.
+- [x] Implement signature stamping and transactional merge with synthetic upstream comparisons.
+- [ ] Export prepared payload packages with checked closes/reopen verification
+      and input/card/PDA provenance; the current prepare command reports hashes only.
 - [ ] Export binary/text PDA, CIS and card snapshots when hardware is available.
 - [ ] Validate card-specific memory maps before enabling any image loading.
 
 
-The parser/validator is implemented behind a transport-independent API; see
-include/firmware.h and docs/OFFLINE-FIRMWARE.md. Continue with PDA plugging,
-primary/station merging and signature stamping on private copies. Keep bounds
+The parser/validator and private-copy preparation are implemented behind a
+transport-independent API; see include/firmware.h and docs/OFFLINE-FIRMWARE.md.
+Continue with verified prepared-payload export and card-profile work. Keep bounds
 and endian handling explicit. Host AP stamps C0DE rather than calculating the
 image CRC; preserve that distinction in later preparation.
 

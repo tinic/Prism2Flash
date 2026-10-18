@@ -11,7 +11,7 @@ Extract the LHA into a drawer. The archive uses standard stored LHA entries;
 no new decompressor format is needed. It contains:
 
 - `C/Prism2Genesis`: native 68000 Genesis probe.
-- `C/Prism2Firmware`: native offline image inspector/validator; see OFFLINE-FIRMWARE.md.
+- `C/Prism2Firmware`: offline inspection, validation and preparation reports; see OFFLINE-FIRMWARE.md.
 - `Libs/pccard.library`: unmodified pccard.library 2.2.
 - Documentation, GPL/LGPL notices and the original complete pccard source
   archive in `third_party/pccard/pccard.lha`.

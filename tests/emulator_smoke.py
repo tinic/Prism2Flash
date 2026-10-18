@@ -61,6 +61,10 @@ def valid_output(name, text, suite="genesis"):
             return "Structural inspection passed" in text and "Component: id=" in text
         if name.startswith("validate_"):
             return "Offline metadata and PDA checks passed" in text
+        if name.startswith("prepare_"):
+            return "Offline preparation passed" in text and "sha256=" in text
+        if name == "reject_primary_flash":
+            return "Primary-only flash preparation is prohibited" in text
         if name == "reject_wrong_mode":
             return "Offline validation rejected" in text and "class differs" in text
         if name == "bad_checksum":
@@ -189,6 +193,10 @@ def main():
             ("validate_flash", f"validate {prefix}station.hex --mode flash" + options, 0),
             ("validate_ram", f"validate {prefix}ram.hex --mode ram" + options, 0),
             ("validate_pair", f"validate {prefix}station.hex --mode flash" + options + f" --primary {prefix}primary.hex", 0),
+            ("prepare_flash", f"prepare {prefix}station.hex --mode flash" + options, 0),
+            ("prepare_ram", f"prepare {prefix}ram.hex --mode ram" + options, 0),
+            ("prepare_pair", f"prepare {prefix}station.hex --mode flash" + options + f" --primary {prefix}primary.hex", 0),
+            ("reject_primary_flash", f"prepare {prefix}primary.hex --mode flash" + options, 20),
             ("reject_wrong_mode", f"validate {prefix}ram.hex --mode flash" + options, 20),
             ("bad_checksum", f"inspect {prefix}bad.hex", 20),
             ("missing_image", f"inspect {prefix}missing.hex", 20),

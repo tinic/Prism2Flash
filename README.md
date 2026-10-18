@@ -8,10 +8,10 @@ Native Amiga utilities for Intersil Prism II/2.5/3 PCMCIA cards, developed
 alongside AmiNetXDuo. The project starts with Genesis recovery and will then
 add a regular firmware flasher using the same programming engine.
 
-**Status: Genesis protocol model and offline firmware parser/validator
+**Status: Genesis protocol model and offline firmware parser/validator/preparation
 implemented. Native startup, offline synthetic-file checks and CIS-only
 identification passed on the real A1200, alongside Amiberry/Copperline checks.**
-Repeated AUX NV capture passed on one real MA401RA with bounded page
+Repeated AUX NV capture passed on one card reporting MA401RA CIS with bounded page
 agreement and saved-file SHA-256 verification. Physical flash coverage remains
 unverified. Active card inspection, Genesis
 and programming stay blocked pending verified full backups. The user has reserved
@@ -82,13 +82,15 @@ the executable.
 component, RAM/flash class, platforms, interface ranges, PDA plugs and signature
 descriptors. `validate` checks it against a saved NIC/MAC/supplier snapshot and
 a CRC-checked binary PDA, with optional replacement-primary compatibility.
-It reads files only and leaves the firmware unchanged. No card backend is linked.
+`prepare` applies PDA plugs, source filename fields and C0DE stamps to private
+copies, merges an optional PRI/STA pair and reports byte counts and SHA-256.
+It reads files only and leaves source/PDA files unchanged. No card backend is linked.
 
 See [offline commands and data formats](docs/OFFLINE-FIRMWARE.md) and
 [Flash's incorporated findings](docs/FIRMWARE-FINDINGS.md). The parser was
 compared byte-for-byte with Host AP on seven privately supplied image variants;
 normal CI uses original synthetic fixtures and includes no proprietary firmware.
-Preparation, bootstrap loading and actual flashing remain later milestones.
+Prepared-payload export, bootstrap loading and actual flashing remain later milestones.
 
 ## Native build
 

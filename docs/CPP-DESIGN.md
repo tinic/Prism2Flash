@@ -21,6 +21,11 @@ GCC v16.2-rc17 compiler. Exceptions and RTTI are disabled.
 - `PdaView` can only be created after PDA structure/CRC validation. Its record
   views borrow the original bytes. `CardSnapshot` is a value with optional MAC
   and supplier records; a missing record is not represented by a separate mask.
+- `PreparedImage` is a move-only value with immutable segment views. Its factory
+  validates both sources before cloning, plugging, stamping and merging them.
+  Failures destroy private copies; source images and PDA bytes remain unchanged.
+  `ImageSource` explicitly supplies the actual basename separately from embedded
+  metadata. Exact raw source hashes are accumulated during parsing.
 - `File` owns its stream. `Slot` owns the backend/card claim. Their destructors
   cover early returns. Writes still use explicit checked close, and capture
   explicitly checks AUX and backend restoration before releasing ownership.

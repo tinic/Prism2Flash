@@ -115,7 +115,7 @@ def main():
         'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
         'hardware_test_scope': 'Current C++23 binaries: host/emulator only. Previous C-release A1200 capture evidence is historical; see docs/HARDWARE-TESTING.md',
-        'scope': 'Experimental AUX NV capture and offline firmware validation; active operations blocked pending verified physical full-flash backups; no flash programming',
+        'scope': 'Experimental AUX NV capture, verified RAM transfer model and offline firmware validation/preparation; active operations blocked pending verified physical full-flash backups; no flash programming',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()
     (output / 'build-info.json').write_bytes(info_bytes)

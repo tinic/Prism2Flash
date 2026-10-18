@@ -64,7 +64,8 @@ records; it does not copy Host AP's permissive default-data fallback.
 explicitly says CRC support is unimplemented and prepends bytes `DE C0` at
 `start - 2` for programmed signature records (`prism2_srec.c:1378`). The region
 length may span gaps. A valid descriptor is not evidence of payload integrity.
-The new tool checks descriptor bounds but does not stamp or modify the image.
+Validation checks descriptor bounds without modifying the image. The offline
+prepare factory now stamps private copies; source files remain unchanged.
 PDA CRC validation is a separate, real checksum check over the PDA end record.
 
 ## Driver capability and remaining limits
@@ -91,4 +92,160 @@ match Host AP's parser for all seven checksum-pinned private images. See
 [upstream-parser-comparison.json](evidence/upstream-parser-comparison.json).
 The comparison harness excludes device routines and accepts only pinned valid
 images. The legacy parser is not used as an oracle for malformed input.
-This comparison covers parsed images; prepared-image output is not implemented.
+This private-image comparison covers parsing only. The separate preparation
+tests compare every prepared byte against the retained upstream plug/stamp/merge
+routines on synthetic fixtures. No proprietary prepared image is redistributed.
+
+## Actual card label: PD5LMWP200, V2.5
+
+The user supplied a photograph of the actual card after confirming that the
+earlier photo was an online reference. Its printed MAC **matches the saved
+CRC-valid PDA exactly**; raw identifiers and the photograph remain private.
+The label reads **NETGEAR MA401**, **V2.5**, **5 V**, **FCC ID PD5LMWP200**.
+This binds the physical label to the card captured in our existing backup.
+
+The corresponding [FCC filing](https://fccid.io/PD5LMWP200) identifies Delta
+Electronics model LMWP200, granted 2001-08-30. It is a different filing from
+PY3MA401RD. Its matching [internal-photo exhibit 166912](https://fccid.io/PD5LMWP200/Internal-Photos/Internal-Photos-166912)
+is listed as two pages, 1,075,562 bytes, with SHA-256
+`3c9f8f05d3eab63637f4d5c4b2ae9df0f154989af252a4b2682fa1c5e2a8e68f`.
+The user subsequently supplied matching PNG page exports, inspected below.
+Do not apply the rev.D sample's apparent flash marking or ISL3873B example
+diagram as this unit's BOM.
+The printed V2.5 is a label observation, not a read firmware version or decoded
+controller part number. See [actual-card-identity.json](evidence/actual-card-identity.json).
+
+The actual card's PDA configuration remains `0x0400=0x0003`, pointing toward
+x16 SRAM according to Host AP. The matching filing's SST39VF010 corroborates
+a 128 KiB candidate. A complete physical map still needs independent review
+and the fresh full-backup operation
+gate remains required. No additional hardware access was performed.
+
+### Matching PD5LMWP200 PNG exhibits
+
+The user supplied `download0.png` and `download3.png`, report **900809R01**,
+pages labeled **3** and **4**, respectively. `download1.png` and `download2.png`
+are byte-identical duplicate exports, not additional evidence. Both unique
+pages were visually inspected at native resolution and details were cropped
+for inspection without changing source images. Private evidence retains the
+originals; the public repository records hashes and observations only.
+
+| Export | SHA-256 |
+| --- | --- |
+| Page 3 | `d431a26a55bd750f9e2d8415ff9bb9218319d3f6bcc3d2f921c937d3fabf091d` |
+| Page 4 | `758d5ba6049a5148dc52662d9bf6b5914b186996b5b171c98f26edb1068e5d30` |
+
+Page 4's underside **U5** clearly reads **SST 39VF010, 90-4C-WH**. This is
+the 128 KiB x8 parallel flash family described by the manufacturer data sheet
+linked below. The board is marked **Delta Networks P/N 2976167401**. The
+controller at **U4** appears to read **ISL3873AIK**, consistent with the earlier
+Prism 2.5 controller design; that faint controller reading is less certain than
+the flash marking. **U1's SRAM marking is unreadable**; do not invent a vendor
+or capacity. The card's saved PDA configuration points toward x16 SRAM.
+
+This is now the correct FCC filing, bound to the actual unit through the label
+and matching PDA MAC. The 128 KiB part marking corroborates the observed AUX
+alias period and advances the physical-profile evidence. It remains a filing
+sample rather than direct inspection of the user's PCB; independent profile/
+address-map review and the fresh before/after backup gate are still required.
+
+## MA401 rev.D reference material, not the actual card
+
+The supplied 2026-10-18 reference underside photo reads **FCC ID PY3MA401RD**,
+**5 Volt**, and **16-bit PCMCIA**. The user confirmed it is an online reference
+image, not their card. Its printed MAC does not match the saved PDA; raw
+identifiers are not repeated here. The filing identifies model MA401RD, granted
+2003-02-09. It characterizes that reference revision, **not the backed-up unit's
+physical revision**. MA401RA/ISL37300P/Eval-RevA are the generic CIS strings
+observed on the inserted card. The
+PCMCIA bus width on the label does not identify the internal SRAM width.
+Raw MAC/serial values and the reference photograph are not included in the public repository.
+
+The filing lists internal-photo exhibits 301850 (two pages) and 301854 (five
+pages). Automated PDF retrieval initially failed; the user later supplied
+Desktop copies, inspected below. Schematics/block diagram/technical description are
+listed as confidential metadata. Sources:
+[FCC filing](https://fccid.io/PY3MA401RD),
+[internal photos 301850](https://fccid.io/PY3MA401RD/Internal-Photos/Internal-Photos-301850),
+[SAR photos 301854](https://fccid.io/PY3MA401RD/Internal-Photos/EUT-Photo-for-SAR-report-301854).
+
+The Intersil ISL37300P reference-evaluation data sheet describes a 3.3 V board;
+its electrical assumptions must not be substituted for the reference retail card's 5 V
+label ([manufacturer data sheet transcription](https://dtsheet.com/doc/160214/intersil-isl37300p-cd)).
+Neither the FCC ID alone nor 128 KiB AUX aliasing closes the full physical
+flash coverage requirement. The native allowlist/Genesis gate stays unchanged.
+See [the next hardware/flash plan](WRITE-AND-FLASH-PLAN.md).
+
+Claude's relayed suggestion of one 128K x8 SRAM plus SST39VF010-type flash is a
+research lead, not an established profile. The reproduced Intersil platform
+table explicitly lists both **x8 and x16 RAM** for the 800C/8013/8017/801B group
+under SST NVRAM ([platform table](https://junsun.net/linux/intersil-prism/IDtable.html)).
+That table reports a platform/release family, not a JEDEC chip identification
+read or an exact installed-memory part number. Its x8/x16 alternatives prevent
+using this NIC ID as proof that every MA401 revision has one shared arrangement.
+Exact SRAM vendor is not required by the software; proven width, capacity,
+decode and physical nonvolatile coverage are required. No proposed replacement
+part or footprint is approved by this project.
+
+### Follow-up through playhouse2: primary data sheet and PDA configuration
+
+The FCC exhibits still return HTTP 403 from playhouse2. An alternate archive
+did provide Intersil **FN8019.2, June 2002**, the 42-page ISL3873B data sheet
+([archive entry](https://www.datasheetarchive.com/datasheet/ISL3873B/Intersil?term=ISL3873B&version=1)).
+The retrieved PDF SHA-256 is
+`8d9bf148b7f1b9e4b18b4b8c5d7bcc4fb0b7b88e0ad6aa43e1950dcecdeb27b3`.
+Pages 11–12 explicitly show multiple configurations, including two x8 SRAMs
+or a single x16 SRAM. The text permits different flash/RAM organizations and
+describes 256 KiB organized 128K x16 as typical for station designs. These
+examples disprove a universal one-chip 128K x8 arrangement; they do not identify
+the memory actually fitted to this card.
+
+Offline inspection of both previously verified AUX NV captures found the same
+CRC-valid PDA at AUX `0x7f0000`, stored CRC `0x82a2`. Its NIC configuration PDR
+`0x0400` has bytes `03 00`, value `0x0003`. The retained Host AP 0.4.7
+`plug_pdr_0400` constructs bit 1 from `ram16`, bit 2 from PCI and sets bit 0
+(`prism2_srec.c:1277`). **Inference: this card's saved PDA configuration points
+to x16 SRAM and PCMCIA.** This is stronger evidence than a generic part list,
+but still needs independent profile corroboration. No SRAM-size PDR `0x0005`
+was present. Neither SRAM vendor/capacity nor flash width/capacity/coverage
+follows from this field. See the non-private summary in
+[pda-memory-configuration.json](evidence/pda-memory-configuration.json).
+
+This analysis reads only existing files. It does not change the native allowlist,
+select SRAM automatically, satisfy the fresh full-backup gate or perform a new
+card operation.
+
+### User-supplied FCC photo PDFs
+
+The user subsequently supplied two PDFium-saved Desktop PDFs. Both were copied
+unchanged into private project evidence and every page was visually inspected.
+The public repository retains observations and hashes only, not the PDFs or
+the user's label photograph.
+
+| Exhibit | Pages | Supplied PDF SHA-256 |
+| --- | --- | --- |
+| Internal photos | 2 | `009f3c745f38eca7813f7b4b2173cbfcac025221b20f8384d8cb6353432689f7` |
+| SAR/EUT photos | 5 | `3e12646fb8172eaa788338376a98123a96508adc81c6a13f85fcb2e37f6ce663` |
+
+The two-page exhibit labels the pictured boards **MA401 rev.D**. The SAR
+photographs identify the EUT as **DNI LM-WP200RB**, report 920109R03A. These
+are filing samples; do not silently treat their chip markings as direct
+inspection of the user's particular unit.
+
+In SAR page 3's underside photograph, **U5** bears the SST MPF logo and its
+part marking appears to read **39VF010**, with `70-4C-WH` below. The speed/package
+suffix is less certain than the family identification. Microchip identifies
+SST39VF010 as **1 Mbit, 128K x8 (128 KiB)** parallel flash, with uniform 4 KiB
+erase sectors ([product](https://www.microchip.com/en-us/product/sst39vf010),
+[manufacturer data sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/MPD/ProductDocuments/DataSheets/SST39LF010-SST39LF020-SST39LF040-SST39VF010-SST39VF020-SST39VF040-Data-Sheet-DS20005023.pdf)).
+This corroborates a candidate 128 KiB flash profile for the reference design,
+consistent with the observed alias period. The user confirmed the label photo
+is an online reference, so these photographs do not establish the backed-up
+unit's physical revision, fitted flash or complete coverage.
+
+The front-side U1 device's marking remains unreadable in these images. A large
+controller is visible, but its exact suffix is not confidently legible either.
+Do not infer an SRAM vendor, capacity or replacement part from the package
+outline. The saved PDA's x16 configuration clue remains the stronger evidence
+for selecting a future, independently corroborated Genesis profile. No hardware
+gate is enabled by this photographic analysis.

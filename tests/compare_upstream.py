@@ -92,7 +92,7 @@ def main():
         compiler = os.environ.get('CC', 'cc')
         subprocess.run([compiler, '-std=gnu99', '-w', str(tmp / 'reference.c'), '-o', str(tmp / 'reference')], check=True)
         subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++23', '-I'+str(ROOT / 'include'), str(tmp / 'current.cpp'),
-                        str(build / 'libprism2_firmware.a'), str(build / 'libprism2_data.a'),
+                        str(build / 'libprism2_firmware.a'), str(build / 'libprism2_data.a'), str(build / 'libprism2_hash.a'),
                         '-o', str(tmp / 'current')], check=True)
         for image in pins:
             name = str((args.images / image['name']).resolve())

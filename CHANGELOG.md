@@ -12,6 +12,51 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.6.0-alpha.1] - 2026-10-18
+
+### Added
+
+- Transactional offline preparation on private payload copies: exact PDA plugs,
+  source-basename fields, DE C0 signature stamps and PRI/STA merging. Reject
+  primary-only flash preparation and overlaps that would lose calibration.
+- `Prism2Firmware prepare` reports source/PDA and prepared-segment SHA-256,
+  byte counts and entry point. It reads files only; payload export is deferred.
+- Byte-exact comparisons with retained Host AP preparation routines on original
+  synthetic data, including signature boundary merging and RAM entry selection.
+- Verified RAM transfers write each bounded chunk once, then require two
+  consecutive readbacks matching the expected bytes. Read retries never rewrite.
+  Preserve partial progress and enforce a wrap-safe deadline during transfers.
+
+### Changed
+
+- Genesis probing uses verified RAM readback, preserves an existing AUX session,
+  clears OFFSET before disabling AUX, avoids resets before entry begins and
+  preserves separate operation/cleanup errors. Check cancellation/removal at
+  transfer boundaries, including cleanup. Add fault injection at every modeled
+  I/O boundary for both initial AUX states.
+- Record the user-supplied MA401 reference label: FCC ID PY3MA401RD, 5 V.
+  The user confirmed this is an online reference, not the backed-up unit;
+  its printed MAC differs from the saved PDA.
+- Bind the subsequently supplied actual-card photo to the backup PDA by exact
+  MAC match: MA401 V2.5, FCC PD5LMWP200, 5 V. Keep this filing separate from
+  rev.D reference photos. Inspect matching PNG exhibits: U5 SST39VF010,
+  90-4C-WH; U4 apparently ISL3873AIK; U1 marking unreadable. The physical map
+  and before/after backup gate still require independent review.
+  The generic MA401RA/ISL37300P CIS does not select an exact physical memory map.
+- Retrieve Intersil's original memory-layout data sheet through playhouse2 and
+  record an offline x16 SRAM configuration clue from the existing CRC-valid PDA.
+  Neither finding enables the hardware gate or establishes physical flash coverage.
+- Inspect the user's FCC photo PDFs: MA401 rev.D labels and an apparent
+  SST39VF010 flash marking on the filing sample support a candidate 128 KiB
+  profile. SRAM markings remain unreadable; no hardware gate is relaxed.
+
+### Scope
+
+Host/model and native emulator validation; no new physical-card operation.
+Physical flash coverage, SRAM width and the fresh before/after backup operation
+gate remain unresolved. Native active commands remain blocked. No flash
+programming engine, bootstrap execution or prepared-payload export is added.
+
 ## [0.5.0-alpha.1] - 2026-10-18
 
 ### Changed
