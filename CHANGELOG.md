@@ -12,6 +12,14 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.8.1-alpha.1] - 2026-10-18
+
+- Add `--firmware-dir Firmware`: select the compatible PRI/STA pair from the
+  fresh card PDA and firmware metadata. Choose the initial image for the actual
+  NIC/SRAM configuration. The explicit three-file command remains available.
+- Put copy-and-paste commands under each card model in README and the quick
+  start. Hide the technical tables behind the reference documentation.
+
 ## [0.8.0-alpha.1] - 2026-10-18
 
 - Implement native Prism2 x8/x16 Genesis/bootstrap and DOS parallel-flash programming,

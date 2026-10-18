@@ -14,6 +14,18 @@ See [card and firmware selection](COMPATIBILITY.md).
 
 ## Simple commands
 
+Put your firmware files in `Firmware`, then use:
+
+```text
+Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
+Prism2Flash verify --firmware-dir Firmware --backup-dir Work:P2Backups
+```
+
+The card's fresh PDA and image metadata select the compatible PRI/STA pair.
+The initial image is chosen from its original filename for the NIC/SRAM type.
+For multiple compatible pairs, the highest station version, then primary version,
+is selected. Keep only the firmware versions you want in the drawer.
+
 Use `--backup-dir EXISTING_DRAWER`. The tool creates a fresh subdrawer,
 saves the before/after captures and checks their hashes automatically.
 **No clock setup is required.** Dates are best-effort labels only. If the clock
