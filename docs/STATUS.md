@@ -1,7 +1,8 @@
-# Implementation and emulator baseline — 2026-10-18
+# Original implementation and emulator baseline — 2026-10-18
 
 Implemented the first Genesis probe milestone in the separate Prism2Flash
-repository. There has been no A1200 connection, deployment or hardware test.
+repository. At this original baseline there had been no A1200 connection,
+deployment or hardware test. See the later real-machine record below.
 
 ## Verified locally
 
@@ -79,3 +80,18 @@ A600/68000 and Copperline A1200/68020, including mandatory-backup refusal,
 CIS-only empty-slot behavior and offline synthetic firmware validation.
 All eleven host CTests passed, including the aborting-backend gate regression.
 Exact binaries and outputs are retained in EMULATOR-RESULTS.md.
+
+## First real A1200 read-only checks — 2026-10-18
+
+The user made the A1200 available and asked to keep it reserved. All 15 native
+CLI/CIS-only/offline synthetic-file checks passed using the published
+0.2.1-alpha.1 binaries, with SHA-256 readback verification and 8192-byte stack.
+The inserted card reports CIS 000b:7300, consistent with the reported Netgear
+MA401RA / ISL37300P and Linux Host AP support. The current configured-card
+allowlist is incomplete; no profile was enabled merely from this ID.
+
+No AUX/register access, NIC identity/PDA/full-flash read, initialization,
+reset, Genesis execution or programming was tested. Full backup acquisition
+remains unimplemented and active operations remain blocked. The AmigaOS
+Version command's date rendering also needs investigation; its full semantic
+version is correct. See HARDWARE-TESTING.md and the retained detailed evidence.

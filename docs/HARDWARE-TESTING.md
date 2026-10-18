@@ -1,8 +1,41 @@
-# Deferred hardware testing
+# Hardware testing
 
-No steps in this file have been run. The A1200 is occupied by another project.
-Wait for the user's instruction that it is available; do not connect to it or
-deploy anything in the meantime.
+The user made the A1200 available on 2026-10-18 and requested that it remain
+reserved for Prism2Flash. The first read-only baseline is complete. Existing
+backup prerequisites still prohibit active inspection, reset, Genesis entry
+and programming until full-flash backup support has been verified.
+
+## First real A1200 baseline — 0.2.1-alpha.1
+
+Published binaries were staged in a unique RAM drawer and downloaded again to
+verify their release SHA-256 hashes before execution. The machine reports
+Kickstart 40.68, Workbench 40.42, card.resource 40.4, prism2.device 2.9 and
+pccard.library 2.2. Its wired management interface stayed online; the Prism2
+network interface was unattached. No system configuration or libraries were
+changed, and no reset, initialization or firmware command was issued.
+
+All 15 checks passed with an 8192-byte Shell stack: both help/version commands,
+two CIS-only reads, all three native backup-required refusals, the full Amiga
+version identifier, and five offline synthetic-image checks (inspection,
+flash/RAM/pair validation and checksum rejection). The synthetic card/PDA
+fixtures do not represent the inserted card. Detailed outputs and exact binary
+hashes are in [the evidence](evidence/a1200-readonly-0.2.1-alpha.1.json).
+
+The actual card reports CIS **000b:7300**. The handoff identifies it as a
+Netgear MA401RA / ISL37300P. Linux's
+[Prism2 driver table](https://raw.githubusercontent.com/torvalds/linux/v5.10/drivers/net/wireless/intersil/hostap/hostap_cs.c)
+contains this ID, and the
+[original MA401RA entry](https://www.mail-archive.com/netdev@vger.kernel.org/msg11668.html)
+identifies the same chip string. The ID is consistent with that Prism-family
+identification. Our small configured-card allowlist is incomplete; it is not
+a chipset detector. Adding the ID alone would not approve a flash map, SRAM
+width, NIC/platform tuple, image pair or programming operation. Those remain
+open, as does acquiring the first full flash backup.
+
+Open version-display issue: `Version FILE ... FULL` recognized the full
+`0.2.1-alpha.1` identifier but displayed the date as `05/13/21`. The binary's
+literal tag contains `18.10.2026`. Investigate legacy date-format compatibility
+before treating the OS-rendered date as correct. The CLI version is correct.
 
 ## Mandatory full-flash backups
 
@@ -16,7 +49,7 @@ change firmware or reset the card and need no flash backup.
 slot because full-flash export is not implemented. The host protocol simulator
 can still exercise the modeled sequences. Versions through 0.2.0-alpha.1 do
 not enforce this new requirement; do not use their active commands on cards.
-Hardware testing remains deferred independently of this safeguard.
+Only the read-only baseline above has run; active tests remain blocked.
 
 The full-backup milestone must implement all of the following before these
 native operations are enabled again:

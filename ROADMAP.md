@@ -28,6 +28,10 @@ PDA/CIS exports alone never satisfy it. Offline parser work can continue.
 - [x] Host tests and native 68000 cross build.
 - [x] Native startup, argument handling and empty-slot exits in Amiberry and
       Copperline on A600/68000 and A1200/68020 profiles.
+- [x] Real A1200 startup/offline checks and repeated CIS-only identification
+      (`000b:7300`), with published-binary hashes and backup refusal checks.
+- [ ] Verified MA401RA configuration/physical-flash/SRAM profile; its CIS ID is
+      supported by Linux Host AP but absent from the current narrow allowlist.
 - [ ] A600/A1200 validation of CIS layout, register/payload byte order, timing,
       entry/readback/exit, cancellation, and firmware restart.
 
