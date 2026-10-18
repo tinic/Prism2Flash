@@ -98,6 +98,7 @@ public:
   // These never substitute word writes or read/modify/write a neighbour.
   [[nodiscard]] CardResult<uint8_t> read_nv_byte(uint32_t address);
   [[nodiscard]] CardStatus write_nv_byte(uint32_t address, uint8_t value);
+  [[nodiscard]] CardStatus test_ram_byte_access(uint32_t address);
   [[nodiscard]] CardStatus write_aux(uint32_t address,
                                      std::span<const uint8_t> data);
   // Writes each bounded RAM chunk once, then requires two consecutive exact
@@ -126,7 +127,7 @@ private:
                                     uint16_t space,
                                     std::optional<uint32_t> started = {});
   [[nodiscard]] CardStatus reset(uint8_t cor, uint8_t hcr);
-  [[nodiscard]] CardStatus seek_nv_byte(uint32_t address);
+  [[nodiscard]] CardStatus seek_byte(uint32_t address, uint16_t space);
   [[nodiscard]] CardStatus restore_aux(bool was_enabled);
   p2_bus &bus_;
 };

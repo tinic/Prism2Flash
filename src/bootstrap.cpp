@@ -12,6 +12,11 @@ Report load(Card &card, p2_bus &bus, const firmware::InitialImage &image) {
     return report;
   }
   const auto perform = [&]() -> CardStatus {
+    // Scratch is outside the pinned initial image's payload. The real card
+    // must prove both true byte-write lanes before JEDEC can be considered.
+    if (auto r = card.test_ram_byte_access(0x7e0070); !r)
+      return r;
+    report.byte_writes_verified = true;
     std::array<uint8_t, 128> readback{};
     for (const auto &segment : image.segments()) {
       report.last_address = segment.address;

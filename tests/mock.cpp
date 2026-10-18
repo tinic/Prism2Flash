@@ -133,6 +133,23 @@ static void write_cfg(void *ctx, uint8_t reg, uint8_t value) {
     }
   }
 }
+static uint8_t read8(void *ctx, uint16_t reg) {
+  auto *m = static_cast<p2_mock *>(ctx);
+  if (!touch(m))
+    return 0xff;
+  const auto *memory = m->aux_space == 1 ? m->nv_memory : m->memory;
+  const auto address = m->aux_address + (reg & 1);
+  return memory && address < 0x800000 ? memory[address] : 0xff;
+}
+static void write8(void *ctx, uint16_t reg, uint8_t value) {
+  auto *m = static_cast<p2_mock *>(ctx);
+  if (!touch(m) || m->aux_space != 0)
+    return;
+  const auto address = m->aux_address + (reg & 1);
+  if (address < 0x800000 && !m->drop_ram_writes &&
+      (!m->drop_ram_after || m->payload_writes < m->drop_ram_after))
+    m->memory[address] = value;
+}
 static void delay_us(void *ctx, uint32_t us) {
   ((struct p2_mock *)ctx)->clock += us;
 }
@@ -164,8 +181,8 @@ int p2_mock_init(struct p2_mock *m, unsigned bits) {
   m->nicid = 0x801b;
   memcpy(m->memory + 0x7f0000, pda, sizeof(pda));
   p2_mock_fix_pda(m->memory + 0x7f0000);
-  m->bus = p2_bus{m,        read16, write16, read_cfg, write_cfg,
-                  delay_us, now_us, present, cancelled};
+  m->bus = p2_bus{m,      read16,  write16,   read_cfg, write_cfg, delay_us,
+                  now_us, present, cancelled, read8,    write8};
   return P2_OK;
 }
 void p2_mock_free(struct p2_mock *m) {

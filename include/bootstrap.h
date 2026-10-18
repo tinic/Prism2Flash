@@ -9,6 +9,7 @@ struct Report {
   uint32_t last_address = 0;
   std::size_t bytes_written = 0, bytes_verified = 0, bytes_skipped = 0;
   bool recovery_required = false, initial_started = false;
+  bool byte_writes_verified = false;
 };
 // Original DOS mode0: Genesis, raw EXTDS load/verify, then low07 handoff.
 // No INIT, DOWNLOAD or flash command. A load failure retains Genesis and RAM.

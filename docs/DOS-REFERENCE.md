@@ -131,3 +131,11 @@ word and select the lane. This correction requires physical validation;
 word-read PDA after power-cycle matched the original exactly. The diagnostic
 also now clears AUXOFFSET while AUX is enabled, as the established backup
 reader already does.
+
+Native validation2026-10-18 22:05UTC: aligned GETODD byte reads and word reads
+both matched all1024 original PDA bytes exactly (CRCvalid). Original PDA hash
+and full raw diagnostics are retained privately. The bootstrap now tests both
+true byte-write lanes in unused Genesis RAM, verifies with independent word
+reads twice, restores the original scratch word with byte writes and verifies
+it again before loading initial code. Failure retains Genesis and prevents
+JEDEC identification; native erase/program remains disabled.

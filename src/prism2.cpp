@@ -141,7 +141,7 @@ CardStatus Card::read_aux(uint32_t address, std::span<uint8_t> data) {
 CardStatus Card::read_nv(uint32_t address, std::span<uint8_t> data) {
   return transfer(address, data, {}, 0x1000);
 }
-CardStatus Card::seek_nv_byte(uint32_t address) {
+CardStatus Card::seek_byte(uint32_t address, uint16_t space) {
   if (address >= 0x800000)
     return std::unexpected{P2_E_ARGUMENT};
   if (!bus_.read8 || !bus_.write8)
@@ -155,12 +155,12 @@ CardStatus Card::seek_nv_byte(uint32_t address) {
   if (auto result = interrupted(); !result)
     return result;
   bus_.write16(bus_.ctx, P2_AUXOFFSET,
-               static_cast<uint16_t>((address & 126) | 0x1000));
+               static_cast<uint16_t>((address & 126) | space));
   bus_.delay_us(bus_.ctx, 5);
   return interrupted();
 }
 CardResult<uint8_t> Card::read_nv_byte(uint32_t address) {
-  if (auto result = seek_nv_byte(address); !result)
+  if (auto result = seek_byte(address, 0x1000); !result)
     return std::unexpected{result.error()};
   const auto value = bus_.read8(bus_.ctx, P2_AUXDATA + (address & 1));
   if (auto result = interrupted(); !result)
@@ -168,10 +168,40 @@ CardResult<uint8_t> Card::read_nv_byte(uint32_t address) {
   return value;
 }
 CardStatus Card::write_nv_byte(uint32_t address, uint8_t value) {
-  if (auto result = seek_nv_byte(address); !result)
+  if (auto result = seek_byte(address, 0x1000); !result)
     return result;
   bus_.write8(bus_.ctx, P2_AUXDATA + (address & 1), value);
   return interrupted();
+}
+CardStatus Card::test_ram_byte_access(uint32_t address) {
+  if (address & 1)
+    return std::unexpected{P2_E_ARGUMENT};
+  std::array<uint8_t, 2> original{}, readback{};
+  if (auto r = read_aux(address, original); !r)
+    return r;
+  const auto write = [&](std::span<const uint8_t, 2> bytes) -> CardStatus {
+    for (uint32_t lane = 0; lane < 2; ++lane) {
+      if (auto r = seek_byte(address + lane, 0); !r)
+        return r;
+      bus_.write8(bus_.ctx, P2_AUXDATA + lane, bytes[lane]);
+      if (auto r = interrupted(); !r)
+        return r;
+    }
+    // Independent word reads prove both byte writes and their neighbour.
+    for (unsigned i = 0; i < 2; ++i) {
+      if (auto r = read_aux(address, readback); !r)
+        return r;
+      if (!std::equal(readback.begin(), readback.end(), bytes.begin()))
+        return std::unexpected{P2_E_VERIFY};
+    }
+    return {};
+  };
+  const std::array<uint8_t, 2> pattern{
+      static_cast<uint8_t>(original[0] ^ 0x5a),
+      static_cast<uint8_t>(original[1] ^ 0xa5)};
+  if (auto r = write(pattern); !r)
+    return r; // Do not hide a byte-lane fault by rewriting the word.
+  return write(original);
 }
 CardStatus Card::write_aux(uint32_t address, std::span<const uint8_t> data) {
   return transfer(address, {}, data, 0);

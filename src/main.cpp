@@ -185,6 +185,8 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
 [[maybe_unused]] p2::CardStatus bootstrap_work(p2::Card &card, void *context) {
   const auto &image = *static_cast<const p2::firmware::InitialImage *>(context);
   const auto loaded = p2::bootstrap::load(card, card.transport(), image);
+  p2_printf("Genesis RAM byte-write lanes verified=%u\n",
+            loaded.byte_writes_verified);
   p2_printf("Initial RAM: error=%d latches=%u written=%lu verified=%lu "
             "skipped=%lu started=%u recovery=%u\n",
             loaded.error, loaded.genesis.genesis_latches,

@@ -31,6 +31,8 @@ int main() {
     p2::Card card{m.mock.bus};
     const auto r = p2::bootstrap::load(card, m.mock.bus, image);
     assert(!r.error && r.initial_started && !r.recovery_required);
+    assert(r.byte_writes_verified);
+    assert(m.mock.memory[0x7e0070] == 0 && m.mock.memory[0x7e0071] == 0);
     assert(r.bytes_written == (skip ? 4u : 20u));
     assert(r.bytes_verified == r.bytes_written);
     assert(r.bytes_skipped == (skip ? 16u : 0u));
