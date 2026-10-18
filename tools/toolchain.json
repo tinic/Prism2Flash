@@ -1,0 +1,11 @@
+{
+  "asset_version": "16.2.9",
+  "gcc_version": "16.2.0b",
+  "repository": "tinic/gcc",
+  "tag": "toolchain-m68k-amigaos-gcc-16.2.9",
+  "platforms": {
+    "Linux-x86_64": {"name": "linux-x86_64", "sha256": "adf6daa38acb5fef21ad692178be21e57ee7cd84d87615876d850e4fd07da431"},
+    "Darwin-arm64": {"name": "darwin-arm64", "sha256": "99f2e4ccd38add25a066df18a75ec363ae261708317c54c7263a17efe2ed3e2d"}
+  },
+  "repair_source": "https://github.com/tinic/AmiNetXDuo/tree/438b6b1d8e24bde04d8ceec2539c74d432b32968/tools"
+}

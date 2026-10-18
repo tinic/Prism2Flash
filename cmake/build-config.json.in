@@ -1,0 +1,4 @@
+{
+  "compiler": "@CMAKE_C_COMPILER@",
+  "version": "@P2_VERSION@"
+}

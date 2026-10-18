@@ -18,3 +18,7 @@
 - The initial probe has no flash programming path. Adding flash requires the
   corresponding roadmap milestone and its independent verification.
 - Keep the original pccard source archive alongside any distributed binary.
+- VERSION is the single public version; update RELEASE_DATE and CHANGELOG.md
+  for releases. Tags must match it exactly. See docs/RELEASING.md.
+- Run tools/ci.sh host and tools/ci.sh native for native changes. Release
+  packages require a clean checkout and include complete corresponding source.

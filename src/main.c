@@ -1,11 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "platform.h"
 #include "p2_stdio.h"
+#include "version.h"
 #include <string.h>
+
+/* Retained for AmigaOS Version, including when --version is never called. */
+const char p2_version_tag[] __attribute__((used)) =
+    "\0$VER: Prism2Genesis " P2_AMIGA_VERSION " (" P2_AMIGA_DATE ") " P2_VERSION;
 
 static void usage(void)
 {
-    puts("Prism2Genesis 0.1 - experimental Genesis RAM probe\n"
+    puts("Prism2Genesis " P2_VERSION " - experimental Genesis RAM probe\n"
+         "  Prism2Genesis --version\n"
          "  Prism2Genesis info\n"
          "  Prism2Genesis inspect\n"
          "  Prism2Genesis probe --sram 8|16\n"
@@ -35,6 +41,9 @@ int main(int argc, char **argv)
     int probing = argc > 1 && !strcmp(argv[1], "probe");
     int info = argc == 2 && !strcmp(argv[1], "info");
     int inspect = argc == 2 && !strcmp(argv[1], "inspect");
+    if (argc == 2 && !strcmp(argv[1], "--version")) {
+        puts("Prism2Genesis " P2_VERSION); return 0;
+    }
     if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "help"))) {
         usage(); return 0;
     }
@@ -43,7 +52,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[3], "16")) bits = 16;
     }
     if (!info && !inspect && !(probing && bits)) { usage(); return 20; }
-    p2_printf("Prism2Genesis 0.1 - %s\n", p2_platform_description());
+    p2_printf("Prism2Genesis " P2_VERSION " - %s\n", p2_platform_description());
     rc = p2_platform_open(&platform, &card, error, sizeof(error));
     if (rc) { p2_fprintf(stderr, "%s\n", error); return 20; }
     p2_printf("PCMCIA: manufacturer=0x%04x product=0x%04x\n",

@@ -14,7 +14,7 @@ repository. There has been no A1200 connection, deployment or hardware test.
 - Native cross build: m68k-amigaos GCC 16.2.0, `-m68000 -O2`, warnings treated
   as errors. `file` identifies the output as an AmigaOS loadseg executable.
 - Every retained third-party artifact matches third_party/SHA256SUMS.
-- Native executable: 48 smoke checks passed across Amiberry 8.4.1 and
+- Versioned 0.1.0-alpha.1 executable: 52 smoke checks passed across Amiberry 8.4.1 and
   Copperline 1.0.0, each with A600/68000/Kickstart 2.05 and
   A1200/68020/Kickstart 3.1 profiles and a 4096-byte Shell stack.
 - Fixed a pre-main startup failure by using Newlib integer-only formatting;
@@ -33,3 +33,11 @@ Genesis RAM probe on a restricted set of working HFA3842 cards. SRAM width
 must be supplied explicitly. Ambiguous 800c and damaged/dead-card bootstrap
 paths are not enabled. Firmware loading and permanent flashing are subsequent
 milestones, not hidden or untested CLI options.
+
+## Repository and release infrastructure
+
+GitHub CI now covers Linux GCC/Clang and macOS Clang host builds, sanitizer
+checks, pinned native cross builds, and independently verified release packages.
+CodeQL scans the portable C code. VERSION, RELEASE_DATE and CHANGELOG.md drive
+tagged prereleases with binary/source archives, checksums and build metadata.
+See RELEASING.md for the release gate and maintenance procedure.

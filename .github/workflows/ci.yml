@@ -1,0 +1,65 @@
+name: CI
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+jobs:
+  host:
+    name: Host (${{ matrix.os }}, ${{ matrix.cc }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, cc: gcc}
+          - {os: ubuntu-24.04, cc: clang}
+          - {os: macos-15, cc: clang}
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Install independent LHA reader (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y lhasa
+      - name: Install independent LHA reader (macOS)
+        if: runner.os == 'macOS'
+        run: brew install lhasa
+      - run: tools/ci.sh host
+      - name: Address and undefined-behavior sanitizers
+        if: runner.os == 'Linux' && matrix.cc == 'clang'
+        run: tools/ci.sh sanitize
+  native:
+    name: Amiga 68000 and release package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Cache pinned compiler
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/prism2flash/toolchain
+          key: amiga-linux-${{ hashFiles('tools/toolchain.json', 'tools/*toolchain*.py') }}
+      - name: Install independent LHA reader
+        run: sudo apt-get update && sudo apt-get install -y lhasa
+      - run: python3 tools/check_project.py
+      - run: tools/ci.sh native
+      - run: tools/ci.sh package
+      - name: Upload downloadable native and source packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: prism2flash-release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30

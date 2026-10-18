@@ -14,3 +14,8 @@ src/netdev/netdev_pcmcia.c. Its complete license notice is retained in
 AmiNetXDuo-LICENSE.
 
 No Intersil firmware image or DOS flash utility is distributed here.
+
+The toolchain repair/check scripts in tools/ are retained from AmiNetXDuo
+(commit and source URL in tools/toolchain.json). They are covered by the
+MIT notice in AmiNetXDuo-LICENSE. The pinned compiler assets are downloaded
+separately, not bundled into a project release.

@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a build, emulator or utility failure
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Full version or commit
+      description: Output of Prism2Genesis --version, or the source commit.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Amiga model, CPU, OS, emulator and version, or host compiler/build tools.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Command, output and expected behavior
+      description: Include reproducible steps and complete text output.
+    validations:
+      required: true
+  - type: textarea
+    id: card
+    attributes:
+      label: Card information, if relevant
+      description: Exact hardware revision, CIS IDs and firmware IDs. Do not attach firmware or ROM images.

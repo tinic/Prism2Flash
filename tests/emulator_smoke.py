@@ -16,8 +16,11 @@ import sys
 import time
 import uuid
 
+VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()
+
 CASES = [
     ("help", "--help", 0),
+    ("version", "--version", 0),
     ("no_args", "", 20),
     ("invalid_sram", "probe --sram 32", 20),
     ("missing_sram", "probe", 20),
@@ -53,9 +56,11 @@ def stop_child(proc):
 def valid_output(name, text):
     active = name in ("info", "inspect", "probe8", "probe16", "info_again", "inspect_again")
     if active:
-        return "Prism2Genesis 0.1 - NATIVE AMIGA" in text and (
+        return f"Prism2Genesis {VERSION} - NATIVE AMIGA" in text and (
             "Cannot own PCMCIA card" in text or "No card.resource" in text)
-    return "Prism2Genesis 0.1 - experimental" in text
+    if name == "version":
+        return text.strip() == f"Prism2Genesis {VERSION}"
+    return f"Prism2Genesis {VERSION} - experimental" in text
 
 
 def copperline_run(args):

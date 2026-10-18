@@ -1,5 +1,30 @@
 # Native emulator smoke results — 2026-10-18
 
+## Release candidate 0.1.0-alpha.1
+
+All **52 checks passed** for the versioned native release candidate, using a
+4096-byte Shell stack. Each profile ran the original twelve cases plus
+`--version`, whose output matches VERSION exactly.
+
+| Emulator | Machine / CPU | Kickstart | Result |
+| --- | --- | --- | --- |
+| Amiberry 8.4.1 | A600 / 68000 | 2.05 (37.350) | 13/13 passed |
+| Amiberry 8.4.1 | A1200 / 68020 | 3.1 (40.68) | 13/13 passed |
+| Copperline 1.0.0 | A600 / 68000 | 2.05 (37.350) | 13/13 passed |
+| Copperline 1.0.0 | A1200 / 68020 | 3.1 (40.68) | 13/13 passed |
+
+The release candidate is 59020 bytes. SHA-256:
+
+```text
+87742c58f1f640babbfdc4bc549410049177fc37e3914c1bcaceda35616ee1b2
+```
+
+[Release candidate evidence](evidence/emulator-smoke-0.1.0-alpha.1.json)
+includes output and return codes for all 52 cases, ROM hashes and run identifiers.
+This remains empty-slot startup testing; no physical Amiga or card was used.
+
+## Original startup baseline
+
 The actual Amiga executable passed all 48 command checks. Every invocation
 used a 4096-byte Shell stack, with no Prism card attached.
 

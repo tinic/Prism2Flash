@@ -1,0 +1,56 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  metadata:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Match tag to version and changelog
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 tools/check_project.py --tag "$RELEASE_TAG"
+  verify:
+    needs: metadata
+    uses: ./.github/workflows/ci.yml
+  publish:
+    name: Publish verified release assets
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: prism2flash-release
+          path: dist
+      - name: Verify downloaded checksums
+        working-directory: dist
+        run: sha256sum --check SHA256SUMS
+      - name: Publish release after all checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            flags+=(--prerelease --latest=false)
+          else
+            flags+=(--latest)
+          fi
+          gh release create "$RELEASE_TAG" dist/* \
+            --verify-tag --title "Prism2Flash ${RELEASE_TAG#v}" \
+            --notes-file dist/RELEASE-NOTES.md "${flags[@]}"

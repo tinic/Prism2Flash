@@ -43,3 +43,9 @@ path also uses card firmware commands rather than host-driven JEDEC programming.
 Whether each path behaves correctly through Gayle remains an empirical question.
 
 File checksums for retained third-party artifacts are in third_party/SHA256SUMS.
+
+The compiler asset version, per-platform SHA-256 pins and the AmiNetXDuo
+toolchain repair/check source commit are recorded in `tools/toolchain.json`.
+The retained repair/check scripts are MIT-licensed; see
+`third_party/AmiNetXDuo-LICENSE`. Project builds download compiler assets
+separately and verify their hashes before extraction.

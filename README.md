@@ -1,5 +1,9 @@
 # Prism2Flash
 
+[![CI](https://github.com/tinic/Prism2Flash/actions/workflows/ci.yml/badge.svg)](https://github.com/tinic/Prism2Flash/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/tinic/Prism2Flash/actions/workflows/codeql.yml/badge.svg)](https://github.com/tinic/Prism2Flash/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/tinic/Prism2Flash?include_prereleases)](https://github.com/tinic/Prism2Flash/releases)
+
 Native Amiga utilities for Intersil Prism II/2.5/3 PCMCIA cards, developed
 alongside AmiNetXDuo. The project starts with Genesis recovery and will then
 add a regular firmware flasher using the same programming engine.
@@ -8,6 +12,19 @@ add a regular firmware flasher using the same programming engine.
 smoke tests pass in Amiberry and Copperline. No real card or physical Amiga
 has been tested.** The A1200 is currently in use by another project; hardware
 testing is deferred.
+
+## Downloads and project workflow
+
+Get versioned Amiga binaries from [Releases](https://github.com/tinic/Prism2Flash/releases).
+Each release includes an Amiga 68000 LHA, complete corresponding source,
+checksums and compiler/source metadata. See [installation](docs/INSTALL.md),
+[changelog](CHANGELOG.md), [contributing](CONTRIBUTING.md) and
+[versioning/CI/release procedures](docs/RELEASING.md).
+
+`VERSION` drives `Prism2Genesis --version` and the embedded Amiga `$VER`
+identifier. Version tags run host tests, sanitizers, native compilation and
+archive verification before publishing. Initial releases are experimental
+prereleases while real-card validation is pending.
 
 ## First executable: Prism2Genesis
 
@@ -36,7 +53,7 @@ the executable.
 
 ## Native build
 
-Requires CMake and a `m68k-amigaos-gcc` cross toolchain with Amiga NDK headers.
+Requires CMake 3.24+ and a `m68k-amigaos-gcc` cross toolchain with Amiga NDK headers.
 The target is 68000 with AmigaOS 2.05 or later. Hardware compatibility with
 that minimum OS is still to be tested.
 
@@ -47,6 +64,9 @@ cmake --build build-amiga
 ```
 
 The Amiga executable is `build-amiga/Prism2Genesis`.
+For a pinned compiler with its startup/ABI checks applied automatically, run
+`tools/ci.sh native` on Linux x86_64 or macOS arm64. This does not require an
+AmiNetXDuo checkout. Host checks use `tools/ci.sh host`.
 `inspect` and `probe` require `utility.library` and **pccard.library 2.2 or
 newer**. An unmodified pccard.library 2.2 is provided in
 `third_party/pccard/Libs`, together with its complete original source archive
@@ -81,7 +101,7 @@ and [docs/SOURCES.md](docs/SOURCES.md) for provenance and research.
 
 ## Emulator smoke tests
 
-The actual native executable passed 12 command-line/startup checks on each of
+The versioned native executable passed 13 command-line/startup checks on each of
 Amiberry 8.4.1 and Copperline 1.0.0 with A600/68000/Kickstart 2.05 and
 A1200/68020/Kickstart 3.1 profiles. Each command used a 4096-byte Shell stack.
 These checks cover help, invalid arguments, no-card exits and subsequent
