@@ -39,6 +39,9 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Retrieve Intersil's original memory-layout data sheet through playhouse2 and
   record an offline x16 SRAM configuration clue from the existing CRC-valid PDA.
   Neither finding enables the hardware gate or establishes physical flash coverage.
+- Inspect the user's FCC photo PDFs: MA401 rev.D labels and an apparent
+  SST39VF010 flash marking on the filing sample support a candidate 128 KiB
+  profile. SRAM markings remain unreadable; no hardware gate is relaxed.
 
 ### Scope
 

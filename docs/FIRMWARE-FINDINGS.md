@@ -106,9 +106,8 @@ PCMCIA bus width on the label does not identify the internal SRAM width.
 The user's MAC/serial and photograph are not included in the public repository.
 
 The filing lists internal-photo exhibits 301850 (two pages) and 301854 (five
-pages), but PDF retrieval failed during this investigation. The photographs
-have therefore **not** been inspected and no chip marking, flash size or SRAM
-configuration is claimed. Schematics/block diagram/technical description are
+pages). Automated PDF retrieval initially failed; the user later supplied
+Desktop copies, inspected below. Schematics/block diagram/technical description are
 listed as confidential metadata. Sources:
 [FCC filing](https://fccid.io/PY3MA401RD),
 [internal photos 301850](https://fccid.io/PY3MA401RD/Internal-Photos/Internal-Photos-301850),
@@ -159,3 +158,37 @@ follows from this field. See the non-private summary in
 This analysis reads only existing files. It does not change the native allowlist,
 select SRAM automatically, satisfy the fresh full-backup gate or perform a new
 card operation.
+
+### User-supplied FCC photo PDFs
+
+The user subsequently supplied two PDFium-saved Desktop PDFs. Both were copied
+unchanged into private project evidence and every page was visually inspected.
+The public repository retains observations and hashes only, not the PDFs or
+the user's label photograph.
+
+| Exhibit | Pages | Supplied PDF SHA-256 |
+| --- | --- | --- |
+| Internal photos | 2 | `009f3c745f38eca7813f7b4b2173cbfcac025221b20f8384d8cb6353432689f7` |
+| SAR/EUT photos | 5 | `3e12646fb8172eaa788338376a98123a96508adc81c6a13f85fcb2e37f6ce663` |
+
+The two-page exhibit labels the pictured boards **MA401 rev.D**. The SAR
+photographs identify the EUT as **DNI LM-WP200RB**, report 920109R03A. These
+are filing samples; do not silently treat their chip markings as direct
+inspection of the user's particular unit.
+
+In SAR page 3's underside photograph, **U5** bears the SST MPF logo and its
+part marking appears to read **39VF010**, with `70-4C-WH` below. The speed/package
+suffix is less certain than the family identification. Microchip identifies
+SST39VF010 as **1 Mbit, 128K x8 (128 KiB)** parallel flash, with uniform 4 KiB
+erase sectors ([product](https://www.microchip.com/en-us/product/sst39vf010),
+[manufacturer data sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/MPD/ProductDocuments/DataSheets/SST39LF010-SST39LF020-SST39LF040-SST39VF010-SST39VF020-SST39VF040-Data-Sheet-DS20005023.pdf)).
+This corroborates a candidate 128 KiB flash profile and the observed alias period.
+It does not prove the exact fitted part or complete physical coverage of this
+unit without independent profile/address-map review.
+
+The front-side U1 device's marking remains unreadable in these images. A large
+controller is visible, but its exact suffix is not confidently legible either.
+Do not infer an SRAM vendor, capacity or replacement part from the package
+outline. The saved PDA's x16 configuration clue remains the stronger evidence
+for selecting a future, independently corroborated Genesis profile. No hardware
+gate is enabled by this photographic analysis.

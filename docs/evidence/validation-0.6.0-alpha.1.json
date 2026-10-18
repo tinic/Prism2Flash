@@ -24,11 +24,15 @@
   "genesis_hardware_enabled": false,
   "flash_engine_present": false,
   "limits": [
-    "FCC internal PDF retrieval failed locally and from playhouse2",
+    "Automated FCC PDF retrieval failed; user-supplied copies inspected on all seven pages. Filing sample flash appears SST39VF010; SRAM marking unreadable.",
     "NIC800c SST family permits both x8/x16 RAM",
     "prepared payloads are held in memory; CLI reports hashes only",
     "no independent hardware/profile/backup-gate approval"
   ],
   "primary_datasheet_sha256": "8d9bf148b7f1b9e4b18b4b8c5d7bcc4fb0b7b88e0ad6aa43e1950dcecdeb27b3",
-  "pda_0400": "0x0003; x16 SRAM configuration inference; not independent physical-map approval"
+  "pda_0400": "0x0003; x16 SRAM configuration inference; not independent physical-map approval",
+  "fcc_photo_pdf_sha256": [
+    "009f3c745f38eca7813f7b4b2173cbfcac025221b20f8384d8cb6353432689f7",
+    "3e12646fb8172eaa788338376a98123a96508adc81c6a13f85fcb2e37f6ce663"
+  ]
 }

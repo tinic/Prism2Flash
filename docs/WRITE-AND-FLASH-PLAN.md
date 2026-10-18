@@ -15,6 +15,10 @@ flash backup. The two 8 MiB captures establish repeatable AUX NV data, with
 The saved CRC-valid PDA's configuration PDR 0x0400=0x0003 points toward x16
 SRAM according to Host AP's bit assignment. Record it as a card-specific clue
 awaiting independent corroboration; it does not identify flash geometry.
+The user-supplied FCC photos now corroborate a candidate 128 KiB SST39VF010
+flash on the filing sample. Its apparent part marking and the captured alias
+period need independent profile/address-map review before the operation gate
+can treat them as proof of full coverage on the user's unit.
 
 ## Gates before a real Genesis probe
 
