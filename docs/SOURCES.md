@@ -49,3 +49,7 @@ toolchain repair/check source commit are recorded in `tools/toolchain.json`.
 The retained repair/check scripts are MIT-licensed; see
 `third_party/AmiNetXDuo-LICENSE`. Project builds download compiler assets
 separately and verify their hashes before extraction.
+
+Flash's corrected 2026-10-18 firmware analysis and our independent parser
+comparison are summarized in FIRMWARE-FINDINGS.md. Metadata/payload hashes are
+retained under docs/evidence; proprietary firmware payloads are excluded.

@@ -1,0 +1,740 @@
+{
+  "version": "0.2.0-alpha.1",
+  "date": "2026-10-18",
+  "binaries": {
+    "Prism2Genesis": {
+      "sha256": "196365eada7c96937dce1795868a354003accc561f8347bf043c129c32643e13",
+      "bytes": 59028
+    },
+    "Prism2Firmware": {
+      "sha256": "834eb11e5a3e9706b6e558bbc7a922e3408f788bf9201fba02f1b34cee65ac53",
+      "bytes": 69176
+    }
+  },
+  "total_cases_passed": 78,
+  "physical_amiga_accessed": false,
+  "real_card_tested": false,
+  "firmware_inputs": "Original synthetic fixtures only in emulator; seven private firmware images compared on host only.",
+  "profiles": [
+    {
+      "suite": "firmware",
+      "emulator": "amiberry",
+      "model": "A600",
+      "cpu": "68000",
+      "token": "ae71fb655b5044d8acca2a22059a4ed3",
+      "rom_sha256": "8d57d6e9d976df42d91ff9d10a5eedaede1a00e3b4b34cad750ca5ff7229f28a",
+      "guest_stack_bytes": 4096,
+      "binary_sha256": "834eb11e5a3e9706b6e558bbc7a922e3408f788bf9201fba02f1b34cee65ac53",
+      "passed": true,
+      "program": "Prism2Firmware",
+      "emulator_version": "8.4.1",
+      "full_report": "build-emulator/amiberry-A600-68000-ae71fb65/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "version",
+          "args": "--version",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1\n"
+        },
+        {
+          "name": "inspect_flash",
+          "args": "inspect DH0:station.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: flash; entry=0x00000000 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "inspect_ram",
+          "args": "inspect DH0:ram.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: RAM; entry=0x003f0c01 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "validate_flash",
+          "args": "validate DH0:station.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_ram",
+          "args": "validate DH0:ram.hex --mode ram --card DH0:card.txt --pda DH0:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_pair",
+          "args": "validate DH0:station.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin --primary DH0:primary.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "reject_wrong_mode",
+          "args": "validate DH0:ram.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Offline validation rejected: Image RAM/flash class differs from selected mode\n"
+        },
+        {
+          "name": "bad_checksum",
+          "args": "inspect DH0:bad.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Image rejected: DH0:bad.hex (line 2): S-record length or checksum mismatch\n"
+        },
+        {
+          "name": "missing_image",
+          "args": "inspect DH0:missing.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Cannot open image: DH0:missing.hex\n"
+        },
+        {
+          "name": "missing_args",
+          "args": "validate",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        }
+      ]
+    },
+    {
+      "suite": "firmware",
+      "emulator": "copperline",
+      "model": "A1200",
+      "cpu": "68020",
+      "token": "b2d01a2f368a497a8661def58b295713",
+      "rom_sha256": "6d43840d4099a74170ea0f0425b6257c3891ebcaa39c4d1840075a9ab22b5707",
+      "guest_stack_bytes": 4096,
+      "binary_sha256": "834eb11e5a3e9706b6e558bbc7a922e3408f788bf9201fba02f1b34cee65ac53",
+      "passed": true,
+      "program": "Prism2Firmware",
+      "emulator_version": "1.0.0",
+      "full_report": "build-emulator/copperline-A1200-68020-b2d01a2f/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "version",
+          "args": "--version",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1\n"
+        },
+        {
+          "name": "inspect_flash",
+          "args": "inspect RunProg:station.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: flash; entry=0x00000000 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "inspect_ram",
+          "args": "inspect RunProg:ram.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: RAM; entry=0x003f0c01 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "validate_flash",
+          "args": "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_ram",
+          "args": "validate RunProg:ram.hex --mode ram --card RunProg:card.txt --pda RunProg:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_pair",
+          "args": "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin --primary RunProg:primary.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "reject_wrong_mode",
+          "args": "validate RunProg:ram.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Offline validation rejected: Image RAM/flash class differs from selected mode\n"
+        },
+        {
+          "name": "bad_checksum",
+          "args": "inspect RunProg:bad.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Image rejected: RunProg:bad.hex (line 2): S-record length or checksum mismatch\n"
+        },
+        {
+          "name": "missing_image",
+          "args": "inspect RunProg:missing.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Cannot open image: RunProg:missing.hex\n"
+        },
+        {
+          "name": "missing_args",
+          "args": "validate",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        }
+      ]
+    },
+    {
+      "suite": "firmware",
+      "emulator": "amiberry",
+      "model": "A1200",
+      "cpu": "68020",
+      "token": "c02b5191931f40f8bb824b277987dba1",
+      "rom_sha256": "6d43840d4099a74170ea0f0425b6257c3891ebcaa39c4d1840075a9ab22b5707",
+      "guest_stack_bytes": 4096,
+      "binary_sha256": "834eb11e5a3e9706b6e558bbc7a922e3408f788bf9201fba02f1b34cee65ac53",
+      "passed": true,
+      "program": "Prism2Firmware",
+      "emulator_version": "8.4.1",
+      "full_report": "build-emulator/amiberry-A1200-68020-c02b5191/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "version",
+          "args": "--version",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1\n"
+        },
+        {
+          "name": "inspect_flash",
+          "args": "inspect DH0:station.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: flash; entry=0x00000000 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "inspect_ram",
+          "args": "inspect DH0:ram.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: RAM; entry=0x003f0c01 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "validate_flash",
+          "args": "validate DH0:station.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_ram",
+          "args": "validate DH0:ram.hex --mode ram --card DH0:card.txt --pda DH0:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_pair",
+          "args": "validate DH0:station.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin --primary DH0:primary.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "reject_wrong_mode",
+          "args": "validate DH0:ram.hex --mode flash --card DH0:card.txt --pda DH0:pda.bin",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Offline validation rejected: Image RAM/flash class differs from selected mode\n"
+        },
+        {
+          "name": "bad_checksum",
+          "args": "inspect DH0:bad.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Image rejected: DH0:bad.hex (line 2): S-record length or checksum mismatch\n"
+        },
+        {
+          "name": "missing_image",
+          "args": "inspect DH0:missing.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Cannot open image: DH0:missing.hex\n"
+        },
+        {
+          "name": "missing_args",
+          "args": "validate",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        }
+      ]
+    },
+    {
+      "suite": "firmware",
+      "emulator": "copperline",
+      "model": "A600",
+      "cpu": "68000",
+      "token": "11edb912716646f7b2bda6332705e278",
+      "rom_sha256": "8d57d6e9d976df42d91ff9d10a5eedaede1a00e3b4b34cad750ca5ff7229f28a",
+      "guest_stack_bytes": 4096,
+      "binary_sha256": "834eb11e5a3e9706b6e558bbc7a922e3408f788bf9201fba02f1b34cee65ac53",
+      "passed": true,
+      "program": "Prism2Firmware",
+      "emulator_version": "1.0.0",
+      "full_report": "build-emulator/copperline-A600-68000-11edb912/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "version",
+          "args": "--version",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1\n"
+        },
+        {
+          "name": "inspect_flash",
+          "args": "inspect RunProg:station.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: flash; entry=0x00000000 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "inspect_ram",
+          "args": "inspect RunProg:ram.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Component: id=0x001f major=1 minor=7 variant=4\nClass: RAM; entry=0x003f0c01 (separate from S3 load addresses)\nPayload: 80 bytes in 2 segments; 15 S3 records\nName: SYNTHETIC.HEX\nBuild sequence: 123\nSegment: address=0x007e1800 bytes=64\nSegment: address=0x007e1900 bytes=16\nPlatform: id=0x8013 major=1 minor=0 variant=1\nInterface: actor id=1 variant=1 bottom=1 top=3\nInterface: actor id=2 variant=1 bottom=1 top=3\nInterface: actor id=3 variant=2 bottom=3 top=6\nInterface: supplier id=4 variant=1 bottom=1 top=4\nPlug: pdr=0x00000003 address=0x007e1810 bytes=4\nPlug: pdr=0x00000101 address=0x007e1804 bytes=6\nPlug: pdr=0xffffffff address=0x007e1820 bytes=16\nSignature descriptor: start=0x007e1800 bytes=272 program=1\nSignature descriptors are not computed CRC verification. Firmware bytes are unchanged.\nStructural inspection passed; card compatibility is not established.\n"
+        },
+        {
+          "name": "validate_flash",
+          "args": "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_ram",
+          "args": "validate RunProg:ram.hex --mode ram --card RunProg:card.txt --pda RunProg:pda.bin",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "validate_pair",
+          "args": "validate RunProg:station.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin --primary RunProg:primary.hex",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Offline metadata and PDA checks passed. Firmware bytes are unchanged.\nHardware profile/address-map approval and prepare/merge are still required.\n"
+        },
+        {
+          "name": "reject_wrong_mode",
+          "args": "validate RunProg:ram.hex --mode flash --card RunProg:card.txt --pda RunProg:pda.bin",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Offline validation rejected: Image RAM/flash class differs from selected mode\n"
+        },
+        {
+          "name": "bad_checksum",
+          "args": "inspect RunProg:bad.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Image rejected: RunProg:bad.hex (line 2): S-record length or checksum mismatch\n"
+        },
+        {
+          "name": "missing_image",
+          "args": "inspect RunProg:missing.hex",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Cannot open image: RunProg:missing.hex\n"
+        },
+        {
+          "name": "missing_args",
+          "args": "validate",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Firmware 0.2.0-alpha.1 - offline firmware inspection and validation\n  Prism2Firmware --version\n  Prism2Firmware inspect IMAGE\n  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda PDA\n                         [--primary PRIMARY_IMAGE]\nPDA must be a CRC-checked 1024-byte binary backup. See docs/OFFLINE-FIRMWARE.md.\nThis utility reads files only. It does not access cards or write firmware.\n"
+        }
+      ]
+    },
+    {
+      "suite": "genesis",
+      "emulator": "amiberry",
+      "model": "A600",
+      "cpu": "68000",
+      "token": "64c45cef96fa44229d19753092d4bc36",
+      "rom_sha256": "8d57d6e9d976df42d91ff9d10a5eedaede1a00e3b4b34cad750ca5ff7229f28a",
+      "guest_stack_bytes": 4096,
+      "binary_sha256": "196365eada7c96937dce1795868a354003accc561f8347bf043c129c32643e13",
+      "passed": true,
+      "program": "Prism2Genesis",
+      "emulator_version": "8.4.1",
+      "full_report": "build-emulator/amiberry-A600-68000-64c45cef/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "version",
+          "args": "--version",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1\n"
+        },
+        {
+          "name": "no_args",
+          "args": "",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "invalid_sram",
+          "args": "probe --sram 32",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "missing_sram",
+          "args": "probe",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "info",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "inspect",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "probe8",
+          "args": "probe --sram 8",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "probe16",
+          "args": "probe --sram 16",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "info_again",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "inspect_again",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        }
+      ]
+    },
+    {
+      "suite": "genesis",
+      "emulator": "copperline",
+      "model": "A1200",
+      "cpu": "68020",
+      "token": "646bfc6f7e734f0bab8870657f8fa46c",
+      "rom_sha256": "6d43840d4099a74170ea0f0425b6257c3891ebcaa39c4d1840075a9ab22b5707",
+      "guest_stack_bytes": 4096,
+      "binary_sha256": "196365eada7c96937dce1795868a354003accc561f8347bf043c129c32643e13",
+      "passed": true,
+      "program": "Prism2Genesis",
+      "emulator_version": "1.0.0",
+      "full_report": "build-emulator/copperline-A1200-68020-646bfc6f/result.json",
+      "cases": [
+        {
+          "name": "help",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "version",
+          "args": "--version",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1\n"
+        },
+        {
+          "name": "no_args",
+          "args": "",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "invalid_sram",
+          "args": "probe --sram 32",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "missing_sram",
+          "args": "probe",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "reject_flash",
+          "args": "flash",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        },
+        {
+          "name": "info",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "inspect",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "probe8",
+          "args": "probe --sram 8",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "probe16",
+          "args": "probe --sram 16",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "info_again",
+          "args": "info",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "inspect_again",
+          "args": "inspect",
+          "exit": 20,
+          "expected_exit": 20,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - NATIVE AMIGA - hardware untested\nCannot own PCMCIA card: absent or held by a driver\n"
+        },
+        {
+          "name": "help_after_errors",
+          "args": "--help",
+          "exit": 0,
+          "expected_exit": 0,
+          "passed": true,
+          "output": "Prism2Genesis 0.2.0-alpha.1 - experimental Genesis RAM probe\n  Prism2Genesis --version\n  Prism2Genesis info\n  Prism2Genesis inspect\n  Prism2Genesis probe --sram 8|16\ninfo reads CIS only; inspect initializes the card and reads firmware/PDA.\nprobe resets the card and writes four RAM bytes, then restores normal mode.\nSelect SRAM width from the exact card's hardware documentation.\nNo firmware loading or flash programming is implemented in this milestone.\n"
+        }
+      ]
+    }
+  ]
+}

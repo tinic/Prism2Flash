@@ -1,7 +1,8 @@
 Prism2Flash is distributed under GNU GPL version 2.
 
 Host AP utilities and driver references retain their original copyrights and
-licenses. The Genesis/AUX implementation is adapted from Host AP source.
+licenses. The Genesis/AUX implementation and offline metadata/PDA compatibility semantics
+are adapted from Host AP source. The bounded reader is a new implementation.
 See docs/SOURCES.md and the unmodified source copies/archives in this directory.
 
 pccard.library 2.2 and its developer header are unmodified files from Neil

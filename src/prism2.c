@@ -159,29 +159,6 @@ int p2_supported_nic(uint16_t id)
         || id == 0x801a || id == 0x8017 || id == 0x801b || id == 0x8018
         || id == 0x801c;
 }
-int p2_validate_pda(const uint8_t data[P2_PDA_SIZE])
-{
-    size_t pos = 0;
-    uint16_t crc = 0;
-    while (pos + 4 <= P2_PDA_SIZE) {
-        size_t words = data[pos] | ((size_t)data[pos+1] << 8);
-        unsigned type = data[pos+2] | ((unsigned)data[pos+3] << 8);
-        size_t end, i;
-        if (!words || words > (P2_PDA_SIZE - pos) / 2 - 1) return P2_E_PDA;
-        end = pos + (words + 1) * 2;
-        if (type == 0 && words == 2) {
-            for (i = 0; i < end; ++i) {
-                unsigned bit;
-                crc ^= data[i];
-                for (bit = 0; bit < 8; ++bit)
-                    crc = (uint16_t)((crc >> 1) ^ ((crc & 1) ? 0x8408 : 0));
-            }
-            return crc == 0 ? P2_OK : P2_E_PDA;
-        }
-        pos = end;
-    }
-    return P2_E_PDA;
-}
 int p2_read_pda(struct p2_bus *b, uint8_t data[P2_PDA_SIZE], uint32_t *location)
 {
     static const uint32_t addresses[] = { 0x7f0000, 0x3f0000, 0x390000, 0x7f0002 };

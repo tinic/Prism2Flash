@@ -41,3 +41,23 @@ checks, pinned native cross builds, and independently verified release packages.
 CodeQL scans the portable C code. VERSION, RELEASE_DATE and CHANGELOG.md drive
 tagged prereleases with binary/source archives, checksums and build metadata.
 See RELEASING.md for the release gate and maintenance procedure.
+
+## Offline parser/validation milestone — 0.2.0-alpha.1
+
+Prism2Firmware now performs bounded image inspection and metadata/PDA checks
+on host and native Amiga builds, with no card backend. Flash's corrected image
+classification and entry/load-address findings are documented in
+FIRMWARE-FINDINGS.md. Parsed metadata and every payload byte match Host AP
+0.4.7 for seven privately supplied, checksum-pinned images. Normal CI uses only
+original synthetic fixtures; no firmware image is distributed.
+
+Passing validation leaves input bytes unchanged. Preparation, merging, signature
+stamping and hardware-specific address-map approval remain unimplemented.
+The physical hardware gate is still open and testing remains deferred.
+
+The 0.2.0-alpha.1 binaries passed 78 native guest checks at 4 KiB stack: the
+offline tool on all four Amiberry/Copperline A600/A1200 profiles, plus Genesis
+startup/no-card regressions on Amiberry A600 and Copperline A1200. Host and
+sanitizer CTest runs passed all ten registered checks, including 17 offline
+CLI test groups, 120 deterministic input mutations and the C API byte/ownership
+checks. Detailed current binary hashes are in EMULATOR-RESULTS.md.

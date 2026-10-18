@@ -85,14 +85,15 @@ def main():
     commit = git('rev-parse', 'HEAD').decode().strip()
     epoch = int(git('show', '-s', '--format=%ct', 'HEAD'))
     build = args.build_dir.resolve()
-    binary = (build / 'Prism2Genesis').read_bytes()
-    if binary[:4] != b'\x00\x00\x03\xf3':
-        parser.error('Prism2Genesis is not an Amiga HUNK executable')
-    expected = f'$VER: Prism2Genesis {version.split(".")[0]}.{version.split(".")[1]} '
-    if expected.encode() not in binary or f'Prism2Genesis {version}'.encode() not in binary:
-        parser.error('native executable version differs from VERSION')
-    if b'mathieeedoubbas.library' in binary or b'mathieeedoubtrans.library' in binary:
-        parser.error('native executable includes the unwanted double-math startup dependency')
+    binaries = {name: (build / name).read_bytes() for name in ('Prism2Genesis', 'Prism2Firmware')}
+    for name, binary in binaries.items():
+        if binary[:4] != b'\x00\x00\x03\xf3':
+            parser.error(f'{name} is not an Amiga HUNK executable')
+        expected = f'$VER: {name} {version.split(".")[0]}.{version.split(".")[1]} '
+        if expected.encode() not in binary or f'{name} {version}'.encode() not in binary:
+            parser.error(f'{name} version differs from VERSION')
+        if b'mathieeedoubbas.library' in binary or b'mathieeedoubtrans.library' in binary:
+            parser.error(f'{name} includes the unwanted double-math startup dependency')
     config = json.loads((build / 'generated/build-config.json').read_text())
     if config['version'] != version:
         parser.error('build configuration version differs from VERSION')
@@ -108,16 +109,19 @@ def main():
         'commit': commit, 'source_date_epoch': epoch, 'source_dirty': dirty,
         'target': 'm68k-amigaos', 'cpu': '68000', 'minimum_os': 'AmigaOS 2.05',
         'compiler': compiler_version, 'compiler_pin': json.loads((ROOT / 'tools/toolchain.json').read_text()),
-        'binary_sha256': sha(binary), 'source_archive_sha256': sha(source.read_bytes()),
+        'binary_sha256': sha(binaries['Prism2Genesis']),
+        'binaries': {name: {'sha256': sha(data), 'bytes': len(data)} for name, data in binaries.items()},
+        'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
-        'scope': 'Experimental Genesis RAM probe; no firmware loading or flash programming',
+        'scope': 'Experimental Genesis probe and offline firmware validation; no firmware loading or flash programming',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()
     (output / 'build-info.json').write_bytes(info_bytes)
-    bundle = {f'{prefix}/C/Prism2Genesis': binary, f'{prefix}/build-info.json': info_bytes}
+    bundle = {f'{prefix}/C/{name}': data for name, data in binaries.items()}
+    bundle[f'{prefix}/build-info.json'] = info_bytes
     include = ['README.md', 'COPYING', 'CHANGELOG.md', 'ROADMAP.md', 'VERSION', 'RELEASE_DATE',
                'docs/INSTALL.md', 'docs/HARDWARE-TESTING.md', 'docs/PROTOCOL.md', 'docs/SOURCES.md',
-               'docs/EMULATOR-RESULTS.md', 'third_party/NOTICES', 'third_party/AmiNetXDuo-LICENSE',
+               'docs/EMULATOR-RESULTS.md', 'docs/OFFLINE-FIRMWARE.md', 'docs/FIRMWARE-FINDINGS.md', 'third_party/NOTICES', 'third_party/AmiNetXDuo-LICENSE',
                'third_party/pccard/GPL', 'third_party/pccard/LGPL', 'third_party/pccard/pccard.lha',
                'third_party/pccard/Libs/pccard.library']
     for name in include:
@@ -136,7 +140,7 @@ def main():
     notes = notes.split('\n## [', 1)[0].strip()
     (output / 'RELEASE-NOTES.md').write_text(
         f'# Prism2Flash {version}\n\n{notes}\n\n'
-        f'## Downloads\n\n- `{native.name}`: Amiga executable, pccard.library and documentation.\n'
+        f'## Downloads\n\n- `{native.name}`: Amiga executables, pccard.library and documentation.\n'
         f'- `{source.name}`: complete corresponding source and build tools.\n'
         '- `SHA256SUMS`: download integrity checks.\n- `build-info.json`: compiler, source and binary metadata.\n\n'
         f'Commit: `{commit}`. This release has not been tested with a real card.\n')
