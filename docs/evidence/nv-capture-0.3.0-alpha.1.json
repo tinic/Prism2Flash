@@ -1,0 +1,304 @@
+{
+  "date_utc": "2026-10-18",
+  "target": "A1200 Kickstart 40.68, Workbench 40.42, card.resource 40.4, pccard.library 2.2",
+  "card": "Netgear MA401RA / ISL37300P, exact VERS_1 strings and MANFID 000b:7300",
+  "guest_stack_bytes": 16384,
+  "reset_exception": "One explicitly user-approved SyncReboot after failed initial verification; subsequent HTTP/CIS passed; no power cycle",
+  "flash_programmed": false,
+  "init_or_genesis_executed": false,
+  "a1200_reservation_retained": true,
+  "acquisitions": [
+    {
+      "utc": "20261018T104136Z",
+      "source_commit": "62070b367aeadaf90c059c88d9ea41b974823525",
+      "binary_sha256": "ce22043290af4ef20dcf54ca8658fd7e50e8d3bee522a865138ec77b58f40b31",
+      "binary_bytes": 70124,
+      "manifest": {
+        "format": "Prism2 AUX NV capture 1",
+        "tool_version": "0.3.0-alpha.1",
+        "utc_supplied": "20261018T104136Z",
+        "timestamp_basis": "operator-supplied UTC; host must retain actual start/end and build-info.json",
+        "simulation_only": false,
+        "cis_manufacturer": 11,
+        "cis_product": 29440,
+        "space": "NV",
+        "selector": 1,
+        "address_start": 0,
+        "address_end_exclusive": 8388608,
+        "byte_order": "little-endian word bytes",
+        "bytes_read": [
+          8388608,
+          0
+        ],
+        "sha256": [
+          "c37ba9bb1294f89fbbf62cea6c65cc839f145f97ba8d08df024c47e6b9221588",
+          ""
+        ],
+        "elapsed_us": 40919545,
+        "cleanup_error": 6,
+        "error": 6,
+        "nv_address_space_complete": false,
+        "files_reopened_and_verified": false,
+        "physical_flash_coverage_verified": false,
+        "authorizes_impactful_operation": false
+      }
+    },
+    {
+      "utc": "20261018T104942Z",
+      "source_commit": "c447e0bd5cc9c887265ebaaff4835b405df7d763",
+      "binary_sha256": "2f99408e43f10c4dec7999be8b0b6deb1c16d0c087a17c0fb02215f734441c13",
+      "binary_bytes": 71020,
+      "manifest": {
+        "format": "Prism2 AUX NV capture 1",
+        "tool_version": "0.3.0-alpha.1",
+        "utc_supplied": "20261018T104942Z",
+        "timestamp_basis": "operator-supplied UTC; host must retain actual start/end and build-info.json",
+        "simulation_only": false,
+        "cis_manufacturer": 0,
+        "cis_product": 0,
+        "space": "NV",
+        "selector": 1,
+        "address_start": 0,
+        "address_end_exclusive": 8388608,
+        "byte_order": "little-endian word bytes",
+        "bytes_read": [
+          0,
+          0
+        ],
+        "sha256": [
+          "",
+          ""
+        ],
+        "elapsed_us": 0,
+        "cleanup_error": 0,
+        "error": 4,
+        "nv_address_space_complete": false,
+        "backend_cleanup_error": 0,
+        "mismatch_bytes": 0,
+        "first_mismatch": 0,
+        "comparison_read_bytes": 0,
+        "register_order": [
+          "CONTROL",
+          "PARAM0",
+          "PARAM1",
+          "PARAM2",
+          "AUXPAGE",
+          "AUXOFFSET"
+        ],
+        "registers_before": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers_after": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "files_reopened_and_verified": false,
+        "physical_flash_coverage_verified": false,
+        "authorizes_impactful_operation": false
+      }
+    },
+    {
+      "utc": "20261018T105547Z",
+      "source_commit": "6e9db1026842000686b4afb5eb9184d28173e16b",
+      "binary_sha256": "d78de8ae6ba6f3f89eac7044e67bc2e676aa8eb06eb1a11a6eb6225079851cf2",
+      "binary_bytes": 70972,
+      "manifest": {
+        "format": "Prism2 AUX NV capture 1",
+        "tool_version": "0.3.0-alpha.1",
+        "utc_supplied": "20261018T105547Z",
+        "timestamp_basis": "operator-supplied UTC; host must retain actual start/end and build-info.json",
+        "simulation_only": false,
+        "cis_manufacturer": 11,
+        "cis_product": 29440,
+        "space": "NV",
+        "selector": 1,
+        "address_start": 0,
+        "address_end_exclusive": 8388608,
+        "byte_order": "little-endian word bytes",
+        "bytes_read": [
+          0,
+          0
+        ],
+        "sha256": [
+          "",
+          ""
+        ],
+        "elapsed_us": 0,
+        "cleanup_error": 0,
+        "error": 5,
+        "nv_address_space_complete": false,
+        "backend_cleanup_error": 0,
+        "mismatch_bytes": 0,
+        "first_mismatch": 0,
+        "comparison_read_bytes": 0,
+        "register_order": [
+          "CONTROL",
+          "PARAM0",
+          "PARAM1",
+          "PARAM2",
+          "AUXPAGE",
+          "AUXOFFSET"
+        ],
+        "registers_before": [
+          49152,
+          0,
+          0,
+          0,
+          65535,
+          65535
+        ],
+        "registers_after": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "files_reopened_and_verified": false,
+        "physical_flash_coverage_verified": false,
+        "authorizes_impactful_operation": false
+      }
+    },
+    {
+      "utc": "20261018T105630Z",
+      "source_commit": "aa894359991eef8e025da60346e5c298e644a951",
+      "binary_sha256": "452eb2f2f1a4b5131df2bf1246ce6c4980636ae7e44ea08f0fa72162ffbe48cf",
+      "binary_bytes": 71064,
+      "manifest": {
+        "format": "Prism2 AUX NV capture 1",
+        "tool_version": "0.3.0-alpha.1",
+        "utc_supplied": "20261018T105630Z",
+        "timestamp_basis": "operator-supplied UTC; host must retain actual start/end and build-info.json",
+        "simulation_only": false,
+        "cis_manufacturer": 11,
+        "cis_product": 29440,
+        "space": "NV",
+        "selector": 1,
+        "address_start": 0,
+        "address_end_exclusive": 8388608,
+        "byte_order": "little-endian word bytes",
+        "bytes_read": [
+          8388608,
+          1011712
+        ],
+        "sha256": [
+          "1b739b7271f8e0856c8861dbef7c35a78fb60077ebfe05ac2f363cdf76a1d702",
+          ""
+        ],
+        "elapsed_us": 240096706,
+        "cleanup_error": 0,
+        "error": 3,
+        "nv_address_space_complete": false,
+        "backend_cleanup_error": 0,
+        "mismatch_bytes": 723,
+        "first_mismatch": 802,
+        "comparison_read_bytes": 4096,
+        "register_order": [
+          "CONTROL",
+          "PARAM0",
+          "PARAM1",
+          "PARAM2",
+          "AUXPAGE",
+          "AUXOFFSET"
+        ],
+        "registers_before": [
+          49152,
+          0,
+          0,
+          0,
+          65535,
+          65535
+        ],
+        "registers_after": [
+          49152,
+          0,
+          0,
+          0,
+          65535,
+          65535
+        ],
+        "files_reopened_and_verified": false,
+        "physical_flash_coverage_verified": false,
+        "authorizes_impactful_operation": false
+      }
+    },
+    {
+      "utc": "20261018T110206Z",
+      "source_commit": "1e246e4abde46836ae5024252d66addf85107122",
+      "binary_sha256": "b728f5380f3fc541842b759013d769bfa5131a54a489b1e7813b90217ac3b298",
+      "binary_bytes": 71412,
+      "manifest": {
+        "format": "Prism2 AUX NV capture 1",
+        "tool_version": "0.3.0-alpha.1",
+        "utc_supplied": "20261018T110206Z",
+        "timestamp_basis": "operator-supplied UTC; host must retain actual start/end and build-info.json",
+        "simulation_only": false,
+        "cis_manufacturer": 11,
+        "cis_product": 29440,
+        "space": "NV",
+        "selector": 1,
+        "address_start": 0,
+        "address_end_exclusive": 8388608,
+        "byte_order": "little-endian word bytes",
+        "bytes_read": [
+          8388608,
+          8388608
+        ],
+        "sha256": [
+          "f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f",
+          "f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f"
+        ],
+        "elapsed_us": 172700446,
+        "cleanup_error": 0,
+        "error": 0,
+        "nv_address_space_complete": true,
+        "backend_cleanup_error": 0,
+        "page_verification": "two consecutive identical 128-byte reads; maximum twenty reads per page per pass",
+        "page_reads": 271975,
+        "page_disagreements": 9831,
+        "mismatch_bytes": 0,
+        "first_mismatch": 0,
+        "comparison_read_bytes": 4096,
+        "register_order": [
+          "CONTROL",
+          "PARAM0",
+          "PARAM1",
+          "PARAM2",
+          "AUXPAGE",
+          "AUXOFFSET"
+        ],
+        "registers_before": [
+          49152,
+          0,
+          0,
+          0,
+          65535,
+          65535
+        ],
+        "registers_after": [
+          49152,
+          0,
+          0,
+          0,
+          65535,
+          65535
+        ],
+        "files_reopened_and_verified": true,
+        "physical_flash_coverage_verified": false,
+        "authorizes_impactful_operation": false
+      }
+    }
+  ],
+  "physical_flash_coverage_verified": false,
+  "authorizes_impactful_operation": false
+}

@@ -119,3 +119,12 @@ The post-restart paced capture again produced sparse differences and hit the
 the original analysis image. Canonical cleanup and the post-capture CIS recheck
 passed. The reader now uses bounded whole-page agreement, with failure tests
 for both a transient bad read and persistent alternating pages.
+
+
+The page-agreement acquisition at 20261018T110206Z succeeded: two complete
+8 MiB files match byte-for-byte and were reopened/SHA-256 verified on the
+A1200, then hash-verified on the Mac. Acquisition and cleanup passed; CIS
+remains readable. Every 128 KiB alias is now identical to the earlier offline
+consensus. Exact hashes and sanitized manifests are in HARDWARE-TESTING.md.
+This is a verified exposed AUX NV capture; physical geometry/coverage remains
+inferred and does not enable active operations. All failed attempts are kept.

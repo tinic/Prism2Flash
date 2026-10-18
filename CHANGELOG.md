@@ -40,7 +40,9 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 Address-space capture alone does not certify a physical flash map or recovery
 image. Active inspection/probing and programming remain blocked. Firmware and
-private card dumps are never included in releases.
+private card dumps are never included in releases. The real MA401RA passed
+two complete repeated AUX NV captures, saved-file verification and cleanup;
+physical flash coverage and active-operation approval remain unverified.
 
 ## [0.2.1-alpha.1] - 2026-10-18
 

@@ -11,8 +11,9 @@ add a regular firmware flasher using the same programming engine.
 **Status: Genesis protocol model and offline firmware parser/validator
 implemented. Native startup, offline synthetic-file checks and CIS-only
 identification passed on the real A1200, alongside Amiberry/Copperline checks.**
-Experimental AUX NV capture is now implemented; physical flash coverage and
-read reliability remain under investigation. Active card inspection, Genesis
+Repeated AUX NV capture passed on one real MA401RA with bounded page
+agreement and saved-file SHA-256 verification. Physical flash coverage remains
+unverified. Active card inspection, Genesis
 and programming stay blocked pending verified full backups. The user has reserved
 the A1200 for this project. See [the hardware record](docs/HARDWARE-TESTING.md).
 

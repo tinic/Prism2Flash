@@ -208,3 +208,29 @@ consecutive identical whole-page reads, at most twenty reads per 128-byte page,
 and still compares both complete files. It counts disagreement/retry evidence
 and refuses persistent instability rather than voting on bytes. All attempts remain timestamped
 and retain their partial files. The A1200 remains reserved for this project.
+
+
+### Successful repeated NV acquisition — 20261018T110206Z
+
+The bounded page-agreement reader completed in 182.050 seconds, including
+saved-file verification. Both complete 8,388,608-byte passes are byte-identical,
+SHA-256 `f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f`.
+Each saved file was reopened and verified on the A1200; downloaded Mac files
+also match that hash. There were 271,975 page reads and 9,831 disagreement
+comparisons; no byte voting/repair was used. The acquisition and both cleanup
+statuses are zero. A subsequent CIS-only read again returned 000b:7300.
+
+All 64 captured 128 KiB windows are now exactly identical. An unaltered slice
+at NV 0x7e0000–0x7fffff hashes to
+`5f63f69147433e26210a9a91ed2938a6913e1491bae0a4ecf0a8483db4707b8f`,
+exactly matching both earlier offline consensus reconstructions. The successful
+raw files and all earlier failed/partial attempts remain on persistent Amiga
+storage and the Mac. DeepSeek received a private hash-verified copy for offline
+analysis. [Sanitized acquisition evidence](evidence/nv-capture-0.3.0-alpha.1.json)
+contains source/binary hashes, manifests and limitations, without dump payloads.
+
+This verifies the complete exposed AUX NV address-space capture on this card.
+Physical geometry/map coverage is still inferred. It does not satisfy the
+remaining independent physical-map/operation-gate requirements and does not
+authorize INIT, reset, Genesis, bootstrap, flashing or restore. No further
+reset was used after the approved recovery exception.
