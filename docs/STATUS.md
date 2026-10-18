@@ -10,8 +10,10 @@ A1200 was available at 23:10 UTC for dependent driver testing.
 **Open tool issue:** sustained NV reads while the MAC runs can disagree;
 post-INIT capture failed, and per-word GetSysTime pacing subsequently hit its
 240-second deadline. These failed transactions remain recorded as failures.
-E-clock pacing and refusal on mid-capture AUX loss have passed offline checks;
-physical timing qualification remains pending. No further hardware operations
+Per-word pacing was removed because it did not reduce disagreement frequency
+and caused a timeout. The qualified streamed transport is restored, with
+bounded whole-page retries and strict AUX-state checks. Final native
+verification around INIT still needs a physical run. No further hardware operations
 are running. WPA2 association/traffic testing belongs to the driver handoff.
 
 See [sanitized evidence](evidence/ma401-upgrade-2026-10-18.json),

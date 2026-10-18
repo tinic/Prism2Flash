@@ -24,8 +24,6 @@ struct p2_mock {
   int stick_aux_on_normal;
   int nv_selector_hides_control;
   uint32_t nv_unstable_until;
-  uint32_t min_nv_gap, last_nv_read;
-  bool have_nv_read;
   int change_nv_on_normal;
   unsigned corrupt_nv_once_at;
   unsigned scratch_writes_after_disable;

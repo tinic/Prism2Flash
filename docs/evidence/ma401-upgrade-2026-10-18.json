@@ -88,7 +88,7 @@
     "own_transaction_success": false,
     "after_capture_error": 6
   },
-  "remaining_tool_issue": "Reliable full NV acquisition with running MAC: post-INIT page disagreements and later 0c8cd0d per-word GetSysTime pacing timeout; offline fixes await physical timing qualification. These failures do not invalidate the complete earlier intended-image readbacks or self-boot identities.",
+  "remaining_tool_issue": "Final native full verification around INIT needs a physical run after bounded whole-page settling and AUX-state fixes. Per-word pacing was removed: it caused a timeout and did not reduce disagreement frequency. Earlier complete intended-image readbacks and self-boot identities remain valid; no further flash write is needed.",
   "handoff": {
     "sent_to": "claudecode",
     "server_time": "2026-10-18T23:10:49.842Z",

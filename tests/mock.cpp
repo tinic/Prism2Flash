@@ -36,13 +36,6 @@ static uint16_t read16(void *ctx, uint16_t reg) {
         m->regs[P2_CONTROL / 2] = 0;
       if (!(m->regs[P2_CONTROL / 2] & 0xc000) && m->drop_aux_at_nv_read)
         return 0xffff;
-      const bool too_fast =
-          m->min_nv_gap && m->have_nv_read &&
-          uint32_t(m->clock - m->last_nv_read) < m->min_nv_gap;
-      m->last_nv_read = m->clock;
-      m->have_nv_read = true;
-      if (too_fast)
-        return v ^ 1;
       if ((m->unstable_nv ||
            (m->nv_unstable_until && m->clock < m->nv_unstable_until)) &&
           (((m->nv_reads - 1) / 64) & 1))
