@@ -3,6 +3,7 @@
  */
 #include "owned_buffer.h"
 #include "sha256.h"
+#include "storage.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -48,21 +49,42 @@ static bool check_allocator() {
   return true;
 }
 
+// Exercise the actual firmware storage types on the native runtime as well.
+static bool check_storage() {
+  p2::BoundedVector<p2::ByteBuffer, 32> records;
+  for (unsigned i = 0; i < 32; ++i) {
+    auto bytes = p2::ByteBuffer::allocate(i + 1);
+    if (!bytes)
+      return false;
+    std::fill(bytes.bytes().begin(), bytes.bytes().end(),
+              static_cast<uint8_t>(i));
+    if (!records.push_back(std::move(bytes)))
+      return false;
+  }
+  auto moved = std::move(records);
+  if (!records.empty() || moved.size() != 32)
+    return false;
+  moved.truncate(17);
+  for (unsigned i = 0; i < moved.size(); ++i)
+    for (auto byte : moved[i].bytes())
+      if (byte != i)
+        return false;
+  return true;
+}
+
 int main(int argc, char **argv) {
-  if (!check_allocator())
+  if (!check_allocator() || !check_storage())
     return RETURN_FAIL;
   static const char *const names[] = {"ENV",   "ENVARC", "T",
                                       "CLIPS", "LIBS",   "DEVS"};
   static const char *const paths[] = {"DH0:env",   "DH0:envarc", "DH0:t",
                                       "DH0:clips", "DH0:libs",   "DH0:devs"};
   unsigned i;
-  struct p2_sha256 hash;
-  char digest[65];
-  p2_sha256_init(&hash);
-  p2_sha256_update(&hash, "abc", 3);
-  p2_sha256_hex(&hash, digest);
+  p2::Sha256 hash;
+  hash.update("abc");
+  const auto digest = hash.hex();
   if (strcmp(
-          digest,
+          digest.data(),
           "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"))
     return RETURN_FAIL;
   if (argc == 2 && !strcmp(argv[1], "--runtime"))

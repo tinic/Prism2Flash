@@ -5,273 +5,268 @@
  * See docs/SOURCES.md for the pinned source files and provenance.
  */
 #include "prism2.h"
-#include <string.h>
+#include <algorithm>
+#include <cstring>
 
-static int alive(struct p2_bus *b) {
-  return b->present(b->ctx) ? P2_OK : P2_E_REMOVED;
-}
-static int interrupted(struct p2_bus *b) {
-  int rc = alive(b);
-  if (rc)
-    return rc;
-  return b->cancelled && b->cancelled(b->ctx) ? P2_E_CANCELLED : P2_OK;
-}
-static int wait_mask(struct p2_bus *b, uint16_t reg, uint16_t mask,
-                     uint16_t expected, uint32_t timeout) {
-  uint32_t start = b->now_us(b->ctx);
-  for (;;) {
-    int rc = interrupted(b);
-    if (rc)
-      return rc;
-    if ((b->read16(b->ctx, reg) & mask) == expected)
-      return P2_OK;
-    if ((uint32_t)(b->now_us(b->ctx) - start) >= timeout)
-      return P2_E_TIMEOUT;
-    b->delay_us(b->ctx, 10);
-  }
-}
 const char *p2_error_string(int rc) {
-  static const char *const names[] = {"OK",
-                                      "invalid argument",
-                                      "card removed",
-                                      "hardware timeout",
-                                      "I/O failure",
-                                      "unsupported card",
-                                      "readback mismatch",
-                                      "cancelled",
-                                      "card command failed",
-                                      "invalid PDA"};
-  return rc >= 0 && (unsigned)rc < sizeof(names) / sizeof(names[0])
+  static constexpr std::array names{"OK",
+                                    "invalid argument",
+                                    "card removed",
+                                    "hardware timeout",
+                                    "I/O failure",
+                                    "unsupported card",
+                                    "readback mismatch",
+                                    "cancelled",
+                                    "card command failed",
+                                    "invalid PDA"};
+  return rc >= 0 && static_cast<std::size_t>(rc) < names.size()
              ? names[rc]
              : "unknown error";
 }
-int p2_aux_enable(struct p2_bus *b, int enable) {
-  uint16_t control;
-  int rc = wait_mask(b, P2_CMD, 0x8000, 0, 5000);
-  if (rc)
-    return rc;
-  control = b->read16(b->ctx, P2_CONTROL);
-  b->write16(b->ctx, P2_PARAM0, enable ? 0xfe01 : 0);
-  b->write16(b->ctx, P2_PARAM1, enable ? 0xdc23 : 0);
-  b->write16(b->ctx, P2_PARAM2, enable ? 0xba45 : 0);
-  b->write16(b->ctx, P2_CONTROL,
-             (uint16_t)((control & 0x3fff) | (enable ? 0x8000 : 0x4000)));
-  b->delay_us(b->ctx, 5);
-  return wait_mask(b, P2_CONTROL, 0xc000, enable ? 0xc000 : 0, 100000);
+namespace p2 {
+namespace {
+// Only cancellation is masked for cleanup. Presence stays sticky and checked.
+class IgnoreCancellation {
+public:
+  explicit IgnoreCancellation(p2_bus &bus) : bus_(bus), saved_(bus.cancelled) {
+    bus_.cancelled = nullptr;
+  }
+  ~IgnoreCancellation() { bus_.cancelled = saved_; }
+  IgnoreCancellation(const IgnoreCancellation &) = delete;
+  IgnoreCancellation &operator=(const IgnoreCancellation &) = delete;
+
+private:
+  p2_bus &bus_;
+  int (*saved_)(void *);
+};
+} // namespace
+CardStatus Card::alive() const {
+  if (!bus_.present(bus_.ctx))
+    return std::unexpected{P2_E_REMOVED};
+  return {};
 }
-static int aux_bounds(uint32_t addr, size_t len) {
-  /* AUXPAGE is 16 bits; its offset has 7 bits. No silent truncation. */
-  return (addr & 1) || (len & 1) || addr >= UINT32_C(0x800000) ||
-                 len > UINT32_C(0x800000) - addr
-             ? P2_E_ARGUMENT
-             : P2_OK;
+CardStatus Card::interrupted() const {
+  if (auto result = alive(); !result)
+    return result;
+  if (bus_.cancelled && bus_.cancelled(bus_.ctx))
+    return std::unexpected{P2_E_CANCELLED};
+  return {};
 }
-static int aux_transfer(struct p2_bus *b, uint32_t addr, uint8_t *read_buf,
-                        const uint8_t *write_buf, size_t len, uint16_t space) {
-  int rc = aux_bounds(addr, len);
-  if (rc)
-    return rc;
-  while (len) {
-    size_t i, n = 128 - (addr & 127);
-    rc = interrupted(b);
-    if (rc)
-      return rc;
-    if (n > len)
-      n = len;
-    b->write16(b->ctx, P2_AUXPAGE, (uint16_t)(addr >> 7));
-    b->write16(b->ctx, P2_AUXOFFSET, (uint16_t)((addr & 127) | space));
-    b->delay_us(b->ctx, 5);
-    for (i = 0; i < n; i += 2) {
-      uint16_t v;
-      if ((rc = interrupted(b)) != 0)
-        return rc;
-      if (write_buf) {
-        v = (uint16_t)(write_buf[i] | ((uint16_t)write_buf[i + 1] << 8));
-        b->write16(b->ctx, P2_AUXDATA, v);
+CardStatus Card::wait_mask(uint16_t reg, uint16_t mask, uint16_t expected,
+                           uint32_t timeout) {
+  const auto start = bus_.now_us(bus_.ctx);
+  for (;;) {
+    if (auto result = interrupted(); !result)
+      return result;
+    if ((bus_.read16(bus_.ctx, reg) & mask) == expected)
+      return {};
+    if (static_cast<uint32_t>(bus_.now_us(bus_.ctx) - start) >= timeout)
+      return std::unexpected{P2_E_TIMEOUT};
+    bus_.delay_us(bus_.ctx, 10);
+  }
+}
+CardStatus Card::enable_aux(bool enable) {
+  if (auto result = wait_mask(P2_CMD, 0x8000, 0, 5000); !result)
+    return result;
+  const auto control = bus_.read16(bus_.ctx, P2_CONTROL);
+  bus_.write16(bus_.ctx, P2_PARAM0, enable ? 0xfe01 : 0);
+  bus_.write16(bus_.ctx, P2_PARAM1, enable ? 0xdc23 : 0);
+  bus_.write16(bus_.ctx, P2_PARAM2, enable ? 0xba45 : 0);
+  bus_.write16(
+      bus_.ctx, P2_CONTROL,
+      static_cast<uint16_t>((control & 0x3fff) | (enable ? 0x8000 : 0x4000)));
+  bus_.delay_us(bus_.ctx, 5);
+  return wait_mask(P2_CONTROL, 0xc000, enable ? 0xc000 : 0, 100000);
+}
+CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
+                          std::span<const uint8_t> write, uint16_t space) {
+  auto length = write.empty() ? read.size() : write.size();
+  // AUXPAGE is 16 bits and its offset 7 bits. Never silently truncate.
+  if ((address & 1) || (length & 1) || address >= 0x800000 ||
+      length > 0x800000 - address)
+    return std::unexpected{P2_E_ARGUMENT};
+  while (length) {
+    if (auto result = interrupted(); !result)
+      return result;
+    const auto count = std::min<std::size_t>(length, 128 - (address & 127));
+    bus_.write16(bus_.ctx, P2_AUXPAGE, static_cast<uint16_t>(address >> 7));
+    bus_.write16(bus_.ctx, P2_AUXOFFSET,
+                 static_cast<uint16_t>((address & 127) | space));
+    bus_.delay_us(bus_.ctx, 5);
+    for (std::size_t i = 0; i < count; i += 2) {
+      if (auto result = interrupted(); !result)
+        return result;
+      if (!write.empty()) {
+        const auto value = static_cast<uint16_t>(
+            write[i] | (static_cast<uint16_t>(write[i + 1]) << 8));
+        bus_.write16(bus_.ctx, P2_AUXDATA, value);
       } else {
-        v = b->read16(b->ctx, P2_AUXDATA);
-        read_buf[i] = (uint8_t)v;
-        read_buf[i + 1] = (uint8_t)(v >> 8);
+        const auto value = bus_.read16(bus_.ctx, P2_AUXDATA);
+        read[i] = static_cast<uint8_t>(value);
+        read[i + 1] = static_cast<uint8_t>(value >> 8);
       }
     }
-    addr += (uint32_t)n;
-    len -= n;
-    if (write_buf)
-      write_buf += n;
+    address += static_cast<uint32_t>(count);
+    length -= count;
+    if (!write.empty())
+      write = write.subspan(count);
     else
-      read_buf += n;
+      read = read.subspan(count);
   }
-  return alive(b);
+  return alive();
 }
-int p2_aux_read(struct p2_bus *b, uint32_t a, uint8_t *p, size_t n) {
-  if (!p && n)
-    return P2_E_ARGUMENT;
-  return aux_transfer(b, a, p, nullptr, n, 0);
+CardStatus Card::read_aux(uint32_t address, std::span<uint8_t> data) {
+  return transfer(address, data, {}, 0);
 }
-int p2_aux_read_nv(struct p2_bus *b, uint32_t a, uint8_t *p, size_t n) {
-  if (!p && n)
-    return P2_E_ARGUMENT;
-  return aux_transfer(b, a, p, nullptr, n, 0x1000);
+CardStatus Card::read_nv(uint32_t address, std::span<uint8_t> data) {
+  return transfer(address, data, {}, 0x1000);
 }
-int p2_aux_write(struct p2_bus *b, uint32_t a, const uint8_t *p, size_t n) {
-  if (!p && n)
-    return P2_E_ARGUMENT;
-  return aux_transfer(b, a, nullptr, p, n, 0);
+CardStatus Card::write_aux(uint32_t address, std::span<const uint8_t> data) {
+  return transfer(address, {}, data, 0);
 }
-static int command(struct p2_bus *b, uint16_t cmd, uint16_t param) {
-  int rc;
-  /* Deliberately no DOWNLOAD/PROGRAM (0x22) path in milestone one. */
+CardStatus Card::command(uint16_t cmd, uint16_t param) {
+  // Deliberately no DOWNLOAD/PROGRAM (0x22) path in this milestone.
   if (cmd != 0 && cmd != 0x21)
-    return P2_E_ARGUMENT;
-  rc = wait_mask(b, P2_CMD, 0x8000, 0, 5000);
-  if (rc)
-    return rc;
-  b->write16(b->ctx, P2_EVACK, P2_EV_CMD);
-  b->write16(b->ctx, P2_PARAM0, param);
-  b->write16(b->ctx, P2_CMD, cmd);
-  rc = wait_mask(b, P2_EVSTAT, P2_EV_CMD, P2_EV_CMD, 500000);
-  if (rc)
-    return rc;
-  rc = (b->read16(b->ctx, P2_STATUS) & 0x7f00) ? P2_E_COMMAND : P2_OK;
-  b->write16(b->ctx, P2_EVACK, P2_EV_CMD);
-  return rc;
+    return std::unexpected{P2_E_ARGUMENT};
+  if (auto result = wait_mask(P2_CMD, 0x8000, 0, 5000); !result)
+    return result;
+  bus_.write16(bus_.ctx, P2_EVACK, P2_EV_CMD);
+  bus_.write16(bus_.ctx, P2_PARAM0, param);
+  bus_.write16(bus_.ctx, P2_CMD, cmd);
+  if (auto result = wait_mask(P2_EVSTAT, P2_EV_CMD, P2_EV_CMD, 500000); !result)
+    return result;
+  const auto failed = bus_.read16(bus_.ctx, P2_STATUS) & 0x7f00;
+  bus_.write16(bus_.ctx, P2_EVACK, P2_EV_CMD);
+  if (failed)
+    return std::unexpected{P2_E_COMMAND};
+  return {};
 }
-int p2_initialize(struct p2_bus *b) {
-  int rc = interrupted(b);
-  if (rc)
-    return rc;
-  b->write16(b->ctx, P2_INTEN, 0);
-  b->write16(b->ctx, P2_EVACK, 0xffff);
-  return command(b, 0, 0);
+CardStatus Card::initialize() {
+  if (auto result = interrupted(); !result)
+    return result;
+  bus_.write16(bus_.ctx, P2_INTEN, 0);
+  bus_.write16(bus_.ctx, P2_EVACK, 0xffff);
+  return command(0, 0);
 }
-int p2_identity(struct p2_bus *b, uint16_t rid, struct p2_identity *id) {
-  uint16_t words, type;
-  int rc;
-  if (!id ||
-      (rid != P2_RID_NICID && rid != P2_RID_PRIID && rid != P2_RID_STAID))
-    return P2_E_ARGUMENT;
-  memset(id, 0, sizeof(*id));
-  rc = command(b, 0x21, rid);
-  if (rc)
-    return rc;
-  b->write16(b->ctx, P2_SELECT0, rid);
-  b->write16(b->ctx, P2_OFFSET0, 0);
-  rc = wait_mask(b, P2_OFFSET0, 0x8000, 0, 50000);
-  if (rc)
-    return rc;
-  if (b->read16(b->ctx, P2_OFFSET0) & 0x4000)
-    return P2_E_IO;
-  words = b->read16(b->ctx, P2_DATA0);
-  type = b->read16(b->ctx, P2_DATA0);
+CardResult<Identity> Card::identity(uint16_t rid) {
+  if (rid != P2_RID_NICID && rid != P2_RID_PRIID && rid != P2_RID_STAID)
+    return std::unexpected{P2_E_ARGUMENT};
+  if (auto result = command(0x21, rid); !result)
+    return std::unexpected{result.error()};
+  bus_.write16(bus_.ctx, P2_SELECT0, rid);
+  bus_.write16(bus_.ctx, P2_OFFSET0, 0);
+  if (auto result = wait_mask(P2_OFFSET0, 0x8000, 0, 50000); !result)
+    return std::unexpected{result.error()};
+  if (bus_.read16(bus_.ctx, P2_OFFSET0) & 0x4000)
+    return std::unexpected{P2_E_IO};
+  const auto words = bus_.read16(bus_.ctx, P2_DATA0);
+  const auto type = bus_.read16(bus_.ctx, P2_DATA0);
   if (words != 5 || type != rid)
-    return P2_E_IO;
-  if ((rc = interrupted(b)) != 0)
-    return rc;
-  id->id = b->read16(b->ctx, P2_DATA0);
-  id->variant = b->read16(b->ctx, P2_DATA0);
-  id->major = b->read16(b->ctx, P2_DATA0);
-  id->minor = b->read16(b->ctx, P2_DATA0);
-  return alive(b);
+    return std::unexpected{P2_E_IO};
+  if (auto result = interrupted(); !result)
+    return std::unexpected{result.error()};
+  const Identity id{
+      bus_.read16(bus_.ctx, P2_DATA0), bus_.read16(bus_.ctx, P2_DATA0),
+      bus_.read16(bus_.ctx, P2_DATA0), bus_.read16(bus_.ctx, P2_DATA0)};
+  if (auto result = alive(); !result)
+    return std::unexpected{result.error()};
+  return id;
 }
-int p2_supported_nic(uint16_t id) {
-  /* Ordinary HFA3842 platforms from the Intersil release-ID map. Early
-   * HFA3841, SSF and ambiguous 0x800c await dedicated profiles. The native
-   * backend independently restricts the bus to known PC Card CIS IDs. */
-  return id == 0x800b || id == 0x800d || id == 0x8012 || id == 0x8016 ||
-         id == 0x801a || id == 0x8017 || id == 0x801b || id == 0x8018 ||
-         id == 0x801c;
+bool Card::supports(uint16_t id) {
+  // HFA3842 release IDs. Early HFA3841, SSF and ambiguous 800c await profiles.
+  constexpr std::array<uint16_t, 9> ids{0x800b, 0x800d, 0x8012, 0x8016, 0x801a,
+                                        0x8017, 0x801b, 0x8018, 0x801c};
+  return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
-int p2_read_pda(struct p2_bus *b, uint8_t data[P2_PDA_SIZE],
-                uint32_t *location) {
-  static const uint32_t addresses[] = {0x7f0000, 0x3f0000, 0x390000, 0x7f0002};
-  size_t i;
-  int rc = p2_aux_enable(b, 1), cleanup;
-  if (rc)
-    return rc;
-  for (i = 0; i < sizeof(addresses) / sizeof(addresses[0]); ++i) {
-    rc = p2_aux_read(b, addresses[i], data, P2_PDA_SIZE);
-    if (rc)
+CardResult<uint32_t> Card::read_pda(std::span<uint8_t, P2_PDA_SIZE> data) {
+  constexpr std::array<uint32_t, 4> addresses{0x7f0000, 0x3f0000, 0x390000,
+                                              0x7f0002};
+  if (auto result = enable_aux(true); !result)
+    return std::unexpected{result.error()};
+  CardResult<uint32_t> result = std::unexpected{P2_E_PDA};
+  for (const auto address : addresses) {
+    if (auto read = read_aux(address, data); !read) {
+      result = std::unexpected{read.error()};
       break;
-    rc = p2_validate_pda(data);
-    if (!rc) {
-      if (location)
-        *location = addresses[i];
+    }
+    if (!p2_validate_pda(data.data())) {
+      result = address;
       break;
     }
   }
-  {
-    /* Cancellation must not prevent closing an AUX session we opened. */
-    int (*cancel_fn)(void *) = b->cancelled;
-    b->cancelled = nullptr;
-    cleanup = p2_aux_enable(b, 0);
-    b->cancelled = cancel_fn;
-  }
-  return rc ? rc : cleanup;
+  const IgnoreCancellation cleanup_scope{bus_};
+  const auto cleanup = enable_aux(false);
+  if (result && !cleanup)
+    return std::unexpected{cleanup.error()};
+  return result;
 }
-static int genesis_reset(struct p2_bus *b, uint8_t cor, uint8_t hcr) {
-  int rc = alive(b);
-  if (rc)
-    return rc;
-  b->write_cfg(b->ctx, P2_CFG_COR, (uint8_t)(cor | 0x80));
-  b->delay_us(b->ctx, 10000);
-  if ((rc = alive(b)) != 0)
-    return rc;
-  b->write_cfg(b->ctx, P2_CFG_CCSR, hcr);
-  b->delay_us(b->ctx, 10000);
-  if ((rc = alive(b)) != 0)
-    return rc;
-  b->write_cfg(b->ctx, P2_CFG_COR, (uint8_t)(cor & 0x7f));
-  b->delay_us(b->ctx, 10000);
-  return alive(b);
+CardStatus Card::reset(uint8_t cor, uint8_t hcr) {
+  if (auto result = alive(); !result)
+    return result;
+  bus_.write_cfg(bus_.ctx, P2_CFG_COR, static_cast<uint8_t>(cor | 0x80));
+  bus_.delay_us(bus_.ctx, 10000);
+  if (auto result = alive(); !result)
+    return result;
+  bus_.write_cfg(bus_.ctx, P2_CFG_CCSR, hcr);
+  bus_.delay_us(bus_.ctx, 10000);
+  if (auto result = alive(); !result)
+    return result;
+  bus_.write_cfg(bus_.ctx, P2_CFG_COR, static_cast<uint8_t>(cor & 0x7f));
+  bus_.delay_us(bus_.ctx, 10000);
+  return alive();
 }
-int p2_genesis_probe(struct p2_bus *b, unsigned bits,
-                     struct p2_probe_result *out) {
-  static const uint8_t pattern[] = {0x00, 0xe1, 0xa1, 0xff};
-  uint8_t discard[4];
-  int rc, restore;
-  int was_cancelled;
-  int (*cancel_fn)(void *);
-  if (!out || (bits != 8 && bits != 16))
-    return P2_E_ARGUMENT;
-  memset(out, 0, sizeof(*out));
-  out->sram_bits = bits;
-  if ((rc = interrupted(b)) != 0)
-    return rc;
-  out->cor_before = b->read_cfg(b->ctx, P2_CFG_COR);
-  out->ccsr_before = b->read_cfg(b->ctx, P2_CFG_CCSR);
-  rc = p2_aux_enable(b, 1);
-  if (rc)
-    return rc;
-  /* Host AP resets COR, writes its bootstrap sentinel, then latches HCR. */
-  b->write_cfg(b->ctx, P2_CFG_COR, (uint8_t)(out->cor_before | 0x80));
-  b->delay_us(b->ctx, 2000);
-  if ((rc = interrupted(b)) == 0) {
-    b->write_cfg(b->ctx, P2_CFG_COR, (uint8_t)(out->cor_before & 0x7f));
-    b->delay_us(b->ctx, 2000);
-    rc = p2_aux_write(b, P2_GENESIS_ADDRESS, pattern, sizeof(pattern));
-  }
-  if (!rc)
-    rc = genesis_reset(b, out->cor_before, bits == 8 ? 0x1f : 0x0f);
-  if (!rc)
-    rc = p2_aux_read(b, P2_GENESIS_ADDRESS, discard, sizeof(discard));
-  if (!rc)
-    rc = p2_aux_write(b, P2_GENESIS_ADDRESS, pattern, sizeof(pattern));
-  if (!rc)
-    rc = p2_aux_read(b, P2_GENESIS_ADDRESS, out->readback,
-                     sizeof(out->readback));
-  if (!rc && memcmp(pattern, out->readback, sizeof(pattern)))
-    rc = P2_E_VERIFY;
-  /* Ctrl-C may stop the test, but must not prevent returning to normal mode.
-   * Removal still forbids further I/O. Do not reset/reclaim another card. */
-  cancel_fn = b->cancelled;
-  was_cancelled = cancel_fn && cancel_fn(b->ctx);
-  b->cancelled = nullptr;
-  restore = genesis_reset(b, out->cor_before, bits == 8 ? 0x17 : 0x07);
-  if (!restore)
-    restore = p2_aux_enable(b, 0);
-  out->cleanup_error = restore;
-  b->cancelled = cancel_fn;
-  if (!rc && was_cancelled)
-    rc = P2_E_CANCELLED;
-  return rc ? rc : restore;
+ProbeReport Card::probe(unsigned bits) {
+  constexpr std::array<uint8_t, 4> pattern{0x00, 0xe1, 0xa1, 0xff};
+  ProbeReport report;
+  report.sram_bits = bits;
+  const auto perform = [&]() -> CardStatus {
+    if (bits != 8 && bits != 16)
+      return std::unexpected{P2_E_ARGUMENT};
+    if (auto result = interrupted(); !result)
+      return result;
+    report.cor_before = bus_.read_cfg(bus_.ctx, P2_CFG_COR);
+    report.ccsr_before = bus_.read_cfg(bus_.ctx, P2_CFG_CCSR);
+    if (auto result = enable_aux(true); !result)
+      return result;
+    // Once AUX opened, every exit below must restore normal mode.
+    auto exercise = [&]() -> CardStatus {
+      bus_.write_cfg(bus_.ctx, P2_CFG_COR,
+                     static_cast<uint8_t>(report.cor_before | 0x80));
+      bus_.delay_us(bus_.ctx, 2000);
+      if (auto result = interrupted(); !result)
+        return result;
+      bus_.write_cfg(bus_.ctx, P2_CFG_COR,
+                     static_cast<uint8_t>(report.cor_before & 0x7f));
+      bus_.delay_us(bus_.ctx, 2000);
+      if (auto result = write_aux(P2_GENESIS_ADDRESS, pattern); !result)
+        return result;
+      if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
+          !result)
+        return result;
+      std::array<uint8_t, 4> discard;
+      if (auto result = read_aux(P2_GENESIS_ADDRESS, discard); !result)
+        return result;
+      if (auto result = write_aux(P2_GENESIS_ADDRESS, pattern); !result)
+        return result;
+      if (auto result = read_aux(P2_GENESIS_ADDRESS, report.readback); !result)
+        return result;
+      if (pattern != report.readback)
+        return std::unexpected{P2_E_VERIFY};
+      return {};
+    };
+    auto result = exercise();
+    const bool cancelled = bus_.cancelled && bus_.cancelled(bus_.ctx);
+    const IgnoreCancellation cleanup_scope{bus_};
+    auto cleanup = reset(report.cor_before, bits == 8 ? 0x17 : 0x07);
+    if (cleanup)
+      cleanup = enable_aux(false);
+    report.cleanup_error = cleanup ? P2_OK : cleanup.error();
+    if (result && cancelled)
+      return std::unexpected{P2_E_CANCELLED};
+    return result ? cleanup : result;
+  };
+  const auto result = perform();
+  report.error = result ? P2_OK : result.error();
+  return report;
 }
+} // namespace p2

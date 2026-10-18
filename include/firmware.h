@@ -1,80 +1,98 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-#ifndef P2_FIRMWARE_H
-#define P2_FIRMWARE_H
+#pragma once
 #include "prism2.h"
+#include "storage.h"
+#include <array>
+#include <expected>
+#include <optional>
 #include <stdio.h>
+#include <string_view>
 
-#define P2_FW_MAX_ITEMS 256u
-#define P2_FW_MAX_CRCS 64u
-#define P2_FW_MAX_SEGMENTS 8192u
-#define P2_FW_MAX_BYTES (1024ul * 1024ul)
-#define P2_FW_MAX_INPUT (8ul * 1024ul * 1024ul)
-#define P2_FW_MAX_LINES 65536ul
+namespace p2::firmware {
+inline constexpr std::size_t MaxItems = 256;
+inline constexpr std::size_t MaxSignatures = 64;
+inline constexpr std::size_t MaxSegments = 8192;
+inline constexpr std::size_t MaxPayloadBytes = 1024 * 1024;
+inline constexpr unsigned long MaxInputBytes = 8ul * 1024 * 1024;
+inline constexpr unsigned long MaxLines = 65536;
 
-enum p2_fw_mode { P2_FW_RAM, P2_FW_FLASH };
-enum p2_fw_result {
-  P2_FW_OK,
-  P2_FW_FORMAT,
-  P2_FW_LIMIT,
-  P2_FW_MEMORY,
-  P2_FW_IO,
-  P2_FW_INCOMPATIBLE,
-  P2_FW_PDA
+enum class Mode { Ram, Flash };
+enum class Errc { Format, Limit, Memory, Io, Incompatible, Pda };
+struct Error {
+  Errc code;
+  unsigned long line = 0;
+  const char *message;
 };
-struct p2_fw_error {
-  int code;
-  unsigned long line;
-  char message[160];
-};
-struct p2_fw_segment {
-  uint32_t address;
-  size_t length;
-  uint8_t *data;
-};
-struct p2_fw_range {
+template <typename T> using Result = std::expected<T, Error>;
+using Status = Result<void>;
+
+struct InterfaceRange {
   uint16_t role, interface_id, variant, bottom, top;
+  bool operator==(const InterfaceRange &) const = default;
 };
-struct p2_fw_plug {
+struct Plug {
   uint32_t pdr, address, length;
 };
-/* Host AP calls these CRC records but stamps DE C0; it calculates no image CRC.
- */
-struct p2_fw_crc {
+// Host AP calls these CRC records but stamps DE C0; no image CRC is computed.
+struct Signature {
   uint32_t start, length, program;
 };
-struct p2_fw_image {
-  struct p2_identity component;
-  uint32_t entry;
-  unsigned long records;
-  size_t payload_bytes, segment_count;
-  struct p2_fw_segment *segments;
-  size_t platform_count, range_count, plug_count, crc_count;
-  struct p2_identity platforms[P2_FW_MAX_ITEMS];
-  struct p2_fw_range ranges[P2_FW_MAX_ITEMS];
-  struct p2_fw_plug plugs[P2_FW_MAX_ITEMS];
-  struct p2_fw_crc crcs[P2_FW_MAX_CRCS];
-  char name[128];
-  uint16_t build_sequence;
-  unsigned has_sequence;
+struct Segment {
+  uint32_t address = 0;
+  ByteBuffer data;
+  [[nodiscard]] bool contains(uint32_t start, uint32_t length) const {
+    return start >= address && start - address <= data.size() &&
+           length <= data.size() - (start - address);
+  }
 };
-struct p2_fw_card {
-  struct p2_identity nic;
-  uint8_t mac[6];
-  unsigned has_mac;
-  unsigned supplier_mask;
-  struct p2_fw_range suppliers[4];
+struct CardSnapshot {
+  p2::Identity nic{};
+  std::optional<std::array<uint8_t, 6>> mac;
+  std::array<std::optional<InterfaceRange>, 4> suppliers{};
+  [[nodiscard]] static Result<CardSnapshot> read(FILE &file);
 };
-/* Parsing never calls a card backend. On failure *out is NULL. */
-int p2_fw_parse(const uint8_t *, size_t, struct p2_fw_image **,
-                struct p2_fw_error *);
-int p2_fw_read(FILE *, struct p2_fw_image **, struct p2_fw_error *);
-void p2_fw_free(struct p2_fw_image *);
-int p2_fw_card_read(FILE *, struct p2_fw_card *, struct p2_fw_error *);
-/* Checks metadata and PDA requirements only; does not patch or emit firmware.
- * Optional primary supplies its replacement PRI interface for a station image.
- * Hardware address-map approval and actual prepare/merge remain separate gates.
- */
-int p2_fw_validate(const struct p2_fw_image *, enum p2_fw_mode,
-                   const struct p2_fw_card *, const uint8_t *, size_t,
-                   const struct p2_fw_image *primary, struct p2_fw_error *);
-#endif
+class Parser;
+// A successfully parsed image owns its payload and exposes immutable views.
+// Moving transfers ownership; there is no partially initialized public image.
+class Image {
+public:
+  Image(Image &&) = default;
+  Image &operator=(Image &&) = default;
+  Image(const Image &) = delete;
+  Image &operator=(const Image &) = delete;
+  [[nodiscard]] static Result<Image> parse(std::span<const uint8_t> input);
+  [[nodiscard]] static Result<Image> read(FILE &file);
+  [[nodiscard]] Status validate(Mode mode, const CardSnapshot &card,
+                                std::span<const uint8_t> pda,
+                                const Image *primary = nullptr) const;
+  [[nodiscard]] const p2::Identity &component() const { return component_; }
+  [[nodiscard]] uint32_t entry() const { return entry_; }
+  [[nodiscard]] unsigned long records() const { return records_; }
+  [[nodiscard]] std::size_t payload_bytes() const { return payload_bytes_; }
+  [[nodiscard]] auto segments() const { return segments_.view(); }
+  [[nodiscard]] auto platforms() const { return platforms_.view(); }
+  [[nodiscard]] auto ranges() const { return ranges_.view(); }
+  [[nodiscard]] auto plugs() const { return plugs_.view(); }
+  [[nodiscard]] auto signatures() const { return signatures_.view(); }
+  [[nodiscard]] std::string_view name() const { return name_.data(); }
+  [[nodiscard]] std::optional<uint16_t> build_sequence() const {
+    return sequence_;
+  }
+  [[nodiscard]] bool contains(uint32_t start, uint32_t length) const;
+
+private:
+  friend class Parser;
+  Image() = default;
+  p2::Identity component_{};
+  uint32_t entry_ = 0;
+  unsigned long records_ = 0;
+  std::size_t payload_bytes_ = 0;
+  BoundedVector<Segment, MaxSegments> segments_;
+  BoundedVector<p2::Identity, MaxItems> platforms_;
+  BoundedVector<InterfaceRange, MaxItems> ranges_;
+  BoundedVector<Plug, MaxItems> plugs_;
+  BoundedVector<Signature, MaxSignatures> signatures_;
+  std::array<char, 128> name_{};
+  std::optional<uint16_t> sequence_;
+};
+} // namespace p2::firmware

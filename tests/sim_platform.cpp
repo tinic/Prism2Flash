@@ -6,11 +6,12 @@
 #include <string.h>
 #include <sys/stat.h>
 struct p2_platform {
+  ~p2_platform() { p2_mock_free(&mock); }
   struct p2_mock mock;
 };
 int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
                      char *error, size_t size) {
-  *out = static_cast<p2_platform *>(calloc(1, sizeof(**out)));
+  *out = new (std::nothrow) p2_platform{};
   if (!*out) {
     snprintf(error, size, "Out of memory");
     return P2_E_IO;
@@ -29,12 +30,7 @@ int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
     *bus = p->mock.bus;
   return rc;
 }
-void p2_platform_close(struct p2_platform *p) {
-  if (p) {
-    p2_mock_free(&p->mock);
-    free(p);
-  }
-}
+void p2_platform_close(struct p2_platform *p) { delete p; }
 const char *p2_platform_description(void) {
   return "SIMULATION ONLY - no hardware access";
 }

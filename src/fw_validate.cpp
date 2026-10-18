@@ -3,357 +3,327 @@
  * Deliberately no force option, default calibration fallback or hardware I/O.
  */
 #include "firmware.h"
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
+#include <algorithm>
+#include <charconv>
+#include <cstring>
 
-static uint16_t le16(const uint8_t *p) {
-  return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
+namespace p2::firmware {
+namespace {
+std::unexpected<Error> fail(Errc code, const char *message) {
+  return std::unexpected{Error{code, 0, message}};
 }
-static int fail(struct p2_fw_error *e, int code, const char *message) {
-  if (e) {
-    memset(e, 0, sizeof(*e));
-    e->code = code;
-    strncpy(e->message, message, sizeof(e->message) - 1);
-  }
-  return code;
+uint16_t le16(const uint8_t *p) {
+  return p[0] | (static_cast<uint16_t>(p[1]) << 8);
 }
-static int same_id(const struct p2_identity *a, const struct p2_identity *b) {
-  return a->id == b->id && a->variant == b->variant && a->major == b->major &&
-         a->minor == b->minor;
-}
-static int same_range(const struct p2_fw_range *a,
-                      const struct p2_fw_range *b) {
-  return a->role == b->role && a->interface_id == b->interface_id &&
-         a->variant == b->variant && a->bottom == b->bottom && a->top == b->top;
-}
-static int fits(const struct p2_fw_image *im, uint32_t address,
-                uint32_t length) {
-  size_t i;
-  for (i = 0; i < im->segment_count; ++i) {
-    const struct p2_fw_segment *s = &im->segments[i];
-    if (address >= s->address && address - s->address <= s->length &&
-        length <= s->length - (address - s->address))
-      return 1;
-  }
-  return 0;
-}
-static const uint8_t *pdr(const uint8_t *data, unsigned type, size_t *length) {
-  size_t pos = 0;
-  while (pos + 4 <= P2_PDA_SIZE) {
-    size_t words = le16(data + pos);
-    unsigned id = le16(data + pos + 2);
-    if (!id)
-      break;
-    if (id == type) {
-      *length = (words - 1) * 2;
-      return data + pos + 4;
+// Construct only after CRC and structural validation. Views borrow the PDA.
+class PdaView {
+public:
+  static Result<PdaView> checked(std::span<const uint8_t> bytes) {
+    if (bytes.size() != P2_PDA_SIZE || p2_validate_pda(bytes.data()))
+      return fail(Errc::Pda,
+                  "PDA must be a valid CRC-checked 1024-byte binary backup");
+    std::array<uint16_t, 256> seen{};
+    std::size_t count = 0;
+    for (std::size_t pos = 0; pos + 4 <= bytes.size();) {
+      const auto id = le16(bytes.data() + pos + 2);
+      if (!id)
+        break;
+      if (std::find(seen.begin(), seen.begin() + count, id) !=
+          seen.begin() + count)
+        return fail(Errc::Pda, "Duplicate PDR in PDA backup");
+      if (count == seen.size())
+        return fail(Errc::Pda, "Too many PDRs");
+      seen[count++] = id;
+      pos += (le16(bytes.data() + pos) + 1) * 2;
     }
-    pos += (words + 1) * 2;
+    return PdaView{bytes};
   }
-  return nullptr;
-}
-static int bind_pda(const uint8_t *data, size_t length, struct p2_fw_card *card,
-                    struct p2_fw_error *error) {
-  size_t pos = 0, count = 0, i, n = 0;
-  uint16_t seen[256];
-  const uint8_t *value;
-  struct p2_identity nic;
-  if (!data || length != P2_PDA_SIZE || p2_validate_pda(data))
-    return fail(error, P2_FW_PDA,
-                "PDA must be a valid CRC-checked 1024-byte binary backup");
-  while (pos + 4 <= length) {
-    unsigned id = le16(data + pos + 2);
-    size_t words = le16(data + pos);
-    if (!id)
-      break;
-    for (i = 0; i < count; ++i)
-      if (seen[i] == id)
-        return fail(error, P2_FW_PDA, "Duplicate PDR in PDA backup");
-    if (count == sizeof(seen) / sizeof(seen[0]))
-      return fail(error, P2_FW_PDA, "Too many PDRs");
-    seen[count++] = (uint16_t)id;
-    pos += (words + 1) * 2;
+  std::optional<std::span<const uint8_t>> find(uint16_t type) const {
+    for (std::size_t pos = 0; pos + 4 <= bytes_.size();) {
+      const auto words = le16(bytes_.data() + pos);
+      const auto id = le16(bytes_.data() + pos + 2);
+      if (!id)
+        break;
+      if (id == type)
+        return bytes_.subspan(pos + 4, (words - 1) * 2);
+      pos += (words + 1) * 2;
+    }
+    return std::nullopt;
   }
-  value = pdr(data, 8, &n);
-  if (!value || n != 8)
-    return fail(error, P2_FW_PDA,
-                "PDA has no correctly sized NIC identity PDR");
-  nic = {le16(value), le16(value + 2), le16(value + 4), le16(value + 6)};
-  if (!same_id(&nic, &card->nic))
-    return fail(error, P2_FW_INCOMPATIBLE,
-                "PDA NIC identity differs from saved card identity");
-  value = pdr(data, 0x101, &n);
-  if (!card->has_mac || !value || n != 6 || memcmp(value, card->mac, 6))
-    return fail(error, P2_FW_INCOMPATIBLE,
-                "PDA MAC address differs from or is absent in saved card data");
-  for (i = 0; i < 2; ++i) {
-    struct p2_fw_range r;
-    value = pdr(data, (unsigned)(6 + i), &n);
-    if (!value || n != 10)
-      return fail(error, P2_FW_PDA, "PDA lacks RF/MAC supplier range records");
-    r = p2_fw_range{le16(value), le16(value + 2), le16(value + 4),
-                    le16(value + 6), le16(value + 8)};
-    if (r.role || r.interface_id != i + 1 || r.bottom > r.top)
-      return fail(error, P2_FW_PDA, "PDA RF/MAC supplier range is malformed");
-    if ((card->supplier_mask & (1u << i)) &&
-        !same_range(&r, &card->suppliers[i]))
-      return fail(error, P2_FW_INCOMPATIBLE,
-                  "Saved supplier range differs from PDA");
-    card->suppliers[i] = r;
-    card->supplier_mask |= 1u << i;
-  }
-  return P2_FW_OK;
-}
-static int image_check(const struct p2_fw_image *im, enum p2_fw_mode mode,
-                       const struct p2_fw_card *card, const uint8_t *data,
-                       struct p2_fw_error *error) {
-  size_t i, j, n;
-  unsigned matched = 0, actors = 0;
-  if (im->component.id != 0x15 && im->component.id != 0x1f)
-    return fail(error, P2_FW_INCOMPATIBLE,
-                "Only PRI and STA components are supported for validation");
-  if ((mode == P2_FW_FLASH && im->entry) || (mode == P2_FW_RAM && !im->entry))
-    return fail(error, P2_FW_INCOMPATIBLE,
-                "Image RAM/flash class differs from selected mode");
-  for (i = 0; i < im->platform_count; ++i)
-    if (same_id(&im->platforms[i], &card->nic))
-      matched = 1;
-  if (!matched)
-    return fail(
-        error, P2_FW_INCOMPATIBLE,
-        "Exact NIC id/variant/major/minor is absent from image platforms");
-  for (i = 0; i < im->segment_count; ++i) {
-    const struct p2_fw_segment *s = &im->segments[i];
-    if ((s->address & 1) || (s->length & 1) ||
-        s->address >= UINT32_C(0x800000) ||
-        s->length > UINT32_C(0x800000) - s->address)
+  Result<CardSnapshot> bind(CardSnapshot card) const {
+    const auto value = find(8);
+    if (!value || value->size() != 8)
+      return fail(Errc::Pda, "PDA has no correctly sized NIC identity PDR");
+    const auto *p = value->data();
+    const p2::Identity nic{le16(p), le16(p + 2), le16(p + 4), le16(p + 6)};
+    if (nic != card.nic)
+      return fail(Errc::Incompatible,
+                  "PDA NIC identity differs from saved card identity");
+    const auto mac = find(0x101);
+    if (!card.mac || !mac || mac->size() != 6 ||
+        !std::equal(mac->begin(), mac->end(), card.mac->begin()))
       return fail(
-          error, P2_FW_INCOMPATIBLE,
-          "Payload exceeds current even-aligned 23-bit AUX transport bounds");
+          Errc::Incompatible,
+          "PDA MAC address differs from or is absent in saved card data");
+    for (std::size_t i = 0; i < 2; ++i) {
+      const auto supplier = find(static_cast<uint16_t>(6 + i));
+      if (!supplier || supplier->size() != 10)
+        return fail(Errc::Pda, "PDA lacks RF/MAC supplier range records");
+      const auto *p = supplier->data();
+      const InterfaceRange range{le16(p), le16(p + 2), le16(p + 4), le16(p + 6),
+                                 le16(p + 8)};
+      if (range.role || range.interface_id != i + 1 || range.bottom > range.top)
+        return fail(Errc::Pda, "PDA RF/MAC supplier range is malformed");
+      if (card.suppliers[i] && range != *card.suppliers[i])
+        return fail(Errc::Incompatible,
+                    "Saved supplier range differs from PDA");
+      card.suppliers[i] = range;
+    }
+    return card;
   }
-  /* Keep Host AP's conservative per-record range checks. No variant bypass
-   * when validating a replacement primary+station pair. */
-  for (i = 0; i < im->range_count; ++i) {
-    const struct p2_fw_range *a = &im->ranges[i], *b;
-    if (!a->role)
+
+private:
+  explicit PdaView(std::span<const uint8_t> bytes) : bytes_(bytes) {}
+  std::span<const uint8_t> bytes_;
+};
+Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
+                   const PdaView &pda) {
+  if (image.component().id != 0x15 && image.component().id != 0x1f)
+    return fail(Errc::Incompatible,
+                "Only PRI and STA components are supported for validation");
+  if ((mode == Mode::Flash && image.entry()) ||
+      (mode == Mode::Ram && !image.entry()))
+    return fail(Errc::Incompatible,
+                "Image RAM/flash class differs from selected mode");
+  if (std::none_of(image.platforms().begin(), image.platforms().end(),
+                   [&](const auto &id) { return id == card.nic; }))
+    return fail(
+        Errc::Incompatible,
+        "Exact NIC id/variant/major/minor is absent from image platforms");
+  for (const auto &segment : image.segments())
+    if ((segment.address & 1) || (segment.data.size() & 1) ||
+        segment.address >= 0x800000 ||
+        segment.data.size() > 0x800000 - segment.address)
+      return fail(
+          Errc::Incompatible,
+          "Payload exceeds current even-aligned 23-bit AUX transport bounds");
+  unsigned actors = 0;
+  // Host AP's conservative per-record checks, including replacement PRI+STA.
+  for (const auto &actor : image.ranges()) {
+    if (!actor.role)
       continue;
     ++actors;
-    if (!(card->supplier_mask & (1u << (a->interface_id - 1))))
-      return fail(error, P2_FW_INCOMPATIBLE,
+    const auto &supplier = card.suppliers[actor.interface_id - 1];
+    if (!supplier)
+      return fail(Errc::Incompatible,
                   "Saved card data lacks a required supplier interface");
-    b = &card->suppliers[a->interface_id - 1];
-    if (a->variant != b->variant || a->top < b->bottom || a->bottom > b->top)
-      return fail(error, P2_FW_INCOMPATIBLE,
+    if (actor.variant != supplier->variant || actor.top < supplier->bottom ||
+        actor.bottom > supplier->top)
+      return fail(Errc::Incompatible,
                   "Actor/supplier interface variant or range mismatch");
   }
   if (!actors)
-    return fail(error, P2_FW_INCOMPATIBLE,
-                "Image has no actor compatibility records");
-  for (i = 0; i < im->plug_count; ++i) {
-    const struct p2_fw_plug *plug = &im->plugs[i];
-    if (!fits(im, plug->address, plug->length))
-      return fail(error, P2_FW_INCOMPATIBLE,
+    return fail(Errc::Incompatible, "Image has no actor compatibility records");
+  for (std::size_t i = 0; i < image.plugs().size(); ++i) {
+    const auto &plug = image.plugs()[i];
+    if (!image.contains(plug.address, plug.length))
+      return fail(Errc::Incompatible,
                   "PDA plug destination is outside image payload");
-    for (j = 0; j < i; ++j) {
-      const struct p2_fw_plug *other = &im->plugs[j];
-      if (plug->address < other->address + other->length &&
-          other->address < plug->address + plug->length)
-        return fail(error, P2_FW_INCOMPATIBLE,
-                    "Overlapping PDA plug destinations");
-    }
-    if (plug->pdr == UINT32_MAX)
-      continue; /* reserved filename field; no card calibration */
-    if (!pdr(data, (unsigned)plug->pdr, &n))
-      return fail(error, P2_FW_PDA,
+    for (const auto &other : image.plugs().first(i))
+      if (plug.address < other.address + other.length &&
+          other.address < plug.address + plug.length)
+        return fail(Errc::Incompatible, "Overlapping PDA plug destinations");
+    if (plug.pdr == UINT32_MAX)
+      continue; // Reserved filename field, not card calibration.
+    const auto value = pda.find(static_cast<uint16_t>(plug.pdr));
+    if (!value)
+      return fail(Errc::Pda,
                   "Required plug PDR is missing; defaults are not accepted");
-    if (n != plug->length)
-      return fail(error, P2_FW_PDA,
-                  "PDA plug length differs from image requirement");
+    if (value->size() != plug.length)
+      return fail(Errc::Pda, "PDA plug length differs from image requirement");
   }
-  for (i = 0; i < im->crc_count; ++i) {
-    const struct p2_fw_crc *c = &im->crcs[i];
-    if ((c->start & 1) || (c->length & 1) || c->start >= UINT32_C(0x800000) ||
-        c->length > UINT32_C(0x800000) - c->start)
-      return fail(error, P2_FW_INCOMPATIBLE,
+  for (const auto &signature : image.signatures()) {
+    if ((signature.start & 1) || (signature.length & 1) ||
+        signature.start >= 0x800000 ||
+        signature.length > 0x800000 - signature.start)
+      return fail(Errc::Incompatible,
                   "Signature descriptor exceeds AUX bounds");
-    if (!fits(im, c->start, 1) || !fits(im, c->start + c->length - 1, 1))
-      return fail(error, P2_FW_INCOMPATIBLE,
+    if (!image.contains(signature.start, 1) ||
+        !image.contains(signature.start + signature.length - 1, 1))
+      return fail(Errc::Incompatible,
                   "Signature descriptor endpoints are outside payload");
-    if (c->program) {
-      int begins = 0;
-      for (j = 0; j < im->segment_count; ++j)
-        if (im->segments[j].address == c->start)
-          begins = 1;
-      if (!begins)
-        return fail(error, P2_FW_INCOMPATIBLE,
+    if (signature.program) {
+      if (std::none_of(
+              image.segments().begin(), image.segments().end(),
+              [&](const auto &s) { return s.address == signature.start; }))
+        return fail(Errc::Incompatible,
                     "Signature region does not begin at a payload segment");
-      for (j = 0; j < im->plug_count; ++j)
-        if (im->plugs[j].address < c->start &&
-            im->plugs[j].address + im->plugs[j].length > c->start - 2)
-          return fail(error, P2_FW_INCOMPATIBLE,
+      for (const auto &plug : image.plugs())
+        if (plug.address < signature.start &&
+            plug.address + plug.length > signature.start - 2)
+          return fail(Errc::Incompatible,
                       "Signature stamp would overwrite a PDA plug");
     }
   }
-  return P2_FW_OK;
+  return {};
 }
-static int hex_digit(unsigned char c) {
-  if (c >= '0' && c <= '9')
-    return c - '0';
-  if (c >= 'a' && c <= 'f')
-    return c - 'a' + 10;
-  if (c >= 'A' && c <= 'F')
-    return c - 'A' + 10;
-  return -1;
-}
-int p2_fw_validate(const struct p2_fw_image *im, enum p2_fw_mode mode,
-                   const struct p2_fw_card *input, const uint8_t *pda,
-                   size_t length, const struct p2_fw_image *primary,
-                   struct p2_fw_error *error) {
-  struct p2_fw_card card;
-  size_t i, j;
-  unsigned found = 0;
-  int rc;
-  if (error)
-    memset(error, 0, sizeof(*error));
-  if (!im || !input || (mode != P2_FW_RAM && mode != P2_FW_FLASH))
-    return fail(error, P2_FW_FORMAT, "Invalid validation arguments");
-  card = *input;
-  if ((rc = bind_pda(pda, length, &card, error)) != 0)
-    return rc;
+
+class SnapshotParser {
+public:
+  Result<CardSnapshot> read(FILE &file) {
+    std::array<char, 256> line{};
+    std::size_t used = 0;
+    for (int c; (c = fgetc(&file)) != EOF;) {
+      if (c == 0 || used == line.size() - 1)
+        return bad();
+      line[used++] = static_cast<char>(c);
+      if (c == '\n') {
+        if (auto result = consume({line.data(), used}); !result)
+          return std::unexpected{result.error()};
+        used = 0;
+      }
+    }
+    if (ferror(&file))
+      return fail(Errc::Io, "Card snapshot read error");
+    if (used) {
+      if (auto result = consume({line.data(), used}); !result)
+        return std::unexpected{result.error()};
+    }
+    if (!header_ || !nic_ || !card_.mac)
+      return bad();
+    return card_;
+  }
+
+private:
+  std::unexpected<Error> bad() const {
+    return std::unexpected{
+        Error{Errc::Format, line_,
+              "Invalid, duplicate or incomplete card snapshot field"}};
+  }
+  Status consume(std::string_view line) {
+    if (++line_ > MaxLines)
+      return bad();
+    constexpr std::string_view whitespace = " \t\r\n";
+    std::array<std::string_view, 7> tokens{};
+    std::size_t count = 0;
+    while (true) {
+      const auto start = line.find_first_not_of(whitespace);
+      if (start == line.npos)
+        break;
+      line.remove_prefix(start);
+      if (count == 0 && line.front() == '#')
+        return {};
+      if (count == tokens.size())
+        return bad();
+      const auto end = line.find_first_of(whitespace);
+      tokens[count++] = line.substr(0, end);
+      if (end == line.npos)
+        break;
+      line.remove_prefix(end);
+    }
+    if (!count)
+      return {};
+    if (!header_) {
+      if (count != 2 || tokens[0] != "P2CARD" || tokens[1] != "1")
+        return bad();
+      header_ = true;
+      return {};
+    }
+    if (count == 2 && tokens[0] == "MAC") {
+      if (card_.mac || tokens[1].size() != 17)
+        return bad();
+      std::array<uint8_t, 6> mac{};
+      unsigned nonzero = 0;
+      for (std::size_t i = 0; i < mac.size(); ++i) {
+        const auto text = tokens[1].substr(i * 3, 2);
+        unsigned value;
+        const auto [end, error] =
+            std::from_chars(text.data(), text.data() + 2, value, 16);
+        if (error != std::errc{} || end != text.data() + 2 ||
+            (i < 5 && tokens[1][i * 3 + 2] != ':'))
+          return bad();
+        mac[i] = static_cast<uint8_t>(value);
+        nonzero |= value;
+      }
+      if (!nonzero || (mac[0] & 1))
+        return bad();
+      card_.mac = mac;
+      return {};
+    }
+    if (count != 5 || (tokens[0] != "NIC" && tokens[0] != "SUP"))
+      return bad();
+    std::array<uint16_t, 4> numbers{};
+    for (std::size_t i = 0; i < numbers.size(); ++i) {
+      auto text = tokens[i + 1];
+      if (text.starts_with('-') || text.starts_with('+'))
+        return bad();
+      const auto base =
+          text.starts_with("0x") || text.starts_with("0X") ? 16 : 10;
+      if (base == 16)
+        text.remove_prefix(2);
+      const auto [end, error] = std::from_chars(
+          text.data(), text.data() + text.size(), numbers[i], base);
+      if (error != std::errc{} || end != text.data() + text.size())
+        return bad();
+    }
+    if (tokens[0] == "NIC") {
+      if (nic_)
+        return bad();
+      nic_ = true;
+      card_.nic = {numbers[0], numbers[1], numbers[2], numbers[3]};
+    } else {
+      const auto iface = numbers[0];
+      if (!iface || iface > 4 || numbers[2] > numbers[3] ||
+          card_.suppliers[iface - 1])
+        return bad();
+      card_.suppliers[iface - 1] =
+          InterfaceRange{0, iface, numbers[1], numbers[2], numbers[3]};
+    }
+    return {};
+  }
+  CardSnapshot card_;
+  unsigned long line_ = 0;
+  bool header_ = false, nic_ = false;
+};
+} // namespace
+
+Status Image::validate(Mode mode, const CardSnapshot &input,
+                       std::span<const uint8_t> bytes,
+                       const Image *primary) const {
+  auto pda = PdaView::checked(bytes);
+  if (!pda)
+    return std::unexpected{pda.error()};
+  auto card = pda->bind(input);
+  if (!card)
+    return std::unexpected{card.error()};
   if (primary) {
-    if (primary->component.id != 0x15 || im->component.id != 0x1f)
-      return fail(error, P2_FW_INCOMPATIBLE,
-                  "Replacement pair must be PRI plus STA");
-    if ((rc = image_check(primary, mode, &card, pda, error)) != 0)
-      return rc;
-    for (i = 0; i < primary->range_count; ++i) {
-      const struct p2_fw_range *r = &primary->ranges[i];
-      if (!r->role && r->interface_id == 3) {
-        if (found++)
-          return fail(error, P2_FW_INCOMPATIBLE,
+    if (primary->component().id != 0x15 || component().id != 0x1f)
+      return fail(Errc::Incompatible, "Replacement pair must be PRI plus STA");
+    if (auto result = check_image(*primary, mode, *card, *pda); !result)
+      return result;
+    bool found = false;
+    for (const auto &range : primary->ranges()) {
+      if (!range.role && range.interface_id == 3) {
+        if (found)
+          return fail(Errc::Incompatible,
                       "Ambiguous replacement PRI supplier range");
-        card.suppliers[2] = *r;
-        card.supplier_mask |= 4;
+        found = true;
+        card->suppliers[2] = range;
       }
     }
     if (!found)
-      return fail(error, P2_FW_INCOMPATIBLE,
+      return fail(Errc::Incompatible,
                   "Replacement primary has no PRI supplier range");
-    for (i = 0; i < primary->segment_count; ++i)
-      for (j = 0; j < im->segment_count; ++j) {
-        const struct p2_fw_segment *a = &primary->segments[i],
-                                   *b = &im->segments[j];
-        if (a->address < b->address + b->length &&
-            b->address < a->address + a->length)
-          return fail(error, P2_FW_INCOMPATIBLE,
+    for (const auto &a : primary->segments())
+      for (const auto &b : segments())
+        if (a.address < b.address + b.data.size() &&
+            b.address < a.address + a.data.size())
+          return fail(Errc::Incompatible,
                       "Primary/station payload ranges overlap");
-      }
   }
-  return image_check(im, mode, &card, pda, error);
+  return check_image(*this, mode, *card, *pda);
 }
-int p2_fw_card_read(FILE *file, struct p2_fw_card *card,
-                    struct p2_fw_error *error) {
-  char line[256];
-  unsigned long line_no = 0;
-  unsigned header = 0, nic = 0;
-  if (!file || !card)
-    return fail(error, P2_FW_FORMAT, "Invalid card snapshot arguments");
-  memset(card, 0, sizeof(*card));
-  if (error)
-    memset(error, 0, sizeof(*error));
-  memset(line, 0xff, sizeof(line));
-  while (fgets(line, sizeof(line), file)) {
-    char *tokens[7], *token;
-    unsigned long numbers[4];
-    size_t count = 0, i, len = strlen(line);
-    ++line_no;
-    if (line_no > P2_FW_MAX_LINES)
-      goto bad;
-    /* fgets may contain an embedded NUL. Locate its actual terminator in
-     * a pre-filled buffer rather than accepting a hidden trailing field. */
-    if ((!strchr(line, '\n') && !feof(file)) || !len)
-      goto bad;
-    for (i = len + 1; i < sizeof(line); ++i)
-      if ((unsigned char)line[i] != 255)
-        goto bad;
-    token = strtok(line, " \t\r\n");
-    if (!token || token[0] == '#') {
-      memset(line, 0xff, sizeof(line));
-      continue;
-    }
-    while (token) {
-      if (count == 7)
-        goto bad;
-      tokens[count++] = token;
-      token = strtok(nullptr, " \t\r\n");
-    }
-    if (!header) {
-      if (count != 2 || strcmp(tokens[0], "P2CARD") || strcmp(tokens[1], "1"))
-        goto bad;
-      header = 1;
-      memset(line, 0xff, sizeof(line));
-      continue;
-    }
-    if (count == 2 && !strcmp(tokens[0], "MAC")) {
-      unsigned nonzero = 0;
-      if (card->has_mac || strlen(tokens[1]) != 17)
-        goto bad;
-      for (i = 0; i < 6; ++i) {
-        int hi = hex_digit((unsigned char)tokens[1][i * 3]);
-        int lo = hex_digit((unsigned char)tokens[1][i * 3 + 1]);
-        if (hi < 0 || lo < 0 || (i < 5 && tokens[1][i * 3 + 2] != ':'))
-          goto bad;
-        card->mac[i] = (uint8_t)((hi << 4) | lo);
-        nonzero |= card->mac[i];
-      }
-      if (!nonzero || (card->mac[0] & 1))
-        goto bad;
-      card->has_mac = 1;
-      memset(line, 0xff, sizeof(line));
-      continue;
-    }
-    if (count != 5 || (strcmp(tokens[0], "NIC") && strcmp(tokens[0], "SUP")))
-      goto bad;
-    for (i = 0; i < 4; ++i) {
-      char *end;
-      int base = 10;
-      if (tokens[i + 1][0] == '-' || tokens[i + 1][0] == '+')
-        goto bad;
-      if (tokens[i + 1][0] == '0' &&
-          (tokens[i + 1][1] == 'x' || tokens[i + 1][1] == 'X'))
-        base = 16;
-      errno = 0;
-      numbers[i] = strtoul(tokens[i + 1], &end, base);
-      if (errno || !*tokens[i + 1] || *end || numbers[i] > 65535ul)
-        goto bad;
-    }
-    if (!strcmp(tokens[0], "NIC")) {
-      if (nic++)
-        goto bad;
-      card->nic = {(uint16_t)numbers[0], (uint16_t)numbers[1],
-                   (uint16_t)numbers[2], (uint16_t)numbers[3]};
-    } else {
-      unsigned iface = (unsigned)numbers[0];
-      if (!iface || iface > 4 || numbers[2] > numbers[3] ||
-          (card->supplier_mask & (1u << (iface - 1))))
-        goto bad;
-      card->suppliers[iface - 1] =
-          p2_fw_range{0, (uint16_t)iface, (uint16_t)numbers[1],
-                      (uint16_t)numbers[2], (uint16_t)numbers[3]};
-      card->supplier_mask |= 1u << (iface - 1);
-    }
-    memset(line, 0xff, sizeof(line));
-  }
-  if (ferror(file))
-    return fail(error, P2_FW_IO, "Card snapshot read error");
-  if (header && nic && card->has_mac)
-    return P2_FW_OK;
-bad:
-  fail(error, P2_FW_FORMAT,
-       "Invalid, duplicate or incomplete card snapshot field");
-  if (error)
-    error->line = line_no;
-  memset(card, 0, sizeof(*card));
-  return P2_FW_FORMAT;
+Result<CardSnapshot> CardSnapshot::read(FILE &file) {
+  return SnapshotParser{}.read(file);
 }
+} // namespace p2::firmware

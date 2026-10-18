@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #ifndef PRISM2_H
 #define PRISM2_H
+#include <array>
+#include <expected>
+#include <span>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -51,25 +54,50 @@ struct p2_bus {
   int (*present)(void *);
   int (*cancelled)(void *);
 };
-struct p2_identity {
-  uint16_t id, variant, major, minor;
+namespace p2 {
+struct Identity {
+  uint16_t id = 0, variant = 0, major = 0, minor = 0;
+  bool operator==(const Identity &) const = default;
 };
-struct p2_probe_result {
-  unsigned sram_bits;
-  uint8_t cor_before, ccsr_before;
-  uint8_t readback[4];
-  int cleanup_error;
+template <typename T> using CardResult = std::expected<T, p2_error>;
+using CardStatus = CardResult<void>;
+struct ProbeReport {
+  unsigned sram_bits = 0;
+  uint8_t cor_before = 0, ccsr_before = 0;
+  std::array<uint8_t, 4> readback{};
+  p2_error error = P2_OK;
+  p2_error cleanup_error = P2_OK;
 };
+class Card {
+public:
+  explicit Card(p2_bus &bus) : bus_(bus) {}
+  Card(const Card &) = delete;
+  Card &operator=(const Card &) = delete;
+  [[nodiscard]] CardStatus enable_aux(bool enable);
+  [[nodiscard]] CardStatus read_aux(uint32_t address, std::span<uint8_t> data);
+  [[nodiscard]] CardStatus read_nv(uint32_t address, std::span<uint8_t> data);
+  [[nodiscard]] CardStatus write_aux(uint32_t address,
+                                     std::span<const uint8_t> data);
+  [[nodiscard]] CardStatus initialize();
+  [[nodiscard]] CardResult<Identity> identity(uint16_t rid);
+  [[nodiscard]] CardResult<uint32_t>
+  read_pda(std::span<uint8_t, P2_PDA_SIZE> data);
+  [[nodiscard]] ProbeReport probe(unsigned sram_bits);
+  [[nodiscard]] static bool supports(uint16_t nic_id);
+
+private:
+  [[nodiscard]] CardStatus alive() const;
+  [[nodiscard]] CardStatus interrupted() const;
+  [[nodiscard]] CardStatus wait_mask(uint16_t reg, uint16_t mask,
+                                     uint16_t expected, uint32_t timeout);
+  [[nodiscard]] CardStatus command(uint16_t cmd, uint16_t param);
+  [[nodiscard]] CardStatus transfer(uint32_t address, std::span<uint8_t> read,
+                                    std::span<const uint8_t> write,
+                                    uint16_t space);
+  [[nodiscard]] CardStatus reset(uint8_t cor, uint8_t hcr);
+  p2_bus &bus_;
+};
+} // namespace p2
 const char *p2_error_string(int);
-int p2_aux_enable(struct p2_bus *, int enable);
-int p2_aux_read(struct p2_bus *, uint32_t, uint8_t *, size_t);
-/* Nonvolatile address space, AUXOFFSET selector 1; never writes AUXDATA. */
-int p2_aux_read_nv(struct p2_bus *, uint32_t, uint8_t *, size_t);
-int p2_aux_write(struct p2_bus *, uint32_t, const uint8_t *, size_t);
-int p2_initialize(struct p2_bus *);
-int p2_identity(struct p2_bus *, uint16_t rid, struct p2_identity *);
-int p2_supported_nic(uint16_t);
-int p2_read_pda(struct p2_bus *, uint8_t[P2_PDA_SIZE], uint32_t *);
 int p2_validate_pda(const uint8_t[P2_PDA_SIZE]);
-int p2_genesis_probe(struct p2_bus *, unsigned, struct p2_probe_result *);
 #endif

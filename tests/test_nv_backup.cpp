@@ -12,26 +12,33 @@
       exit(1);                                                                 \
     }                                                                          \
   } while (0)
+template <typename T> static p2_error code(const p2::CardResult<T> &result) {
+  return result ? P2_OK : result.error();
+}
+
 static void hash_tests(void) {
-  struct p2_sha256 s;
-  char out[65];
+  p2::Sha256 s;
+  std::array<char, 65> out;
   unsigned i;
-  p2_sha256_init(&s);
-  p2_sha256_hex(&s, out);
+  s = p2::Sha256{};
+  out = s.hex();
   CHECK(!strcmp(
-      out, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
-  p2_sha256_init(&s);
-  p2_sha256_update(&s, &"xa"[1], 1);
-  p2_sha256_update(&s, "bc", 2);
-  p2_sha256_hex(&s, out);
+      out.data(),
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+  s = p2::Sha256{};
+  s.update("a");
+  s.update("bc");
+  out = s.hex();
   CHECK(!strcmp(
-      out, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
-  p2_sha256_init(&s);
+      out.data(),
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
+  s = p2::Sha256{};
   for (i = 0; i < 1000000; ++i)
-    p2_sha256_update(&s, "a", 1);
-  p2_sha256_hex(&s, out);
+    s.update("a");
+  out = s.hex();
   CHECK(!strcmp(
-      out, "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"));
+      out.data(),
+      "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"));
 }
 static void pda_oracle_test(void) {
   /* Original synthetic prefix; 0xe1a3 independently calculated using the
@@ -44,9 +51,9 @@ static void pda_oracle_test(void) {
 static void init_nv(struct p2_mock *m) {
   uint32_t i;
   CHECK(!p2_mock_init(m, 0));
-  m->nv_memory = static_cast<uint8_t *>(malloc(P2_NV_BYTES));
+  m->nv_memory = static_cast<uint8_t *>(malloc(p2::backup::NvBytes));
   CHECK(m->nv_memory);
-  for (i = 0; i < P2_NV_BYTES; ++i)
+  for (i = 0; i < p2::backup::NvBytes; ++i)
     m->nv_memory[i] = (uint8_t)(i * 17 + (i >> 8) * 3);
 }
 static void transfer_tests(void) {
@@ -54,22 +61,26 @@ static void transfer_tests(void) {
   uint8_t b[260];
   unsigned ops;
   init_nv(&m);
-  CHECK(!p2_aux_read_nv(&m.bus, 126, b, sizeof(b)));
+  CHECK(!code(p2::Card{m.bus}.read_nv(126, b)));
   CHECK(!memcmp(b, m.nv_memory + 126, sizeof(b)) && m.aux_space == 1);
-  CHECK(!p2_aux_read_nv(&m.bus, 0x7ffffe, b, 2));
+  CHECK(!code(p2::Card{m.bus}.read_nv(0x7ffffe, std::span{b}.first(2))));
   CHECK(!memcmp(b, m.nv_memory + 0x7ffffe, 2));
   ops = m.operations;
-  CHECK(p2_aux_read_nv(&m.bus, 1, b, 2) == P2_E_ARGUMENT);
-  CHECK(p2_aux_read_nv(&m.bus, 0x7ffffe, b, 4) == P2_E_ARGUMENT);
-  CHECK(p2_aux_read_nv(&m.bus, 0x800000, b, 0) == P2_E_ARGUMENT);
-  CHECK(p2_aux_read_nv(&m.bus, 0, b, 3) == P2_E_ARGUMENT);
+  CHECK(code(p2::Card{m.bus}.read_nv(1, std::span{b}.first(2))) ==
+        P2_E_ARGUMENT);
+  CHECK(code(p2::Card{m.bus}.read_nv(0x7ffffe, std::span{b}.first(4))) ==
+        P2_E_ARGUMENT);
+  CHECK(code(p2::Card{m.bus}.read_nv(0x800000, std::span{b}.first(0))) ==
+        P2_E_ARGUMENT);
+  CHECK(code(p2::Card{m.bus}.read_nv(0, std::span{b}.first(3))) ==
+        P2_E_ARGUMENT);
   CHECK(m.operations == ops && !m.payload_writes && !m.command_writes &&
         !m.configuration_writes);
   p2_mock_free(&m);
 }
 static void capture_tests(int enabled, int mismatch) {
   struct p2_mock m;
-  struct p2_capture_result result;
+  p2::backup::CaptureReport result;
   FILE *a = tmpfile(), *b = tmpfile();
   uint16_t regs[5] = {0x1234, 0x5678, 0xabcd, 0x4444, 0x2020};
   unsigned i;
@@ -81,20 +92,20 @@ static void capture_tests(int enabled, int mismatch) {
   for (i = 0; i < 5; ++i)
     m.regs[regids[i] / 2] = regs[i];
   if (mismatch)
-    m.corrupt_nv_after = P2_NV_BYTES;
+    m.corrupt_nv_after = p2::backup::NvBytes;
   else
     m.corrupt_nv_once_at = 5;
-  CHECK(p2_capture_nv(&m.bus, a, b, &result) ==
+  CHECK((result = p2::backup::capture(m.bus, *a, *b)).error ==
         (mismatch ? P2_E_VERIFY : P2_OK));
-  CHECK(result.bytes[0] == P2_NV_BYTES);
-  CHECK(result.bytes[1] == P2_NV_BYTES);
+  CHECK(result.bytes[0] == p2::backup::NvBytes);
+  CHECK(result.bytes[1] == p2::backup::NvBytes);
   CHECK((result.mismatch_bytes != 0) == (mismatch != 0));
   if (!mismatch)
     CHECK(result.page_disagreements == 1 &&
-          result.page_reads == 4 * (P2_NV_BYTES / 128) + 1);
+          result.page_reads == 4 * (p2::backup::NvBytes / 128) + 1);
   if (!mismatch)
-    CHECK(strlen(result.sha256[0]) == 64 &&
-          !strcmp(result.sha256[0], result.sha256[1]));
+    CHECK(strlen(result.sha256[0].data()) == 64 &&
+          !strcmp(result.sha256[0].data(), result.sha256[1].data()));
   CHECK(!result.cleanup_error &&
         m.regs[P2_CONTROL / 2] == (enabled ? 0xc000 : 0));
   for (i = 0; i < 3; ++i)
@@ -108,7 +119,7 @@ static void capture_tests(int enabled, int mismatch) {
 }
 static void failure_tests(void) {
   struct p2_mock m;
-  struct p2_capture_result result;
+  p2::backup::CaptureReport result;
   FILE *a, *b;
   unsigned i;
   for (i = 1; i < 140; i += 9) {
@@ -117,7 +128,7 @@ static void failure_tests(void) {
     a = tmpfile();
     b = tmpfile();
     CHECK(a && b);
-    CHECK(p2_capture_nv(&m.bus, a, b, &result) == P2_E_REMOVED);
+    CHECK((result = p2::backup::capture(m.bus, *a, *b)).error == P2_E_REMOVED);
     CHECK(!m.command_writes && !m.payload_writes && !m.configuration_writes);
     fclose(a);
     fclose(b);
@@ -128,7 +139,7 @@ static void failure_tests(void) {
   a = tmpfile();
   b = tmpfile();
   CHECK(a && b);
-  CHECK(p2_capture_nv(&m.bus, a, b, &result) == P2_E_CANCELLED);
+  CHECK((result = p2::backup::capture(m.bus, *a, *b)).error == P2_E_CANCELLED);
   CHECK(!result.cleanup_error && !m.command_writes && !m.payload_writes);
   fclose(a);
   fclose(b);
@@ -138,7 +149,7 @@ static void failure_tests(void) {
   a = tmpfile();
   b = tmpfile();
   CHECK(a && b);
-  CHECK(p2_capture_nv(&m.bus, a, b, &result) == P2_E_TIMEOUT);
+  CHECK((result = p2::backup::capture(m.bus, *a, *b)).error == P2_E_TIMEOUT);
   CHECK(result.cleanup_error == P2_E_TIMEOUT && m.clock < 300000 &&
         !m.command_writes && !m.payload_writes);
   fclose(a);
@@ -149,7 +160,7 @@ static void failure_tests(void) {
   a = tmpfile();
   b = tmpfile();
   CHECK(a && b);
-  CHECK(p2_capture_nv(&m.bus, a, b, &result) == P2_E_VERIFY);
+  CHECK((result = p2::backup::capture(m.bus, *a, *b)).error == P2_E_VERIFY);
   CHECK(result.page_reads == 20 && result.page_disagreements == 19 &&
         !result.bytes[0]);
   CHECK(!result.cleanup_error && !m.command_writes && !m.payload_writes);
@@ -165,11 +176,11 @@ int main(void) {
   capture_tests(1, 0);
   capture_tests(0, 1);
   failure_tests();
-  CHECK(p2_backup_valid_utc("20261018T104000Z"));
-  CHECK(p2_backup_valid_utc("20240229T235959Z"));
-  CHECK(!p2_backup_valid_utc("20260229T104000Z"));
-  CHECK(!p2_backup_valid_utc("20261018T246000Z"));
-  CHECK(!p2_backup_valid_utc("20261018T104000Z\n"));
+  CHECK(p2::backup::valid_utc("20261018T104000Z"));
+  CHECK(p2::backup::valid_utc("20240229T235959Z"));
+  CHECK(!p2::backup::valid_utc("20260229T104000Z"));
+  CHECK(!p2::backup::valid_utc("20261018T246000Z"));
+  CHECK(!p2::backup::valid_utc("20261018T104000Z\n"));
   puts("SHA-256 vectors, NV bounds, full reads, "
        "mismatch/removal/cancel/timeout and canonical AUX cleanup passed");
   return 0;

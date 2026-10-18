@@ -144,3 +144,15 @@ Linux/Darwin artifacts. The native smoke helper checks realloc preservation,
 alignment and scoped cleanup. Card protocol, output formats and backup gates
 retain their behavior. Earlier physical capture records apply to the previous
 C binaries; this migration has no physical-card testing.
+
+## C++ domain and ownership refactor — 0.5.0-alpha.1
+
+The initial 0.4 migration enabled C++ compilation while retaining the procedural
+C architecture. The 0.5 implementation replaces that architecture: owning,
+move-only firmware images; a private parser; checked PDA views and snapshot
+values; std::expected results; Card methods; capture/probe reports; scoped file,
+slot and backend resources; and a self-initializing hash state. Bounded storage
+handles allocation failure without exceptions. See CPP-DESIGN.md.
+
+The protocol and backup approval gate remain unchanged. This work is validated
+with host tests and card-free emulation; it performs no physical-card testing.

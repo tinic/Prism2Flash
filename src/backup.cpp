@@ -1,25 +1,22 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "backup.h"
-#include "owned_buffer.h"
+#include "file.h"
 #include "p2_stdio.h"
 #include "platform.h"
 #include "sha256.h"
+#include "storage.h"
 #include "version.h"
-#include <array>
-#include <span>
-#include <stdlib.h>
-#include <string.h>
+#include <cstring>
 #ifdef PRISM2_AMIGA
 #define P2_CAPTURE_SIMULATION "false"
 #else
 #define P2_CAPTURE_SIMULATION "true"
 #endif
-
-int p2_backup_valid_utc(const char *timestamp) {
+namespace p2::backup {
+bool valid_utc(std::string_view timestamp) {
   constexpr std::array<unsigned, 12> month_days{31, 28, 31, 30, 31, 30,
                                                 31, 31, 30, 31, 30, 31};
-  if (!timestamp || strlen(timestamp) != 16 || timestamp[8] != 'T' ||
-      timestamp[15] != 'Z')
+  if (timestamp.size() != 16 || timestamp[8] != 'T' || timestamp[15] != 'Z')
     return false;
   for (size_t index = 0; index < 15; ++index)
     if (index != 8 && (timestamp[index] < '0' || timestamp[index] > '9'))
@@ -40,216 +37,209 @@ int p2_backup_valid_utc(const char *timestamp) {
   return day >= 1 && day <= days;
 }
 
-static int available(struct p2_bus *b) {
-  if (!b->present(b->ctx))
-    return P2_E_REMOVED;
-  return b->cancelled && b->cancelled(b->ctx) ? P2_E_CANCELLED : P2_OK;
-}
-static int stable_chunk(struct p2_bus *b, uint32_t address,
-                        std::span<uint8_t, 4096> out, uint32_t start,
-                        struct p2_capture_result *result) {
-  std::array<uint8_t, 128> next;
-  unsigned page, attempt;
-  int rc;
-  for (page = 0; page < 4096; page += 128) {
-    for (attempt = 0; attempt < 20; ++attempt) {
-      if ((uint32_t)(b->now_us(b->ctx) - start) >= UINT32_C(240000000))
-        return P2_E_TIMEOUT;
-      rc = p2_aux_read_nv(b, address + page,
-                          attempt ? next.data() : out.data() + page, 128);
-      if (rc)
-        return rc;
-      ++result->page_reads;
-      if (attempt) {
-        if (!memcmp(out.data() + page, next.data(), next.size()))
-          break;
-        ++result->page_disagreements;
-        memcpy(out.data() + page, next.data(), next.size());
-      }
+namespace {
+class NvCapture {
+public:
+  NvCapture(p2_bus &bus, FILE &first, FILE &second)
+      : bus_(bus), card_(bus), files_{&first, &second} {}
+  CaptureReport run() {
+    if (files_[0] == files_[1]) {
+      report_.error = P2_E_ARGUMENT;
+      return report_;
     }
-    /* Require two consecutive whole-page reads, never vote/repair bytes. */
-    if (attempt == 20)
-      return P2_E_VERIFY;
-  }
-  return P2_OK;
-}
-int p2_capture_nv(struct p2_bus *b, FILE *first, FILE *second,
-                  struct p2_capture_result *out) {
-  static const uint16_t saved_regs[] = {P2_PARAM0, P2_PARAM1, P2_PARAM2,
-                                        P2_AUXPAGE, P2_AUXOFFSET};
-  uint16_t control;
-  p2::OwnedBuffer buffers;
-  uint32_t address, start;
-  unsigned pass, i;
-  int rc, opened = 0, cleanup = 0, changed = 0;
-  int (*cancel_fn)(void *);
-  struct p2_sha256 hash;
-  FILE *files[2] = {first, second};
-  if (!b || !first || !second || !out || first == second)
-    return P2_E_ARGUMENT;
-  memset(out, 0, sizeof(*out));
-  buffers = p2::allocate_bytes(8192);
-  if (!buffers)
-    return P2_E_IO;
-  rc = available(b);
-  if (rc) {
-    return rc;
-  }
-  start = b->now_us(b->ctx);
-  control = b->read16(b->ctx, P2_CONTROL);
-  out->before[0] = control;
-  rc = available(b);
-  if (rc) {
-    return rc;
-  }
-  /* Refuse an absent/stuck bus and any enable/disable transition. */
-  if (control == 0xffff ||
-      ((control & 0xc000) != 0 && (control & 0xc000) != 0xc000)) {
-    return P2_E_IO;
-  }
-  for (i = 0; i < 5; ++i) {
-    rc = available(b);
-    if (rc) {
-      return rc;
+    buffers_ = ByteBuffer::allocate(8192);
+    if (!buffers_) {
+      report_.error = P2_E_IO;
+      return report_;
     }
-    out->before[i + 1] = b->read16(b->ctx, saved_regs[i]);
+    const auto acquisition = acquire();
+    const auto cleanup = acquired_ ? finish() : CardStatus{};
+    report_.cleanup_error = cleanup ? P2_OK : cleanup.error();
+    report_.error = acquisition ? static_cast<p2_error>(report_.cleanup_error)
+                                : acquisition.error();
+    if (acquired_)
+      report_.elapsed_us = bus_.now_us(bus_.ctx) - start_;
+    return report_;
   }
-  rc = available(b);
-  if (rc) {
-    return rc;
-  }
-  /* Exclusive slot ownership also covers firmware that leaves AUX enabled.
-   * Do not toggle it in that case; only disable a session opened here. */
-  if (!(control & 0xc000)) {
-    opened = 1;
-    rc = p2_aux_enable(b, 1);
-  }
-  for (pass = 0; !rc && pass < 2; ++pass) {
-    if (pass && (fflush(first) || fseek(first, 0, SEEK_SET))) {
-      rc = P2_E_IO;
-      break;
-    }
-    p2_sha256_init(&hash);
-    for (address = 0; !rc && address < P2_NV_BYTES; address += 4096) {
-      rc = available(b);
-      if (rc)
-        break;
-      if ((uint32_t)(b->now_us(b->ctx) - start) >= UINT32_C(240000000)) {
-        rc = P2_E_TIMEOUT;
-        break;
-      }
-      rc = stable_chunk(b, address,
-                        std::span<uint8_t, 4096>{buffers.get(), 4096}, start,
-                        out);
-      if (rc)
-        break;
-      if (pass) {
-        size_t got = fread(buffers.get() + 4096, 1, 4096, first);
-        out->comparison_read_bytes = (uint32_t)got;
-        if (got != 4096) {
-          rc = P2_E_IO;
-          break;
-        }
-        for (i = 0; i < 4096; ++i)
-          if (buffers[i] != buffers[i + 4096]) {
-            if (!out->mismatch_bytes)
-              out->first_mismatch = address + i;
-            ++out->mismatch_bytes;
-          }
-      }
-      if (fwrite(buffers.get(), 1, 4096, files[pass]) != 4096) {
-        rc = P2_E_IO;
-        break;
-      }
-      for (i = 1; i < 4096; ++i)
-        if (buffers[i] != buffers[0])
-          changed = 1;
-      p2_sha256_update(&hash, buffers.get(), 4096);
-      out->bytes[pass] += 4096;
-      if ((address & 0xfffff) == 0) {
-        p2_printf("NV pass %u: %lu / %lu bytes\n", pass + 1,
-                  (unsigned long)out->bytes[pass], (unsigned long)P2_NV_BYTES);
-        fflush(stdout);
-      }
-    }
-    if (!rc && fflush(files[pass]))
-      rc = P2_E_IO;
-    if (!rc)
-      p2_sha256_hex(&hash, out->sha256[pass]);
-  }
-  if (!rc && (!changed || out->mismatch_bytes ||
-              strcmp(out->sha256[0], out->sha256[1])))
-    rc = P2_E_VERIFY;
-  /* Cleanup cannot be vetoed by Ctrl-C, but must never touch another card. */
-  cancel_fn = b->cancelled;
-  b->cancelled = nullptr;
-  /* linux-wlan-ng clears AUXOFFSET's selector while AUX is enabled;
-   * Host AP disables AUX with PARAM0/1/2 zero. These are scratch registers,
-   * not persistent settings. Never replay old values after disabling AUX. */
-  if (b->present(b->ctx))
-    b->write16(b->ctx, P2_AUXOFFSET, 0);
-  if (opened)
-    cleanup = p2_aux_enable(b, 0);
-  if (!b->present(b->ctx) && !cleanup)
-    cleanup = P2_E_REMOVED;
-  if (b->present(b->ctx)) {
-    out->after[0] = b->read16(b->ctx, P2_CONTROL);
-    if ((out->after[0] & 0xc000) != (control & 0xc000) && !cleanup)
-      cleanup = P2_E_VERIFY;
-    for (i = 0; i < 5 && b->present(b->ctx); ++i) {
-      out->after[i + 1] = b->read16(b->ctx, saved_regs[i]);
-    }
-    if (!b->present(b->ctx) && !cleanup)
-      cleanup = P2_E_REMOVED;
-  }
-  b->cancelled = cancel_fn;
-  out->cleanup_error = cleanup;
-  out->elapsed_us = b->now_us(b->ctx) - start;
 
-  return rc ? rc : cleanup;
-}
-static int verify_file(const char *name, const char *expected) {
-  FILE *file = fopen(name, "rb");
-  struct p2_sha256 hash;
-  p2::OwnedBuffer buf;
-  char actual[65];
-  size_t n;
+private:
+  CardStatus available() const {
+    if (!bus_.present(bus_.ctx))
+      return std::unexpected{P2_E_REMOVED};
+    if (bus_.cancelled && bus_.cancelled(bus_.ctx))
+      return std::unexpected{P2_E_CANCELLED};
+    return {};
+  }
+  CardStatus within_deadline() const {
+    if (static_cast<uint32_t>(bus_.now_us(bus_.ctx) - start_) >= 240000000)
+      return std::unexpected{P2_E_TIMEOUT};
+    return {};
+  }
+  CardStatus stable_chunk(uint32_t address, std::span<uint8_t, 4096> out) {
+    std::array<uint8_t, 128> next;
+    for (std::size_t page = 0; page < out.size(); page += next.size()) {
+      unsigned attempt = 0;
+      for (; attempt < 20; ++attempt) {
+        if (auto result = within_deadline(); !result)
+          return result;
+        auto bytes = attempt ? std::span{next} : out.subspan(page, next.size());
+        if (auto result =
+                card_.read_nv(address + static_cast<uint32_t>(page), bytes);
+            !result)
+          return result;
+        ++report_.page_reads;
+        if (attempt) {
+          if (std::equal(next.begin(), next.end(), out.begin() + page))
+            break;
+          ++report_.page_disagreements;
+          std::copy(next.begin(), next.end(), out.begin() + page);
+        }
+      }
+      // Two consecutive whole pages; never vote or repair individual bytes.
+      if (attempt == 20)
+        return std::unexpected{P2_E_VERIFY};
+    }
+    return {};
+  }
+  CardStatus acquire() {
+    if (auto result = available(); !result)
+      return result;
+    start_ = bus_.now_us(bus_.ctx);
+    control_ = bus_.read16(bus_.ctx, P2_CONTROL);
+    report_.before[0] = control_;
+    if (auto result = available(); !result)
+      return result;
+    if (control_ == 0xffff ||
+        ((control_ & 0xc000) != 0 && (control_ & 0xc000) != 0xc000))
+      return std::unexpected{P2_E_IO};
+    for (std::size_t i = 0; i < SavedRegisters.size(); ++i) {
+      if (auto result = available(); !result)
+        return result;
+      report_.before[i + 1] = bus_.read16(bus_.ctx, SavedRegisters[i]);
+    }
+    if (auto result = available(); !result)
+      return result;
+    acquired_ = true;
+    // Leave existing AUX enabled; disable only a session opened by this tool.
+    if (!(control_ & 0xc000)) {
+      opened_ = true;
+      if (auto result = card_.enable_aux(true); !result)
+        return result;
+    }
+    bool changed = false;
+    auto chunk = std::span<uint8_t, 4096>{buffers_.bytes().data(), 4096};
+    auto comparison = buffers_.bytes().subspan(4096);
+    for (std::size_t pass = 0; pass < files_.size(); ++pass) {
+      if (pass && (fflush(files_[0]) || fseek(files_[0], 0, SEEK_SET)))
+        return std::unexpected{P2_E_IO};
+      Sha256 hash;
+      for (uint32_t address = 0; address < NvBytes; address += chunk.size()) {
+        if (auto result = available(); !result)
+          return result;
+        if (auto result = within_deadline(); !result)
+          return result;
+        if (auto result = stable_chunk(address, chunk); !result)
+          return result;
+        if (pass) {
+          const auto got =
+              fread(comparison.data(), 1, comparison.size(), files_[0]);
+          report_.comparison_read_bytes = static_cast<uint32_t>(got);
+          if (got != comparison.size())
+            return std::unexpected{P2_E_IO};
+          for (std::size_t i = 0; i < chunk.size(); ++i)
+            if (chunk[i] != comparison[i]) {
+              if (!report_.mismatch_bytes)
+                report_.first_mismatch = address + static_cast<uint32_t>(i);
+              ++report_.mismatch_bytes;
+            }
+        }
+        if (fwrite(chunk.data(), 1, chunk.size(), files_[pass]) != chunk.size())
+          return std::unexpected{P2_E_IO};
+        changed |= std::any_of(chunk.begin() + 1, chunk.end(),
+                               [&](uint8_t byte) { return byte != chunk[0]; });
+        hash.update(chunk);
+        report_.bytes[pass] += chunk.size();
+        if ((address & 0xfffff) == 0) {
+          p2_printf("NV pass %u: %lu / %lu bytes\n",
+                    static_cast<unsigned>(pass + 1),
+                    static_cast<unsigned long>(report_.bytes[pass]),
+                    static_cast<unsigned long>(NvBytes));
+          fflush(stdout);
+        }
+      }
+      if (fflush(files_[pass]))
+        return std::unexpected{P2_E_IO};
+      report_.sha256[pass] = hash.hex();
+    }
+    if (!changed || report_.mismatch_bytes ||
+        report_.sha256[0] != report_.sha256[1])
+      return std::unexpected{P2_E_VERIFY};
+    return {};
+  }
+  CardStatus finish() {
+    // Ignore Ctrl-C only for cleanup. Presence is still sticky in the backend.
+    auto cleanup_bus = bus_;
+    cleanup_bus.cancelled = nullptr;
+    Card cleanup_card{cleanup_bus};
+    CardStatus result;
+    // Clear selector while AUX is enabled; never replay opaque snapshots.
+    if (bus_.present(bus_.ctx))
+      bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+    if (opened_)
+      result = cleanup_card.enable_aux(false);
+    if (!bus_.present(bus_.ctx) && result)
+      result = std::unexpected{P2_E_REMOVED};
+    if (bus_.present(bus_.ctx)) {
+      report_.after[0] = bus_.read16(bus_.ctx, P2_CONTROL);
+      if ((report_.after[0] & 0xc000) != (control_ & 0xc000) && result)
+        result = std::unexpected{P2_E_VERIFY};
+      for (std::size_t i = 0;
+           i < SavedRegisters.size() && bus_.present(bus_.ctx); ++i)
+        report_.after[i + 1] = bus_.read16(bus_.ctx, SavedRegisters[i]);
+      if (!bus_.present(bus_.ctx) && result)
+        result = std::unexpected{P2_E_REMOVED};
+    }
+    return result;
+  }
+  static constexpr std::array<uint16_t, 5> SavedRegisters{
+      P2_PARAM0, P2_PARAM1, P2_PARAM2, P2_AUXPAGE, P2_AUXOFFSET};
+  p2_bus &bus_;
+  Card card_;
+  std::array<FILE *, 2> files_;
+  ByteBuffer buffers_;
+  CaptureReport report_;
+  uint32_t start_ = 0;
+  uint16_t control_ = 0;
+  bool opened_ = false, acquired_ = false;
+};
+int verify_file(const char *name, const char *expected) {
+  auto file = File::open(name, "rb");
+  auto buffer = ByteBuffer::allocate(4096);
+  if (!file || !buffer)
+    return P2_E_IO;
+  Sha256 hash;
   uint32_t total = 0;
-  int rc = P2_E_IO;
-  if (!file)
-    return rc;
-  buf = p2::allocate_bytes(4096);
-  if (!buf) {
-    fclose(file);
-    return rc;
+  while (const auto count =
+             fread(buffer.bytes().data(), 1, buffer.size(), file.get())) {
+    if (count > NvBytes - total)
+      return P2_E_IO;
+    total += static_cast<uint32_t>(count);
+    hash.update(buffer.bytes().first(count));
   }
-  p2_sha256_init(&hash);
-  while ((n = fread(buf.get(), 1, 4096, file)) != 0) {
-    if (n > P2_NV_BYTES - total)
-      goto done;
-    total += (uint32_t)n;
-    p2_sha256_update(&hash, buf.get(), n);
-  }
-  if (ferror(file) || total != P2_NV_BYTES)
-    goto done;
-  p2_sha256_hex(&hash, actual);
-  rc = strcmp(actual, expected) ? P2_E_VERIFY : P2_OK;
-done:
-  if (fclose(file))
-    rc = P2_E_IO;
-  return rc;
+  if (ferror(file.get()) || total != NvBytes)
+    return P2_E_IO;
+  const auto actual = hash.hex();
+  if (!file.close())
+    return P2_E_IO;
+  return std::strcmp(actual.data(), expected) ? P2_E_VERIFY : P2_OK;
 }
-int p2_backup_command(const char *directory, const char *utc) {
-  struct p2_platform *platform = nullptr;
-  struct p2_card_info card = {};
-  struct p2_bus bus;
-  struct p2_capture_result result = {};
-  char error[192] = "", paths[3][384];
-  FILE *files[2] = {nullptr, nullptr}, *manifest;
-  unsigned i;
-  int rc, verify = 0, configured = 0;
-  if (!p2_backup_valid_utc(utc) || !strstr(directory, utc) ||
-      strlen(directory) > 320) {
+} // namespace
+CaptureReport capture(p2_bus &bus, FILE &first, FILE &second) {
+  return NvCapture{bus, first, second}.run();
+}
+int run_command(const char *directory, const char *utc) {
+  if (!valid_utc(utc) || !std::strstr(directory, utc) ||
+      std::strlen(directory) > 320) {
     p2_fprintf(stderr, "Use a new persistent directory containing the supplied "
                        "YYYYMMDDTHHMMSSZ UTC timestamp.\n");
     return 20;
@@ -259,44 +249,51 @@ int p2_backup_command(const char *directory, const char *utc) {
                        "directories and RAM/T are refused.\n");
     return 20;
   }
-  for (i = 0; i < 3; ++i)
-    p2_snprintf(paths[i], sizeof(paths[i]), "%s/%s", directory,
-                i == 0   ? "nv-read-1.bin"
-                : i == 1 ? "nv-read-2.bin"
-                         : "manifest.json");
-  files[0] = fopen(paths[0], "w+b");
-  files[1] = fopen(paths[1], "w+b");
-  rc = files[0] && files[1] ? P2_OK : P2_E_IO;
-  if (!rc)
-    rc = p2_platform_open(&platform, &card, error, sizeof(error));
+  std::array<std::array<char, 384>, 3> paths;
+  constexpr std::array names{"nv-read-1.bin", "nv-read-2.bin", "manifest.json"};
+  for (std::size_t i = 0; i < paths.size(); ++i)
+    p2_snprintf(paths[i].data(), paths[i].size(), "%s/%s", directory, names[i]);
+  std::array files{File::open(paths[0].data(), "w+b"),
+                   File::open(paths[1].data(), "w+b")};
+  CaptureReport result;
+  p2_card_info card{};
+  PlatformError error;
+  int rc = files[0] && files[1] ? P2_OK : P2_E_IO;
+  // The lambda bounds slot ownership before files are closed and re-opened.
   if (!rc) {
-    rc = p2_platform_configure_backup(platform, &bus, error, sizeof(error));
-    if (!rc)
-      configured = 1;
+    rc = [&]() -> int {
+      auto slot = Slot::open();
+      if (!slot) {
+        error = slot.error();
+        return error.code;
+      }
+      card = slot->info();
+      auto bus = slot->configure(true);
+      if (!bus) {
+        error = bus.error();
+        return error.code;
+      }
+      result = capture(*bus, *files[0], *files[1]);
+      result.backend_cleanup_error = slot->finish_backup();
+      return result.error ? result.error : result.backend_cleanup_error;
+    }();
   }
-  if (!rc)
-    rc = p2_capture_nv(&bus, files[0], files[1], &result);
-  if (configured) {
-    result.backend_cleanup_error = p2_platform_finish_backup(platform);
-    if (result.backend_cleanup_error && !rc)
-      rc = result.backend_cleanup_error;
-  }
-  p2_platform_close(platform);
-  for (i = 0; i < 2; ++i)
-    if (files[i] && fclose(files[i]) && !rc)
+  for (auto &file : files)
+    if (!file.close() && !rc)
       rc = P2_E_IO;
-  if (result.bytes[0] == P2_NV_BYTES && result.bytes[1] == P2_NV_BYTES) {
-    int file_rc = verify_file(paths[0], result.sha256[0]);
+  bool verify = false;
+  if (result.bytes[0] == NvBytes && result.bytes[1] == NvBytes) {
+    int file_rc = verify_file(paths[0].data(), result.sha256[0].data());
     if (!file_rc)
-      file_rc = verify_file(paths[1], result.sha256[1]);
+      file_rc = verify_file(paths[1].data(), result.sha256[1].data());
     if (!file_rc)
-      verify = 1;
+      verify = true;
     else if (!rc)
       rc = file_rc;
   }
-  manifest = fopen(paths[2], "wb");
+  auto manifest = File::open(paths[2].data(), "wb");
   if (manifest) {
-    p2_fprintf(manifest,
+    p2_fprintf(manifest.get(),
                "{\n  \"format\": \"Prism2 AUX NV capture 1\",\n  "
                "\"tool_version\": \"" P2_VERSION "\",\n"
                "  \"utc_supplied\": \"%s\",\n  \"timestamp_basis\": "
@@ -327,7 +324,7 @@ int p2_backup_command(const char *directory, const char *utc) {
                "  \"authorizes_impactful_operation\": false\n}\n",
                utc, card.manufacturer, card.product,
                (unsigned long)result.bytes[0], (unsigned long)result.bytes[1],
-               result.sha256[0], result.sha256[1],
+               result.sha256[0].data(), result.sha256[1].data(),
                (unsigned long)result.elapsed_us, result.cleanup_error, rc,
                rc ? "false" : "true", result.backend_cleanup_error,
                (unsigned long)result.page_reads,
@@ -339,21 +336,22 @@ int p2_backup_command(const char *directory, const char *utc) {
                result.before[4], result.before[5], result.after[0],
                result.after[1], result.after[2], result.after[3],
                result.after[4], result.after[5], verify ? "true" : "false");
-    if (ferror(manifest))
+    if (ferror(manifest.get()))
       rc = P2_E_IO;
-    if (fclose(manifest))
+    if (!manifest.close())
       rc = P2_E_IO;
   } else
     rc = P2_E_IO;
   if (rc)
     p2_fprintf(stderr,
                "NV capture failed: %s; %s. Keep partial files and manifest.\n",
-               p2_error_string(rc), error);
+               p2_error_string(rc), error.message.data());
   else
     p2_printf("Two complete AUX NV reads match byte-for-byte; saved files "
               "reopened and SHA-256 verified.\n"
               "SHA-256: %s\nPhysical flash coverage/profile must still be "
               "established; active operations remain blocked.\n",
-              result.sha256[0]);
+              result.sha256[0].data());
   return rc ? 20 : 0;
 }
+} // namespace p2::backup
