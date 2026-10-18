@@ -180,6 +180,12 @@ public:
         "  \"byte_order\": \"little-endian word bytes\",\n"
         "  \"capture_count\": %u,\n"
         "  \"alias_bytes\": %lu,\n"
+        "  \"page_reads\": %lu,\n"
+        "  \"page_disagreements\": %lu,\n"
+        "  \"mismatch_bytes\": %lu,\n"
+        "  \"first_mismatch\": %lu,\n"
+        "  \"control_before\": %u,\n"
+        "  \"control_after\": %u,\n"
         "  \"bytes_read\": %s,\n"
         "  \"sha256\": %s,\n"
         "  \"capture_error\": %d,\n  \"cleanup_error\": %d,\n"
@@ -197,8 +203,13 @@ public:
                   "model microseconds, not UTC",
         static_cast<unsigned long>(started), static_cast<unsigned long>(ended),
         info.manufacturer, info.product, native_ ? 1u : 2u,
-        native_ ? 0x20000ul : 0ul, byte_counts.data(), hashes.data(),
-        result.error, result.cleanup_error, error, saved ? "true" : "false");
+        native_ ? 0x20000ul : 0ul,
+        static_cast<unsigned long>(result.page_reads),
+        static_cast<unsigned long>(result.page_disagreements),
+        static_cast<unsigned long>(result.mismatch_bytes),
+        static_cast<unsigned long>(result.first_mismatch), result.before[0],
+        result.after[0], byte_counts.data(), hashes.data(), result.error,
+        result.cleanup_error, error, saved ? "true" : "false");
     const int manifest_error = save_text(4 + index, text, count);
     if (!error)
       error = manifest_error;

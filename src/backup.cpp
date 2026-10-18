@@ -107,11 +107,17 @@ private:
             break;
           ++report_.page_disagreements;
           std::copy(next.begin(), next.end(), out.begin() + page);
+          // Allow AUX data to settle after firmware commands. Only disagreeing
+          // whole-page reads wait; no payload write, voting or byte repair.
+          bus_.delay_us(bus_.ctx, 5000);
         }
       }
       // Two consecutive whole pages; never vote or repair individual bytes.
-      if (attempt == 20)
+      if (attempt == 20) {
+        p2_fprintf(stderr, "NV page unstable at 0x%06lx after 20 reads\n",
+                   static_cast<unsigned long>(address + page));
         return std::unexpected{P2_E_VERIFY};
+      }
     }
     return {};
   }
