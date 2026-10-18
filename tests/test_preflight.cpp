@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "card_profile.h"
+#include "compatibility.h"
 #include "preflight.h"
 #include <cstdio>
 #include <cstdlib>
@@ -47,7 +48,12 @@ int main() {
                    Volume{0x444f5301, 82, 100, -1, 512, false},
                    Volume{0x444f5301, 82, 1000000, 0, -1, false}})
     CHECK(!check_volume(bad));
-  CHECK(p2::profile::programming_approved());
+  for (auto id : p2::compatibility::PcCards)
+    CHECK(p2::compatibility::cis(id >> 16, id & 0xffff));
+  CHECK(p2::compatibility::product(
+      0, 0, {"Linksys", "Wireless CompactFlash Card", "", ""}));
+  CHECK(!p2::compatibility::product(0xffff, 0xffff,
+                                    {"Other", "Ethernet", "", ""}));
   // Original synthetic PDA with independent polynomial-long-division CRC.
   std::array<uint8_t, P2_PDA_SIZE> pda{};
   auto put = [&](size_t pos, uint16_t value) {
@@ -84,20 +90,40 @@ int main() {
   p2_card_info cis{0xb, 0x7300, 0, 0, 0};
   auto matched = p2::profile::observe(cis, pda);
   CHECK(matched);
-  CHECK(
-      matched->sram_width_inference == 16 && !matched->hardware_authorization &&
-      !matched->physical_coverage_verified && !matched->sram_capacity_verified);
+  CHECK(matched->sram_width_inference == 16 && matched->nic.id == 0x800c);
   cis.product = 0x7301;
-  CHECK(!p2::profile::observe(cis, pda));
+  CHECK(p2::profile::observe(cis, pda));
   cis.product = 0x7300;
   put(16, 1);
+  seal();
+  CHECK(p2::profile::observe(cis, pda)->sram_width_inference == 8);
+  put(16, 7);
   seal();
   CHECK(!p2::profile::observe(cis, pda));
   put(16, 3);
   put(4, 0x800d);
   seal();
+  CHECK(p2::profile::observe(cis, pda));
+  for (auto platform : p2::compatibility::Platforms) {
+    put(4, platform);
+    put(6, 7); // Card revisions and variants are not a one-card tuple lock.
+    put(8, 2);
+    seal();
+    auto observed = p2::profile::observe(cis, pda);
+    CHECK(observed && observed->nic.id == platform &&
+          observed->nic.variant == 7);
+  }
+  put(4, 0x8010); // USB-only platform.
+  seal();
   CHECK(!p2::profile::observe(cis, pda));
   put(4, 0x800c);
+  seal();
+  put(14, 5); // RAM-size PDR is valid, and absent configuration uses detection.
+  seal();
+  auto detected = p2::profile::observe(cis, pda);
+  CHECK(detected && detected->ram_size_present &&
+        !detected->sram_width_inference);
+  put(14, 0x400);
   seal();
   pda[22] ^= 1;
   CHECK(!p2::profile::observe(cis, pda));

@@ -20,8 +20,7 @@ constexpr std::array Names{"before-read-1.bin", "before-read-2.bin",
                            "after-read-1.bin",  "after-read-2.bin",
                            "before.json",       "after.json",
                            "transaction.json"};
-// The model uses a synthetic profile. Native admission is confined to the
-// user-accepted MA401 8 MiB NV map and a RAM-only x16 operation.
+// The model uses a synthetic identity; native identity comes from fresh PDA.
 class CaptureJournal final : public Journal {
 public:
   CaptureJournal(const char *directory, const char *utc, const char *operation,
@@ -30,19 +29,18 @@ public:
       : directory_(directory), utc_(utc), operation_(operation),
         native_(native), offset_east_(offset_east), expected_(expected) {}
   CardStatus prepare() override {
-    // Only the qualified MA401 operations reach native storage/slot
-    // acquisition.
+    // Reserve and verify backup storage before acquiring the card.
     if (native_) {
 #ifdef PRISM2_AMIGA
-      // Admission is narrow; fresh same-claim captures, exact PDA/CIS/input
-      // checks and runtime bootstrap/JEDEC proof remain mandatory for flash.
-      const bool flash = !std::strcmp(operation_, "flash-sst");
+      // Fresh same-claim captures and runtime bootstrap/JEDEC checks.
+      const bool flash = !std::strcmp(operation_, "flash-parallel");
       if ((std::strcmp(operation_, "probe-x16") &&
-           std::strcmp(operation_, "bootstrap-x16") &&
+           std::strcmp(operation_, "probe-x8") &&
+           std::strcmp(operation_, "bootstrap") &&
            std::strcmp(operation_, "verify-current") && !flash) ||
           !preflight::valid_offset(offset_east_))
         return std::unexpected{P2_E_UNSUPPORTED};
-      if (flash && (!expected_.compare || !profile::programming_approved()))
+      if (flash && !expected_.compare)
         return std::unexpected{P2_E_UNSUPPORTED};
       auto session =
           preflight::NativeSession::create(directory_, utc_, offset_east_);
@@ -93,8 +91,7 @@ public:
   }
   CardStatus capture(p2_bus &bus, Phase phase,
                      const p2_card_info &info) override {
-    if (native_ ? (info.manufacturer != 0xb || info.product != 0x7300)
-                : (info.manufacturer != 0x0274 || info.product != 0x1613))
+    if (!native_ && (info.manufacturer != 0x0274 || info.product != 0x1613))
       return std::unexpected{P2_E_UNSUPPORTED};
     const std::size_t index = phase == Phase::Before ? 0 : 1;
     // A journal is single-use, with a strict before/after sequence.
@@ -188,7 +185,7 @@ public:
         "  \"saved_file_error\": %d,\n"
         "  \"files_reopened_and_verified\": %s\n}\n",
         native_ ? "false" : "true",
-        native_ ? "ma401-aux-nv-8m-ram-probe-v1"
+        native_ ? "prism2-pcmcia-aux-nv-8m-v1"
                 : "protocol-model-nv-linear-8m-v1",
         operation_, index ? "after" : "before", utc_, started_label.data(),
         ended_label.data(), offset_text.data(),
@@ -324,8 +321,14 @@ private:
         fread(pda->data(), 1, pda->size(), file.get()) != pda->size())
       return P2_E_IO;
     auto observed = profile::observe(info, *pda);
-    if (!observed || observed->sram_width_inference != 16)
-      return observed ? P2_E_UNSUPPORTED : observed.error();
+    if (!observed)
+      return observed.error();
+    const unsigned requested = !std::strcmp(operation_, "probe-x8")    ? 8
+                               : !std::strcmp(operation_, "probe-x16") ? 16
+                                                                       : 0;
+    if (requested && observed->sram_width_inference &&
+        requested != observed->sram_width_inference)
+      return P2_E_ARGUMENT;
     return file.close() ? P2_OK : P2_E_IO;
   }
   // Declared before streams: they close before CurrentDir/locks are released.

@@ -1,4 +1,4 @@
-# Native MA401 firmware update
+# Native Prism2 firmware update
 
 **Start here: [quick start](QUICKSTART.md).**
 
@@ -6,10 +6,11 @@
 `Prism2Flash --version` do not access the card. Use `Stack 16384` for hardware
 operations. Firmware files are not distributed with this project.
 
-The current programming path is restricted to the qualified Netgear MA401
-V2.5 / PD5LMWP200: exact MA401RA/ISL37300P CIS, NIC 800c/0/1/0, x16 SRAM
-configuration and runtime SST BF:D5 identification. A matching product name
-alone does not approve another card. Generic dead-card recovery is not exposed.
+Card recognition follows the Host AP and prism2.device compatibility tables.
+The fresh PDA supplies the NIC identity and x8/x16 SRAM configuration; firmware
+metadata is checked against this card. The DOS host-flash engine selects AMD,
+ST, SST or Atmel commands from its live JEDEC identification.
+See [card and firmware selection](COMPATIBILITY.md).
 
 ## Simple commands
 
@@ -35,8 +36,8 @@ image includes this card's own PDA, CIS and unchanged gaps, so its hash is
 card-specific. The option is accepted by both commands; saved hashes never
 authorize another insertion or replace fresh captures.
 
-The initial bootstrap hash is required. The PRI/STA hashes below identify the
-tested pair; other compatible PRI/STA images pass the same metadata, platform,
+The hashes below identify the MA401 inputs used on hardware. Supply the initial
+image matching your card; compatible PRI/STA images pass the same metadata, platform,
 interface, PDA and address checks. Their hashes are recorded automatically:
 
 | Input | Component | SHA-256 |
@@ -55,10 +56,11 @@ only validated image segments onto the complete old 128 KiB image, preserves
 the CIS/PDA interval and every other gap, saves the intended image, reopens it
 and checks its hash.
 
-The DOS-derived x16 double latch and RAM sentinel establish Genesis access.
+The DOS-derived x8/x16 double latch and RAM sentinel establish Genesis access.
 Both true byte-write lanes must pass a reversible RAM scratch test before the
-original initial code is loaded and verified. The low-07 handoff precedes
-SST identification and programming. Only BF:D5 is accepted. The engine checks
+original initial code is loaded and verified. The SRAM-width-specific handoff precedes
+JEDEC identification and programming. AMD 01:6E, ST 20:23, SST BF:D5 and
+Atmel 1F:04/05 select the corresponding DOS command addresses. The engine checks
 the complete old flash, issues one erase, programs each non-FF byte once and
 compares every physical flash byte with the intended image. Polling is bounded.
 
@@ -85,5 +87,4 @@ decision, not a success result. `recovery-release.json` records the actual
 cleanup. Never cold-boot an unverified partial flash.
 
 See [hardware results](HARDWARE-TESTING.md) and the
-[original DOS derivation](DOS-REFERENCE.md). The release supports this narrow
-qualified path; other cards and restoration remain separate work.
+[original DOS derivation](DOS-REFERENCE.md).

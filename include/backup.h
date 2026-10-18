@@ -19,7 +19,8 @@ struct CaptureReport {
 // A report retains partial acquisition and cleanup evidence even on failure.
 [[nodiscard]] CaptureReport capture(p2_bus &bus, FILE &first, FILE &second);
 // One complete capture, checking every alias against the first physical image.
-// Only qualified maps may supply alias_bytes; no voting or repaired bytes.
+// alias_bytes specifies the flash algorithm geometry; no voting or repaired
+// bytes.
 [[nodiscard]] CaptureReport capture_single(p2_bus &, FILE &,
                                            uint32_t alias_bytes);
 [[nodiscard]] bool valid_utc(std::string_view timestamp,

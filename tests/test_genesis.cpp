@@ -151,8 +151,8 @@ static void pda(void) {
   memset(data, 0xff, sizeof(data));
   CHECK(p2_validate_pda(data) == P2_E_PDA);
   CHECK(p2::Card::supports(0x801b));
-  CHECK(!p2::Card::supports(0x800c));
-  CHECK(!p2::Card::supports(0x8008));
+  CHECK(p2::Card::supports(0x800c));
+  CHECK(p2::Card::supports(0x8008));
   CHECK(!p2::Card::supports(0x001f));
   p2_mock_free(&m);
   CHECK(p2_mock_init(&m, 8) == 0);

@@ -5,6 +5,7 @@
  * See docs/SOURCES.md for the pinned source files and provenance.
  */
 #include "prism2.h"
+#include "compatibility.h"
 #include <algorithm>
 #include <cstring>
 
@@ -371,12 +372,7 @@ CardResult<Identity> Card::identity(uint16_t rid) {
     return std::unexpected{result.error()};
   return id;
 }
-bool Card::supports(uint16_t id) {
-  // HFA3842 release IDs. Early HFA3841, SSF and ambiguous 800c await profiles.
-  constexpr std::array<uint16_t, 9> ids{0x800b, 0x800d, 0x8012, 0x8016, 0x801a,
-                                        0x8017, 0x801b, 0x8018, 0x801c};
-  return std::find(ids.begin(), ids.end(), id) != ids.end();
-}
+bool Card::supports(uint16_t id) { return compatibility::platform(id); }
 CardResult<uint32_t> Card::read_pda(std::span<uint8_t, P2_PDA_SIZE> data) {
   constexpr std::array<uint32_t, 4> addresses{0x7f0000, 0x3f0000, 0x390000,
                                               0x7f0002};
@@ -462,7 +458,7 @@ ProbeReport Card::enter_genesis(unsigned bits) {
       return std::unexpected{P2_E_IO};
     // The original DOS routine writes literal C5/45, independent of the
     // previous COR or the CIS tuple index. The native x16 path follows it.
-    // x8 remains a Host AP model experiment, unavailable on native hardware.
+    // HCR 1f/17 selects x8; HCR 0f/07 selects x16 (Host AP and DOS).
     report.cor_used = bits == 16 ? 0x45 : report.cor_before;
     report.aux_state_acquired = true; // Restore even a failed handshake.
     if (!report.aux_was_enabled) {

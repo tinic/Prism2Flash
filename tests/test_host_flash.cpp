@@ -15,6 +15,8 @@ struct FlashModel {
   bool program_stuck = false, cancel_after_erase = false;
   bool cancel_in_id = false, remove_in_id = false,
        cancel_on_erase_write = false;
+  uint8_t manufacturer = 0xbf, device = 0xd5;
+  uint32_t expected_unlock = 0x5555;
   uint32_t unlock_address = 0;
   FlashModel() : before(p2::flash::Bytes, 0xff), desired(before) {
     assert(!p2_mock_init(&mock, 16));
@@ -40,10 +42,10 @@ struct FlashModel {
           m.mock.cancel = 1;
         if (m.remove_in_id)
           m.mock.present = 0;
-        return static_cast<uint8_t>(m.unknown || m.unlock_address != 0x5555
-                                        ? 0xff
-                                    : offset == 0 ? 0xbf
-                                                  : 0xd5);
+        return static_cast<uint8_t>(
+            m.unknown || m.unlock_address != m.expected_unlock ? 0xff
+            : offset == 0                                      ? m.manufacturer
+                                                               : m.device);
       }
       return m.mock.nv_memory[offset];
     };
@@ -81,7 +83,7 @@ struct FlashModel {
           m.stage = 4;
         }
       } else {
-        assert(m.stage == 6 && value == 0x10 && address == 0x5555);
+        assert(m.stage == 6 && value == 0x10 && address == m.expected_unlock);
         ++m.erases;
         if (m.cancel_on_erase_write)
           m.mock.cancel = 1;
@@ -94,7 +96,8 @@ struct FlashModel {
   ~FlashModel() { p2_mock_free(&mock); }
   auto run() {
     p2::Card card{mock.bus};
-    const auto result = p2::flash::program_sst(card, mock.bus, before, desired);
+    const auto result =
+        p2::flash::program_parallel(card, mock.bus, before, desired);
     // NvCapture reads CONTROL first; a completed word verification must not
     // leave the NV selector obscuring normal registers on the Amiga.
     if (mock.present)
@@ -104,6 +107,21 @@ struct FlashModel {
 };
 } // namespace
 int main() {
+  for (auto id : {p2::flash::Identity{1, 0x6e}, p2::flash::Identity{0x20, 0x23},
+                  p2::flash::Identity{0xbf, 0xd5}, p2::flash::Identity{0x1f, 4},
+                  p2::flash::Identity{0x1f, 5}}) {
+    FlashModel m;
+    m.manufacturer = id.manufacturer;
+    m.device = id.device;
+    m.expected_unlock =
+        id.manufacturer == 1 || id.manufacturer == 0x20 ? 0x555 : 0x5555;
+    const auto r = m.run();
+    assert(!r.error && r.erase_started && !r.recovery_required);
+    assert(r.manufacturer == id.manufacturer && r.device == id.device);
+    assert(r.verified_bytes == p2::flash::Bytes && m.erases == 1 &&
+           m.programs == 4);
+    assert(std::equal(m.desired.begin(), m.desired.end(), m.mock.nv_memory));
+  }
   {
     FlashModel m;
     m.cancel_in_id = true;

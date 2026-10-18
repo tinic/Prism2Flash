@@ -113,7 +113,7 @@ A failed load retains Genesis and reports recovery required. The native
 uses the same fresh owned full before/after capture transaction. It checks
 NV/PDA and JEDEC ID/read-mode restoration without erase/programming.
 
-`flash::program_sst` implements DOS's two ID-unlock attempts, exact SST BF/D5
+`flash::program_parallel` implements DOS's two ID-unlock attempts, exact SST BF/D5
 admission, full128KiB old-image comparison, whole-chip erase, single-write
 per-byte equality polling and complete post-verification. Erase timeout has
 no continue option. Errors after erase setup retain a recovery-required
@@ -154,7 +154,7 @@ was required and subsequently passed at 22:15 UTC; failed empty after files rema
 `Prism2Flash` now has program/verify commands, exact input hashes, preparation
 from the same owned transaction's fresh PDA, a saved/reopened intended128KiB
 image, and comparison of every byte in the final8MiB capture against that
-intended image. Native program admission is restricted to the qualified MA401 path. Any failed erase,
+intended image. Native card admission uses the documented Host AP/prism2.device tables. Any failed erase,
 program or required after-capture retains card ownership and RAM through a
 recovery callback, after persisting the failure journal; explicit Ctrl-E
 releases ownership without a reset. The caller must not power-cycle an
@@ -181,7 +181,7 @@ command are distinct; PDA lookup checks bounds; missing UTC is explicit;
 post-hold cleanup gets a separate saved/reopened release record. Typed mock
 initialization fixes GCC14's class-memaccess warning without suppressing it.
 
-Native programming is admitted only for the exact MA401 path, with fresh owned
+Native programming uses each card's fresh PDA and live JEDEC identity, with fresh owned
 captures and all runtime checks above. Optional expected-plan SHA pins the
 freshly prepared128KiB image before bootstrap/erase. The independently
 constructed actual-card candidate preserves all gaps, CIS and PDA; its payload

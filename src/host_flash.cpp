@@ -49,8 +49,9 @@ CardResult<Identity> identify(Card &card) {
   }
   return result;
 }
-Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
-                   std::span<const uint8_t> desired) {
+Report program_parallel(Card &card, p2_bus &bus,
+                        std::span<const uint8_t> before,
+                        std::span<const uint8_t> desired) {
   Report report;
   if (before.size() != Bytes || desired.size() != Bytes || !bus.read8 ||
       !bus.write8) {
@@ -94,8 +95,12 @@ Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
     }
     report.manufacturer = identity->manufacturer;
     report.device = identity->device;
-    if (report.manufacturer != 0xbf || report.device != 0xd5)
+    if (!supported(*identity))
       return std::unexpected{P2_E_UNSUPPORTED};
+    const bool short_unlock =
+        report.manufacturer == 1 || report.manufacturer == 0x20;
+    const uint32_t unlock_a = short_unlock ? 0x555 : 0x5555;
+    const uint32_t unlock_b = short_unlock ? 0x2aa : 0x2aaa;
     std::array<uint8_t, 128> readback{};
     for (uint32_t address = 0; address < Bytes; address += readback.size()) {
       if (auto r = card.read_nv(0x380000 + address, readback); !r)
@@ -110,17 +115,17 @@ Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
       return r;
     if (auto r = write(0, 0xf0); !r)
       return r;
-    if (auto r = unlock(0x5555, 0x2aaa, 0x80); !r)
+    if (auto r = unlock(unlock_a, unlock_b, 0x80); !r)
       return r;
     // From this point any partial command or write failure requires retaining
     // the recovery session. Never issue a blind reset or retry the erase.
     report.recovery_required = true;
-    if (auto r = write(0x5555, 0xaa); !r)
+    if (auto r = write(unlock_a, 0xaa); !r)
       return r;
-    if (auto r = write(0x2aaa, 0x55); !r)
+    if (auto r = write(unlock_b, 0x55); !r)
       return r;
     report.erase_command_attempted = true;
-    if (auto r = write(0x5555, 0x10); !r)
+    if (auto r = write(unlock_a, 0x10); !r)
       return r;
     report.erase_started = true;
     const auto erased_at = bus.now_us(bus.ctx);
@@ -144,7 +149,7 @@ Report program_sst(Card &card, p2_bus &bus, std::span<const uint8_t> before,
         return std::unexpected{P2_E_TIMEOUT};
       if (desired[address] == 0xff)
         continue;
-      if (auto r = unlock(0x5555, 0x2aaa, 0xa0); !r)
+      if (auto r = unlock(unlock_a, unlock_b, 0xa0); !r)
         return r;
       if (auto r = write(address, desired[address]); !r)
         return r;

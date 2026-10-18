@@ -14,9 +14,9 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 ## [0.8.0-alpha.1] - 2026-10-18
 
-- Implement native MA401 x16 Genesis/bootstrap and SST BF:D5 programming,
+- Implement native Prism2 x8/x16 Genesis/bootstrap and DOS parallel-flash programming,
   derived from original DOS ILHOPFW.EXE 0.5e and independently reviewed by
-  DeepSeek. Pin the initial image; validate compatible user-supplied PRI/STA images and record their hashes.
+  DeepSeek. Accept user-supplied initial images and validate compatible PRI/STA images; record input hashes.
 - Add `Prism2Flash program|verify` and built-in help. Build the intended image
   from the same insertion's fresh PDA, preserve CIS/PDA and all gaps, save/reopen
   it and optionally check an independently prepared expected-image hash.
@@ -42,10 +42,16 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 ### Scope
 
-Qualified MA401 V2.5 / PD5LMWP200, pinned initial and validated compatible PRI/STA inputs. Other card
-profiles, generic dead-card recovery and a running-primary regular-flash path
-remain separate work. Exact hardware runs and their limitations are recorded
-in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
+Documented Prism2 PC Card IDs and product strings from prism2.device and Host AP;
+x8/x16 SRAM, fresh-PDA NIC binding, compatible firmware metadata, and all five
+parallel-flash JEDEC identities handled by the original DOS host programmer.
+
+- Remove the MA401 brand, CIS version-string and exact NIC revision locks.
+  Use this insertion's PDA identity for programming and post-boot verification.
+- Select AMD/ST short unlock addresses or SST/Atmel long unlock addresses
+  from runtime identification, with complete pre/post image verification.
+- Support explicit x8/x16 SRAM and Host AP runtime detection when the PDA omits
+  the configuration PDR. Retain SRAM size records instead of refusing them.
 
 - Put a concise quick start first in README/docs. Generate local timestamps and
   short backup subdrawers with `--backup-dir`. Dates are optional labels; an

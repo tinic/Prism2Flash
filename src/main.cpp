@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "backup.h"
 #include "bootstrap.h"
+#include "card_profile.h"
 #include "file.h"
 #include "host_flash.h"
 #include "operation.h"
@@ -40,18 +41,18 @@ static void usage(void) {
        "firmware/PDA.\n"
        "probe resets the card and writes four RAM bytes, then restores normal "
        "mode.\n"
-       "Native MA401 x16 probe: append --output NEW_DIRECTORY --utc "
+       "Native Prism2 x8/x16 probe: append --output NEW_DIRECTORY --utc "
        "YYYYMMDDTHHMMSSZ\n"
        "  --utc-offset MINUTES_EAST_OF_UTC; fresh before/after backups are "
        "mandatory.\n"
-       "Native inspect, x8 probing and probing without backup arguments "
+       "Native inspect and probing without backup arguments "
        "remain blocked.\n"
        "backup reads all AUX NV addresses twice; it never initializes or "
        "resets the card.\n"
        "Select SRAM width from the exact card's hardware documentation.\n"
-       "bootstrap loads the pinned DOS initial code into RAM, with full "
+       "bootstrap loads your DOS initial code into RAM, with full "
        "before/after captures.\n"
-       "No native flash programming command is enabled.");
+       "Use Prism2Flash for native flash programming.");
 }
 namespace {
 struct Options {
@@ -104,15 +105,12 @@ void show_id(const char *label, const p2::Identity &id) {
             static_cast<unsigned>(id.id), static_cast<unsigned>(id.variant),
             static_cast<unsigned>(id.major), static_cast<unsigned>(id.minor));
 }
-p2::CardStatus show_firmware(p2::Card &card, bool ma401,
-                             const char *primary_label) {
+p2::CardStatus show_firmware(p2::Card &card, bool, const char *primary_label) {
   auto nic = card.identity(P2_RID_NICID);
   if (!nic)
     return std::unexpected{nic.error()};
   show_id("NIC", *nic);
-  const bool supported = ma401 ? nic->id == 0x800c && nic->variant == 0 &&
-                                     nic->major == 1 && nic->minor == 0
-                               : p2::Card::supports(nic->id);
+  const bool supported = p2::Card::supports(nic->id);
   if (!supported)
     return std::unexpected{P2_E_UNSUPPORTED};
   auto primary = card.identity(P2_RID_PRIID);
@@ -185,7 +183,18 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
 }
 [[maybe_unused]] p2::CardStatus bootstrap_work(p2::Card &card, void *context) {
   const auto &image = *static_cast<const p2::firmware::InitialImage *>(context);
-  const auto loaded = p2::bootstrap::load(card, card.transport(), image);
+  auto saved = p2::File::open("before-read-1.bin", "rb");
+  std::array<uint8_t, P2_PDA_SIZE> saved_pda{};
+  if (!saved || fseek(saved.get(), 0x7f0000, SEEK_SET) ||
+      fread(saved_pda.data(), 1, saved_pda.size(), saved.get()) !=
+          saved_pda.size() ||
+      !saved.close())
+    return std::unexpected{P2_E_IO};
+  const auto hardware = p2::profile::observe({}, saved_pda);
+  if (!hardware)
+    return std::unexpected{hardware.error()};
+  const auto loaded = p2::bootstrap::load(card, card.transport(), image,
+                                          hardware->sram_width_inference);
   p2_printf("Genesis RAM byte-write lanes verified=%u\n",
             loaded.byte_writes_verified);
   p2_printf("Initial RAM: error=%d latches=%u written=%lu verified=%lu "
@@ -212,7 +221,7 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
   p2_printf("JEDEC manufacturer=%02x device=%02x; reset to read mode; no "
             "erase/program.\n",
             identity->manufacturer, identity->device);
-  return identity->manufacturer == 0xbf && identity->device == 0xd5
+  return p2::flash::supported(*identity)
              ? p2::CardStatus{}
              : p2::CardStatus{std::unexpected{P2_E_UNSUPPORTED}};
 }
@@ -251,15 +260,13 @@ int main(int argc, char **argv) {
     if (!file)
       return 20;
     auto image = p2::firmware::InitialImage::read(*file);
-    if (!image || !file.close() ||
-        image->source_sha256() != "1d326cee5887005e9b755e74e5578ccfbd74ae5e7ebc"
-                                  "19c1af23e61b7a76c018") {
-      p2_fprintf(stderr, "Initial image must match original DOS ID010001.HEX; "
+    if (!image || !file.close()) {
+      p2_fprintf(stderr, "Invalid initial RAM image; "
                          "no card access.\n");
       return 20;
     }
     return p2::operation::run_native(options->directory, options->utc,
-                                     "bootstrap-x16", bootstrap_work, &*image,
+                                     "bootstrap", bootstrap_work, &*image,
                                      options->offset_east);
 #else
     return 20; // Host bootstrap protocol is exercised by a separate model.

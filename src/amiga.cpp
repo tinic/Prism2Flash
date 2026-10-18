@@ -4,6 +4,7 @@
  * netdev_pcmcia.c (MIT), copyright AmiNetXDuo contributors. See
  * third_party/NOTICES and docs/SOURCES.md.
  */
+#include "compatibility.h"
 #include "gayle_io.h"
 #include "owned_memory.h"
 #include "p2_stdio.h"
@@ -199,14 +200,6 @@ static void write_cfg(void *ctx, uint8_t reg, uint8_t value) {
   if (p->present)
     p->config[reg] = value;
 }
-static int supported_cis(uint16_t man, uint16_t card) {
-  /* Narrow, unambiguous PC Card entries from Host AP; no Hermes/Symbol
-   * shared IDs, multifunction CF cards, or arbitrary force override. */
-  return (man == 0x0274 && (card == 0x1612 || card == 0x1613)) ||
-         (man == 0x0250 && card == 0x0002) ||
-         (man == 0x028a && card == 0x0002) ||
-         (man == 0x02aa && card == 0x0002) || (man == 0x02d2 && card == 0x0001);
-}
 int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
                      char *error, size_t size) {
   auto platform = p2::make_owned<p2_platform>();
@@ -244,14 +237,10 @@ int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
     return P2_E_IO;
   }
   memset(tuple, 0, sizeof(tuple));
-  if (!copy_tuple(&p->handle, tuple, PCCARD_TPL_MANFID) || tuple[1] < 4) {
-    p2_snprintf(
-        error, size,
-        "Cannot read MANFID tuple; damaged CIS recovery is a later milestone");
-    return P2_E_IO;
+  if (copy_tuple(&p->handle, tuple, PCCARD_TPL_MANFID) && tuple[1] >= 4) {
+    p->info.manufacturer = uint16_t(tuple[2] | uint16_t(tuple[3]) << 8);
+    p->info.product = uint16_t(tuple[4] | uint16_t(tuple[5]) << 8);
   }
-  p->info.manufacturer = (uint16_t)(tuple[2] | ((uint16_t)tuple[3] << 8));
-  p->info.product = (uint16_t)(tuple[4] | ((uint16_t)tuple[5] << 8));
   *info = p->info;
   *out = platform.release();
   return P2_OK;
@@ -262,24 +251,28 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
   const struct TagItem *tags;
   ULONG *bases, *lengths, count, i;
   int found = 0;
-  if (backup_only) {
-    static const char strings[] =
-        "NETGEAR MA401RA Wireless PC\0Card\0ISL37300P\0Eval-RevA\0";
-    memset(tuple, 0, sizeof(tuple));
-    if (p->info.manufacturer != 0x000b || p->info.product != 0x7300 ||
-        !copy_tuple(&p->handle, tuple, PCCARD_TPL_VERS1) ||
-        tuple[1] < 2 + sizeof(strings) - 1 ||
-        memcmp(tuple + 4, strings, sizeof(strings) - 1)) {
-      p2_snprintf(error, size,
-                  "Backup requires the exact MA401RA / ISL37300P CIS identity");
-      return P2_E_UNSUPPORTED;
+  std::array<std::string_view, 4> products{};
+  memset(tuple, 0, sizeof(tuple));
+  if (copy_tuple(&p->handle, tuple, PCCARD_TPL_VERS1) && tuple[1] >= 2) {
+    size_t pos = 4, end = 2 + tuple[1];
+    for (auto &product : products) {
+      const auto start = pos;
+      while (pos < end && tuple[pos] && tuple[pos] != 0xff)
+        ++pos;
+      if (pos == end || tuple[pos] == 0xff)
+        break;
+      product = std::string_view{reinterpret_cast<const char *>(tuple + start),
+                                 pos - start};
+      ++pos;
     }
-    p->backup_only = 1;
-  } else if (!supported_cis(p->info.manufacturer, p->info.product)) {
+  }
+  if (!p2::compatibility::product(p->info.manufacturer, p->info.product,
+                                  products)) {
     p2_snprintf(error, size,
-                "CIS ID is outside the initial Prism2 PC Card allowlist");
+                "CIS does not identify a documented Prism2 PC Card");
     return P2_E_UNSUPPORTED;
   }
+  p->backup_only = backup_only;
   UtilityBase = OpenLibrary((CONST_STRPTR) "utility.library", 37);
   p->pccard = OpenLibrary((CONST_STRPTR)PCCARDNAME, 2);
   if (!UtilityBase || !p->pccard ||
@@ -296,26 +289,31 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
     goto bad_cis;
   p->info.config_base = GetTagData(PCCARD_RegisterBase, 0xffffffff, tags);
   free_tuple(p->pccard, tags);
-  memset(tuple, 0, sizeof(tuple));
-  if (!p->present || !copy_tuple(&p->handle, tuple, PCCARD_TPL_CFTABLEENTRY))
-    goto bad_cis;
-  tags = tuple_info(p->pccard, tuple);
-  if (!tags)
-    goto bad_cis;
-  p->info.config_index = (uint8_t)GetTagData(PCCARD_ModeNo, 0, tags);
-  bases = (ULONG *)GetTagData(PCCARD_IOWinBases, 0, tags);
-  lengths = (ULONG *)GetTagData(PCCARD_IOWinLengths, 0, tags);
-  count = GetTagData(PCCARD_IOWinCount, 0, tags);
-  if (bases && lengths && count <= 16) {
-    for (i = 0; i < count; ++i) {
-      if (lengths[i] == 0x40 && !(bases[i] & 1)) {
-        p->info.io_base = bases[i];
-        found = 1;
-        break;
+  // CONFIG may advertise several entries; use an entry with the MAC ports.
+  for (unsigned entry = 0; entry < 64 && p->present && !found; ++entry) {
+    memset(tuple, 0, sizeof(tuple));
+    if (!copy_tuple(&p->handle, tuple, PCCARD_TPL_CFTABLEENTRY | (entry << 16)))
+      break;
+    tags = tuple_info(p->pccard, tuple);
+    if (!tags)
+      continue;
+    p->info.config_index = uint8_t(GetTagData(PCCARD_ModeNo, 0, tags));
+    bases = (ULONG *)GetTagData(PCCARD_IOWinBases, 0, tags);
+    lengths = (ULONG *)GetTagData(PCCARD_IOWinLengths, 0, tags);
+    count = GetTagData(PCCARD_IOWinCount, 0, tags);
+    if (p->info.config_index && p->info.config_index <= 0x3f && bases &&
+        lengths && count <= 16) {
+      for (i = 0; i < count; ++i) {
+        if (lengths[i] >= 0x40 && !(bases[i] & 1) &&
+            bases[i] <= 0x10000 - 0x40) {
+          p->info.io_base = bases[i];
+          found = 1;
+          break;
+        }
       }
     }
+    free_tuple(p->pccard, tags);
   }
-  free_tuple(p->pccard, tags);
   /* Conservative V37 sizes; V39 maps carry explicit lengths. COR/CCSR
    * offsets from pccard.library already use mapped attribute units. */
   if (!found || p->info.config_index == 0 || p->info.config_index > 0x3f ||
@@ -374,8 +372,8 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
   return P2_OK;
 bad_cis:
   p2_snprintf(error, size,
-              "Unsupported CIS configuration; first CFTABLE entry must contain "
-              "a 64-byte I/O window");
+              "CIS configuration needs "
+              "at least a 64-byte I/O window");
   return P2_E_UNSUPPORTED;
 }
 int p2_platform_configure(struct p2_platform *p, struct p2_bus *bus,
