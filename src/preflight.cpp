@@ -8,6 +8,8 @@
 namespace p2::preflight {
 namespace {
 CardResult<int64_t> clock_seconds(Clock local, int offset_east) {
+  if (offset_east == LocalTime)
+    offset_east = 0;
   if (offset_east < -840 || offset_east > 840 || local.days < 0 ||
       local.days > 44559 || local.minutes < 0 || local.minutes >= 1440 ||
       local.ticks < 0 || local.ticks >= 3000)
@@ -43,9 +45,24 @@ CardResult<std::array<char, 17>> format_utc(int64_t seconds) {
 } // namespace
 CardResult<std::array<char, 17>> format_clock(Clock local, int offset_east) {
   const auto seconds = clock_seconds(local, offset_east);
-  return seconds ? format_utc(*seconds)
-                 : CardResult<std::array<char, 17>>{
-                       std::unexpected{seconds.error()}};
+  if (!seconds)
+    return std::unexpected{seconds.error()};
+  auto result = format_utc(*seconds);
+  if (result && offset_east == LocalTime)
+    (*result)[15] = 'L';
+  return result;
+}
+bool valid_timestamp(std::string_view timestamp, int offset_east) {
+  if (!valid_offset(offset_east) || timestamp.size() != 16)
+    return false;
+  if (offset_east != LocalTime)
+    return backup::valid_utc(timestamp);
+  if (timestamp[15] != 'L')
+    return false;
+  std::array<char, 17> calendar{};
+  std::copy(timestamp.begin(), timestamp.end(), calendar.begin());
+  calendar[15] = 'Z';
+  return backup::valid_utc(calendar.data());
 }
 CardResult<int64_t> utc_seconds(std::string_view utc) {
   if (!backup::valid_utc(utc))
@@ -73,7 +90,12 @@ CardResult<int64_t> utc_seconds(std::string_view utc) {
 }
 CardResult<int64_t> check_clock(Clock local, int offset_east,
                                 std::string_view supplied) {
-  auto reference = utc_seconds(supplied);
+  if (!valid_timestamp(supplied, offset_east))
+    return std::unexpected{P2_E_ARGUMENT};
+  std::array<char, 17> calendar{};
+  std::copy(supplied.begin(), supplied.end(), calendar.begin());
+  calendar[15] = 'Z';
+  auto reference = utc_seconds(calendar.data());
   auto actual = clock_seconds(local, offset_east);
   if (!reference || !actual)
     return std::unexpected{P2_E_ARGUMENT};
@@ -106,7 +128,7 @@ CardResult<std::array<char, 17>> Timeline::stamp(Checkpoint point, Clock local,
   if (elapsed > 1800000000u || elapsed < last_elapsed_ || skew < -2 ||
       skew > 2 || (next_ && *utc < last_utc_))
     return fail(P2_E_VERIFY);
-  auto text = format_utc(*utc);
+  auto text = format_clock(local, east);
   if (!text)
     return fail(text.error());
   last_utc_ = *utc;

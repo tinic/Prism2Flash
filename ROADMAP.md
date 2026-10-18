@@ -28,6 +28,13 @@ remain mandatory. Saved manifests never authorize a different insertion.
 See [hardware evidence](docs/HARDWARE-TESTING.md),
 [DOS derivation](docs/DOS-REFERENCE.md) and [native commands](docs/NATIVE-FLASH.md).
 
+## Remaining release work
+
+- Qualify reliable native full captures around INIT with the running MAC.
+  Existing programming/content/self-boot evidence is preserved; do not reflash.
+- Finish the local-time quick start, package the exact committed binaries and
+  corresponding source, integrate and publish, then remove task build debris.
+
 ## Implemented components
 
 - C++23 protocol, checked memory/storage wrappers and native Amiga backend.

@@ -100,6 +100,7 @@ CardResult<uint16_t> Card::aux_control() {
   if (control != 0xffff && (control & 0xc000) != 0 &&
       (control & 0xc000) != 0xc000) {
     bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+    bus_.delay_us(bus_.ctx, 5);
     if (auto r = interrupted(); !r)
       return std::unexpected{r.error()};
     control = bus_.read16(bus_.ctx, P2_CONTROL);
@@ -154,8 +155,12 @@ CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
         read[i + 1] = static_cast<uint8_t>(value >> 8);
         // An active MAC shares the external flash bus. Gayle/Emu68 can
         // issue the next AUX strobe before the NV word has advanced.
-        if (space == 0x1000)
-          bus_.delay_us(bus_.ctx, 1);
+        if (space == 0x1000) {
+          if (bus_.nv_word_gap)
+            bus_.nv_word_gap(bus_.ctx);
+          else
+            bus_.delay_us(bus_.ctx, 1);
+        }
       }
     }
     address += static_cast<uint32_t>(count);

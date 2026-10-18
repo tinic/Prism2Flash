@@ -4,6 +4,7 @@
  * netdev_pcmcia.c (MIT), copyright AmiNetXDuo contributors. See
  * third_party/NOTICES and docs/SOURCES.md.
  */
+#include "eclock_wait.h"
 #include "gayle_io.h"
 #include "owned_memory.h"
 #include "p2_stdio.h"
@@ -40,6 +41,7 @@ struct p2_platform {
   volatile UBYTE cancelled;
   int owned, configured, timer_open;
   int backup_only;
+  uint32_t nv_gap_ticks;
   uint8_t original_cor;
   volatile UBYTE *config;
   volatile UBYTE *io;
@@ -147,6 +149,26 @@ static uint32_t now_us(void *ctx) {
                  : "r"(a6)
                  : "d0", "d1", "a1", "cc", "memory");
   return (uint32_t)tv.tv_secs * UINT32_C(1000000) + (uint32_t)tv.tv_micro;
+}
+static uint32_t read_eclock(p2_platform *p, EClockVal &value) {
+  register struct Device *a6 __asm("a6") = p->timer->tr_node.io_Device;
+  register EClockVal *a0 __asm("a0") = &value;
+  register ULONG frequency __asm("d0");
+  __asm volatile("jsr a6@(-60)"
+                 : "=r"(frequency), "+r"(a0)
+                 : "r"(a6)
+                 : "d1", "a1", "cc", "memory");
+  return frequency;
+}
+static void nv_word_gap(void *ctx) {
+  auto *p = static_cast<p2_platform *>(ctx);
+  // ReadEClock samples the monotonic hardware clock directly. Avoid millions
+  // of GetSysTime conversions in the hot loop; all other delays stay intact.
+  p2::wait_nv_gap(p->nv_gap_ticks, [p] {
+    EClockVal value;
+    (void)read_eclock(p, value);
+    return uint32_t(value.ev_lo);
+  });
 }
 static void delay_us(void *ctx, uint32_t us) {
   auto *p = static_cast<p2_platform *>(ctx);
@@ -336,6 +358,15 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
     return P2_E_IO;
   }
   p->timer_open = 1;
+  {
+    EClockVal eclock;
+    const auto frequency = read_eclock(p, eclock);
+    if (!frequency) {
+      p2_snprintf(error, size, "timer.device has no E-clock frequency");
+      return P2_E_IO;
+    }
+    p->nv_gap_ticks = p2::nv_gap_ticks(frequency);
+  }
   p->config = p->map->cmm_AttributeMemory + p->info.config_base;
   p->io = p->map->cmm_IOMemory + p->info.io_base;
   if (!p->present) {
@@ -370,7 +401,7 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
   p->configured = 1;
   delay_us(p, 50000);
   *bus = p2_bus{p,      read16,  write16,   read_cfg, write_cfg, delay_us,
-                now_us, present, cancelled, read8,    write8};
+                now_us, present, cancelled, read8,    write8,    nv_word_gap};
   return P2_OK;
 bad_cis:
   p2_snprintf(error, size,

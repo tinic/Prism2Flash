@@ -1,6 +1,6 @@
 # Native MA401 firmware update
 
-**Start here: [six-step quick start](QUICKSTART.md).**
+**Start here: [quick start](QUICKSTART.md).**
 
 `Prism2Flash` is a native Amiga command. `Prism2Flash --help` and
 `Prism2Flash --version` do not access the card. Use `Stack 16384` for hardware
@@ -13,9 +13,15 @@ alone does not approve another card. Generic dead-card recovery is not exposed.
 
 ## Simple commands
 
-Use `--backup-dir EXISTING_DRAWER --utc-offset MINUTES_EAST` to generate a
-short timestamped subdrawer and UTC timestamp automatically from the Amiga
-clock. Both `program` and `verify` accept this form. The guide uses it.
+Use `--backup-dir EXISTING_DRAWER` to create a short timestamped subdrawer
+automatically. Both `program` and `verify` accept this form. Local timestamps
+end in `L`; the manifests identify them as local time with an unknown UTC
+offset. The tool still checks for wall-clock jumps against its monotonic timer.
+No timezone argument is required.
+
+For automatic UTC instead, add `--utc-offset MINUTES_EAST` (for example,
+`0` for a UTC clock or `-300` for UTC minus five hours). UTC timestamps end in
+`Z`. These options affect backup labels, not firmware compatibility.
 
 ## Explicit timestamp commands
 

@@ -16,6 +16,7 @@ struct p2_mock {
   uint8_t cfg_registers[32], cfg_values[32];
   uint32_t cfg_times[32];
   unsigned aux_space, nv_reads, corrupt_nv_after;
+  unsigned drop_aux_at_nv_read, aux_enables;
   unsigned ram_reads, corrupt_ram_once_at;
   unsigned access_delay_us;
   int drop_ram_writes, unstable_ram;

@@ -1,0 +1,101 @@
+{
+  "format": "Prism2Flash sanitized hardware result 1",
+  "date": "2026-10-18",
+  "hardware": "A1200, Netgear MA401 V2.5 / PD5LMWP200",
+  "cis": [
+    11,
+    29440
+  ],
+  "nic": [
+    32780,
+    0,
+    1,
+    0
+  ],
+  "initial_sha256": "1d326cee5887005e9b755e74e5578ccfbd74ae5e7ebc19c1af23e61b7a76c018",
+  "bootstrap": {
+    "run": "20261018T221517Z-bootstrap",
+    "source_commit": "fa2f45904186d6f98a2aecfc4b01f1dbabb3e7a7",
+    "binary_sha256": "1120ef1153dfbc4388c09d11d085515e150a713fccf1b9b2a9d7fab828fd0be8",
+    "success": true,
+    "x16_latches": 2,
+    "byte_write_lanes_verified": true,
+    "bytes_written_and_verified": 50,
+    "existing_matching_bytes": 3384,
+    "before_after_raw_sha256": "f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f",
+    "full_capture_count": 4
+  },
+  "program": {
+    "run": "20261018T223118Z-program",
+    "source_commit": "be2215bd2333b5bba53f41814b35edf2a341caf4",
+    "binary_sha256": "0bd436599f7451d89a58a0da2a4a9d112a585bb6898080a71b0e8ae0a53a46f8",
+    "jedec": [
+      191,
+      213
+    ],
+    "erase_completed": true,
+    "programmed_non_ff_bytes": 57802,
+    "verified_physical_bytes": 131072,
+    "intended_physical_sha256": "c86451112ad242c9d375260d8113f848b83e77b86d8c48e4ec6f7be49725cd96",
+    "cis_pda_interval_preserved": true,
+    "own_transaction_success": false,
+    "after_capture_error": 4,
+    "recovery": "Explicit release and already-qualified selector cleanup, without reset, rewrite or another erase"
+  },
+  "completed_post_program_readback": {
+    "run": "20261018T223627Z-program-readback",
+    "capture_count": 2,
+    "bytes_per_capture": 8388608,
+    "sha256": [
+      "043064358631045a04efecd6d13a05722ac9eaeb24902b7e88c9616116819598",
+      "043064358631045a04efecd6d13a05722ac9eaeb24902b7e88c9616116819598"
+    ],
+    "every_byte_equals_intended_image_repeated_64_times": true,
+    "saved_files_reopened_and_verified": true
+  },
+  "cold_boot": {
+    "sync_reboot_flush": true,
+    "power_cycle_completed": true,
+    "wrapper_readiness_ping_failed": true,
+    "independent_http_and_amiga_echo_passed": true,
+    "additional_power_cycle": false
+  },
+  "self_boot_identities": {
+    "run": "20261018T224923Z-verify",
+    "source_commit": "0d5622b9e6ed50e829123b1c0e34f43fd104dcce",
+    "binary_sha256": "0be3ddc63aab6637881f7e4c617e5fbd9aac8d27e8eef56ef373e0adbbd89f43",
+    "host_bootstrap_loaded": false,
+    "fresh_before_8m_sha256": "043064358631045a04efecd6d13a05722ac9eaeb24902b7e88c9616116819598",
+    "nic": [
+      32780,
+      0,
+      1,
+      0
+    ],
+    "primary": [
+      21,
+      1,
+      1,
+      1
+    ],
+    "station": [
+      31,
+      4,
+      1,
+      7
+    ],
+    "all_expected_identities_matched": true,
+    "own_transaction_success": false,
+    "after_capture_error": 6
+  },
+  "remaining_tool_issue": "Reliable full NV acquisition with running MAC: post-INIT page disagreements and later 0c8cd0d per-word GetSysTime pacing timeout; offline fixes await physical timing qualification. These failures do not invalidate the complete earlier intended-image readbacks or self-boot identities.",
+  "handoff": {
+    "sent_to": "claudecode",
+    "server_time": "2026-10-18T23:10:49.842Z",
+    "slot_released": true,
+    "recovery_session_held": false,
+    "firmware_versions": "PRI 1.1.1 / STA 1.7.4",
+    "wpa2_association_and_traffic_tested": false
+  },
+  "privacy": "No raw firmware, PDA, MAC address, serial number or calibration payload included."
+}

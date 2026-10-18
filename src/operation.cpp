@@ -4,6 +4,7 @@
 #include "file.h"
 #include "owned_memory.h"
 #include "p2_stdio.h"
+#include "preflight.h"
 #include "sha256.h"
 #include "storage.h"
 #include "version.h"
@@ -39,7 +40,7 @@ public:
       if ((std::strcmp(operation_, "probe-x16") &&
            std::strcmp(operation_, "bootstrap-x16") &&
            std::strcmp(operation_, "verify-current") && !flash) ||
-          offset_east_ < -840 || offset_east_ > 840)
+          !preflight::valid_offset(offset_east_))
         return std::unexpected{P2_E_UNSUPPORTED};
       if (flash && (!expected_.compare || !profile::programming_approved()))
         return std::unexpected{P2_E_UNSUPPORTED};
@@ -53,7 +54,12 @@ public:
       return std::unexpected{P2_E_UNSUPPORTED};
 #endif
     }
-    if (!backup::valid_utc(utc_) || !std::strstr(directory_, utc_) ||
+    bool valid_time = backup::valid_utc(utc_);
+#ifdef PRISM2_AMIGA
+    if (native_)
+      valid_time = preflight::valid_timestamp(utc_, offset_east_);
+#endif
+    if (!valid_time || !std::strstr(directory_, utc_) ||
         std::strlen(directory_) > 320)
       return std::unexpected{P2_E_ARGUMENT};
     if (!native_ && p2_platform_backup_directory(directory_))
@@ -149,6 +155,11 @@ public:
     auto &text = *storage;
     std::array<char, 64> byte_counts{};
     std::array<char, 144> hashes{};
+    std::array<char, 16> offset_text{};
+    if (local_time())
+      std::strcpy(offset_text.data(), "null");
+    else
+      p2_snprintf(offset_text.data(), offset_text.size(), "%d", offset_east_);
     if (native_) {
       p2_snprintf(byte_counts.data(), byte_counts.size(), "[%lu]",
                   static_cast<unsigned long>(result.bytes[0]));
@@ -169,9 +180,9 @@ public:
         "  \"simulation_only\": %s,\n  \"hardware_authorization\": false,\n"
         "  \"profile\": \"%s\",\n"
         "  \"operation\": \"%s\",\n  \"phase\": \"%s\",\n"
-        "  \"utc_supplied\": \"%s\",\n"
-        "  \"started_utc\": \"%s\",\n  \"ended_utc\": \"%s\",\n"
-        "  \"utc_offset_minutes_east\": %d,\n"
+        "  \"%s_supplied\": \"%s\",\n"
+        "  \"started_%s\": \"%s\",\n  \"ended_%s\": \"%s\",\n"
+        "  \"utc_offset_minutes_east\": %s,\n"
         "  \"timestamp_error\": %d,\n"
         "  \"timestamp_basis\": \"%s\",\n"
         "  \"started_us\": %lu,\n  \"ended_us\": %lu,\n"
@@ -182,7 +193,7 @@ public:
         "  \"alias_bytes\": %lu,\n"
         "  \"page_reads\": %lu,\n"
         "  \"page_disagreements\": %lu,\n"
-        "  \"aux_reenables\": %lu,\n"
+        "  \"aux_losses\": %lu,\n"
         "  \"mismatch_bytes\": %lu,\n"
         "  \"first_mismatch\": %lu,\n"
         "  \"control_before\": %u,\n"
@@ -195,19 +206,23 @@ public:
         native_ ? "false" : "true",
         native_ ? "ma401-aux-nv-8m-ram-probe-v1"
                 : "protocol-model-nv-linear-8m-v1",
-        operation_, index ? "after" : "before", utc_, started_utc.data(),
-        ended_utc.data(), offset_east_, timestamp_error,
-        native_ ? "AmigaDOS DateStamp, explicit east offset; UTC checked at "
-                  "start and wall clock compared with monotonic timer at "
-                  "every capture boundary"
-                : "operator-supplied UTC, unverified; start/end are wrapping "
-                  "model microseconds, not UTC",
+        operation_, index ? "after" : "before", time_kind(), utc_, time_kind(),
+        started_utc.data(), time_kind(), ended_utc.data(), offset_text.data(),
+        timestamp_error,
+        local_time() ? "AmigaDOS local DateStamp (L suffix), timezone unknown; "
+                       "wall clock compared with monotonic timer at every "
+                       "capture boundary"
+        : native_ ? "AmigaDOS DateStamp, explicit east offset; UTC checked at "
+                    "start and wall clock compared with monotonic timer at "
+                    "every capture boundary"
+                  : "operator-supplied UTC, unverified; start/end are wrapping "
+                    "model microseconds, not UTC",
         static_cast<unsigned long>(started), static_cast<unsigned long>(ended),
         info.manufacturer, info.product, native_ ? 1u : 2u,
         native_ ? 0x20000ul : 0ul,
         static_cast<unsigned long>(result.page_reads),
         static_cast<unsigned long>(result.page_disagreements),
-        static_cast<unsigned long>(result.aux_reenables),
+        static_cast<unsigned long>(result.aux_losses),
         static_cast<unsigned long>(result.mismatch_bytes),
         static_cast<unsigned long>(result.first_mismatch), result.before[0],
         result.after[0], byte_counts.data(), hashes.data(), result.error,
@@ -265,7 +280,7 @@ public:
         "{\n  \"format\": \"Prism2 transaction 2\",\n"
         "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
         "  \"simulation_only\": %s,\n  \"hardware_authorization\": false,\n"
-        "  \"operation\": \"%s\",\n  \"utc_supplied\": \"%s\",\n"
+        "  \"operation\": \"%s\",\n  \"%s_supplied\": \"%s\",\n"
         "  \"preparation_error\": %d,\n  \"acquisition_error\": %d,\n"
         "  \"operation_started\": %s,\n  \"operation_error\": %d,\n"
         "  \"readback_attempted\": %s,\n  \"readback_error\": %d,\n"
@@ -273,10 +288,11 @@ public:
         "  \"recovery_session_held\": %s,\n"
         "  \"cleanup_pending\": %s,\n"
         "  \"success\": %s\n}\n",
-        native_ ? "false" : "true", operation_, utc_, result.preparation_error,
-        result.acquisition_error, result.operation_started ? "true" : "false",
-        result.operation_error, result.readback_attempted ? "true" : "false",
-        result.readback_error, result.comparison_error, result.cleanup_error,
+        native_ ? "false" : "true", operation_, time_kind(), utc_,
+        result.preparation_error, result.acquisition_error,
+        result.operation_started ? "true" : "false", result.operation_error,
+        result.readback_attempted ? "true" : "false", result.readback_error,
+        result.comparison_error, result.cleanup_error,
         result.recovery_held ? "true" : "false",
         result.recovery_held ? "true" : "false",
         result.success() ? "true" : "false");
@@ -293,17 +309,17 @@ public:
     auto file = File::open(name, "w+b");
     if (!storage || !file)
       return std::unexpected{P2_E_IO};
-    const auto count =
-        p2_snprintf(storage->data(), storage->size(),
-                    "{\n  \"format\": \"Prism2 recovery release 1\",\n"
-                    "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
-                    "  \"utc_transaction_start\": \"%s\",\n"
-                    "  \"cleanup_pending\": false,\n  \"cleanup_error\": %d,\n"
-                    "  \"operation_error\": %d,\n  \"readback_error\": %d,\n"
-                    "  \"comparison_error\": %d,\n"
-                    "  \"ownership_released_without_reset\": true\n}\n",
-                    utc_, result.cleanup_error, result.operation_error,
-                    result.readback_error, result.comparison_error);
+    const auto count = p2_snprintf(
+        storage->data(), storage->size(),
+        "{\n  \"format\": \"Prism2 recovery release 1\",\n"
+        "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
+        "  \"%s_transaction_start\": \"%s\",\n"
+        "  \"cleanup_pending\": false,\n  \"cleanup_error\": %d,\n"
+        "  \"operation_error\": %d,\n  \"readback_error\": %d,\n"
+        "  \"comparison_error\": %d,\n"
+        "  \"ownership_released_without_reset\": true\n}\n",
+        time_kind(), utc_, result.cleanup_error, result.operation_error,
+        result.readback_error, result.comparison_error);
     if (count <= 0 || static_cast<std::size_t>(count) >= storage->size())
       return std::unexpected{P2_E_IO};
     Sha256 hash;
@@ -319,6 +335,10 @@ public:
   }
 
 private:
+  bool local_time() const {
+    return native_ && offset_east_ == preflight::LocalTime;
+  }
+  const char *time_kind() const { return local_time() ? "local" : "utc"; }
 #ifdef PRISM2_AMIGA
   int validate_native(const p2_card_info &info) {
     auto file = File::open(paths_[0].data(), "rb");

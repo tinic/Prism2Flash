@@ -84,8 +84,8 @@ CardResult<Owned<Evidence>> destination(const char *directory) {
 }
 CardResult<Owned<Evidence>> native(const char *directory, const char *utc,
                                    int east) {
-  if (!directory || !utc || !backup::valid_utc(utc) ||
-      !std::strstr(directory, utc) || east < -840 || east > 840)
+  if (!directory || !utc || !valid_timestamp(utc, east) ||
+      !std::strstr(directory, utc))
     return std::unexpected{P2_E_ARGUMENT};
   auto resolved = destination(directory);
   if (!resolved)

@@ -101,9 +101,10 @@ private:
           if (!control)
             return std::unexpected{control.error()};
           if (!(*control & 0xc000)) {
-            ++report_.aux_reenables;
-            if (auto result = card_.enable_aux(true); !result)
-              return result;
+            // Firmware changed access state during our capture. Preserve its
+            // disabled state; do not silently enable a new AUX session.
+            ++report_.aux_losses;
+            return std::unexpected{P2_E_VERIFY};
           }
         }
         auto bytes = attempt ? std::span{next} : out.subspan(page, next.size());

@@ -60,9 +60,12 @@ std::optional<Options> parse(int argc, char **argv) {
   }
   if (!options.primary || !options.station ||
       (bool(options.directory) == bool(options.backup_parent)) ||
-      (options.directory && !options.utc) || options.east == 10000 ||
+      (options.directory && !options.utc) ||
+      (options.utc && options.east == 10000) ||
       (!options.verify && !options.initial))
     return {};
+  if (options.east == 10000)
+    options.east = preflight::LocalTime;
   if (options.expected_plan) {
     const std::string_view digest = options.expected_plan;
     if (digest.size() != 64 ||
@@ -259,19 +262,19 @@ int main(int argc, char **argv) {
     puts("Prism2Flash " P2_VERSION "\n"
          "  Prism2Flash program --initial ID010001.HEX --primary pk010101.hex "
          "--station sf010704.hex\n"
-         "    --backup-dir EXISTING_DRAWER --utc-offset "
-         "MINUTES_EAST\n"
+         "    --backup-dir EXISTING_DRAWER\n"
          "  Prism2Flash verify --primary pk010101.hex --station sf010704.hex\n"
-         "    --backup-dir EXISTING_DRAWER --utc-offset "
-         "MINUTES_EAST\n"
+         "    --backup-dir EXISTING_DRAWER\n"
          "Fresh full before/after captures are mandatory; no skip/force "
          "option.");
-    puts("Use Stack 16384. Supply your compatible PRI/STA files. One full "
-         "before and one full after capture.\n"
-         "Timestamped backup drawers are automatic; set the Amiga clock "
-         "correctly. Offset is minutes east of UTC (0 for a UTC clock).\n"
-         "Optional: --expected-plan-sha SHA256; advanced: --output NEW_DRAWER "
-         "--utc YYYYMMDDTHHMMSSZ instead of --backup-dir.");
+    puts(
+        "Use Stack 16384. Supply your compatible PRI/STA files. One full "
+        "before and one full after capture.\n"
+        "Backup drawers use the Amiga local date/time automatically (L "
+        "suffix).\n"
+        "Optional: --expected-plan-sha SHA256; advanced: --output NEW_DRAWER "
+        "--utc YYYYMMDDTHHMMSSZ --utc-offset MINUTES_EAST instead of "
+        "--backup-dir. --utc-offset alone generates automatic UTC timestamps.");
     return argc == 2 && (std::string_view{argv[1]} == "--help" ||
                          std::string_view{argv[1]} == "help")
                ? 0
@@ -285,8 +288,7 @@ int main(int argc, char **argv) {
     const auto utc = preflight::format_clock(
         {stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick}, options->east);
     if (!utc) {
-      p2_fprintf(stderr,
-                 "Set the Amiga clock and UTC offset before flashing.\n");
+      p2_fprintf(stderr, "Cannot read a valid Amiga date/time (2020-2099).\n");
       return 20;
     }
     generated_utc = *utc;

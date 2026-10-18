@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "backup.h"
+#include "eclock_wait.h"
 #include "mock.h"
 #include "sha256.h"
 #include <stdio.h>
@@ -69,6 +70,9 @@ static void transfer_tests(void) {
   CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()));
   m.aux_space = 1; // Reproduce the retained selector from an older caller.
   CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()) && m.aux_space == 0);
+  m.bus.nv_word_gap = [](void *opaque) {
+    static_cast<p2_mock *>(opaque)->clock += 2;
+  };
   CHECK(!code(p2::Card{m.bus}.read_nv(0x7ffffe, std::span{b}.first(2))));
   CHECK(!memcmp(b, m.nv_memory + 0x7ffffe, 2));
   ops = m.operations;
@@ -83,6 +87,20 @@ static void transfer_tests(void) {
   CHECK(m.operations == ops && !m.payload_writes && !m.command_writes &&
         !m.configuration_writes);
   p2_mock_free(&m);
+}
+static void eclock_tests() {
+  CHECK(p2::nv_gap_ticks(709379) == 2);
+  CHECK(p2::nv_gap_ticks(715909) == 2);
+  CHECK(p2::nv_gap_ticks(1000000) == 2);
+  CHECK(p2::nv_gap_ticks(2000001) == 4);
+  for (uint32_t start : {0u, 0xfffffffeu, 0xffffffffu}) {
+    uint32_t clock = start, calls = 0;
+    p2::wait_nv_gap(2, [&] {
+      ++calls;
+      return clock++;
+    });
+    CHECK(calls == 3 && uint32_t(clock - start) == 3);
+  }
 }
 static void capture_tests(int enabled, int mismatch, bool hidden = false) {
   struct p2_mock m;
@@ -131,7 +149,7 @@ static void single_capture_tests() {
     init_nv(&m);
     m.nv_selector_hides_control = true;
     if (!corrupt_alias)
-      m.nv_unstable_until = m.clock + 600000;
+      m.nv_unstable_until = m.clock + 2000000;
     if (corrupt_alias)
       m.nv_memory[0xe8258] ^= 0x20;
     FILE *file = tmpfile();
@@ -143,6 +161,24 @@ static void single_capture_tests() {
     CHECK(!corrupt_alias || result.first_mismatch == 0xe8258);
     CHECK(!m.payload_writes && !m.command_writes && !m.configuration_writes);
     CHECK(ftell(file) == p2::backup::NvBytes);
+    fclose(file);
+    p2_mock_free(&m);
+  }
+}
+static void lost_aux_tests() {
+  for (bool enabled : {false, true}) {
+    p2_mock m;
+    init_nv(&m);
+    m.regs[P2_CONTROL / 2] = enabled ? 0xc000 : 0;
+    m.drop_aux_at_nv_read = 8;
+    FILE *file = tmpfile();
+    CHECK(file);
+    auto result = p2::backup::capture_single(m.bus, *file, 0x20000);
+    CHECK(result.error == P2_E_VERIFY && result.aux_losses == 1);
+    CHECK(!result.bytes[0] && !m.regs[P2_CONTROL / 2]);
+    CHECK(m.aux_enables == (enabled ? 0u : 1u));
+    CHECK(result.cleanup_error == (enabled ? P2_E_VERIFY : P2_OK));
+    CHECK(!m.payload_writes && !m.command_writes && !m.configuration_writes);
     fclose(file);
     p2_mock_free(&m);
   }
@@ -202,11 +238,13 @@ int main(void) {
   hash_tests();
   pda_oracle_test();
   transfer_tests();
+  eclock_tests();
   capture_tests(0, 0);
   capture_tests(1, 0);
   capture_tests(1, 0, true);
   capture_tests(0, 1);
   single_capture_tests();
+  lost_aux_tests();
   failure_tests();
   CHECK(p2::backup::valid_utc("20261018T104000Z"));
   CHECK(p2::backup::valid_utc("20240229T235959Z"));

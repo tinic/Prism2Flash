@@ -6,25 +6,26 @@
 Other cards are refused.
 
 1. Extract the latest [Amiga release](https://github.com/tinic/Prism2Flash/releases).
+   Install the included `Libs/pccard.library` in `LIBS:` if version 2.2 or newer is absent.
 2. Download [initial code](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX) and your compatible PRI/STA files.
    Tested pair: [PRI 1.1.1](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex), [STA 1.7.4](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex).
 3. Stop WirelessManager and disconnect the card from your network stack.
-4. Check the Amiga clock. Offset examples: UTC=`0`, UTC+1=`60`, UTC−5=`-300`.
-5. From the extracted drawer, run (substitute your PRI/STA filenames and offset):
+4. From the extracted drawer, run (substitute your PRI/STA filenames):
 
 ```text
 Stack 16384
 MakeDir Work:P2Backups
-C/Prism2Flash program --initial ID010001.HEX --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups --utc-offset 0
+C/Prism2Flash program --initial ID010001.HEX --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups
 ```
 
 Create the backup drawer once; keep **20 MiB free**. Timestamped subdrawers,
 one full before backup, one full after readback and checksum checks are automatic.
+Timestamps use the Amiga’s local clock (`L` suffix).
 
-6. After **success**, power-cycle the card/Amiga and verify:
+5. After **success**, power-cycle the card/Amiga and verify:
 
 ```text
-C/Prism2Flash verify --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups --utc-offset 0
+C/Prism2Flash verify --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups
 ```
 
 **Recovery required:** keep power on; do not retry programming or reboot.

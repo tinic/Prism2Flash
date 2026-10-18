@@ -32,6 +32,10 @@ static uint16_t read16(void *ctx, uint16_t reg) {
     m->aux_address += 2;
     if (m->aux_space == 1) {
       ++m->nv_reads;
+      if (m->drop_aux_at_nv_read && m->nv_reads >= m->drop_aux_at_nv_read)
+        m->regs[P2_CONTROL / 2] = 0;
+      if (!(m->regs[P2_CONTROL / 2] & 0xc000) && m->drop_aux_at_nv_read)
+        return 0xffff;
       const bool too_fast =
           m->min_nv_gap && m->have_nv_read &&
           uint32_t(m->clock - m->last_nv_read) < m->min_nv_gap;
@@ -93,6 +97,8 @@ static void write16(void *ctx, uint16_t reg, uint16_t value) {
   } else if (reg == P2_EVACK) {
     m->regs[P2_EVSTAT / 2] &= (uint16_t)~value;
   } else if (reg == P2_CONTROL && !m->stuck_aux) {
+    if ((value & 0xc000) == 0x8000)
+      ++m->aux_enables;
     value = (value & 0xc000) == 0x8000 ? 0xc000 : 0;
   } else if (reg == P2_AUXDATA && m->aux_address < 0x800000 - 1) {
     if (!m->drop_ram_writes &&

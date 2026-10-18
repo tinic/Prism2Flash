@@ -31,6 +31,30 @@ int main() {
   auto automatic = format_clock(stamp(*reference - 300 * 60), -300);
   CHECK(automatic && std::string_view{automatic->data()} == "20261018T120000Z");
   CHECK(!format_clock(stamp(*reference), 841));
+  auto local = format_clock(stamp(*reference - 300 * 60), LocalTime);
+  CHECK(local && std::string_view{local->data()} == "20261018T070000L");
+  CHECK(valid_timestamp(local->data(), LocalTime));
+  CHECK(!valid_timestamp(local->data(), 0));
+  CHECK(!valid_timestamp("20261018T070000Z", LocalTime));
+  CHECK(!valid_timestamp("20260229T070000L", LocalTime));
+  CHECK(check_clock(stamp(*reference - 300 * 60), LocalTime, local->data()));
+  CHECK(!check_clock(stamp(*reference - 300 * 60 + 121), LocalTime,
+                     local->data()));
+  Timeline local_timeline;
+  auto midnight = utc_seconds("20261018T235959Z");
+  CHECK(midnight);
+  auto local_start =
+      local_timeline.stamp(Checkpoint::BeforeStart, stamp(*midnight), LocalTime,
+                           "20261018T235959L", 0);
+  CHECK(local_start &&
+        std::string_view{local_start->data()} == "20261018T235959L");
+  auto local_end =
+      local_timeline.stamp(Checkpoint::BeforeEnd, stamp(*midnight + 2),
+                           LocalTime, "20261018T235959L", 2000000);
+  CHECK(local_end && std::string_view{local_end->data()} == "20261019T000001L");
+  CHECK(!local_timeline.stamp(Checkpoint::AfterStart, stamp(*midnight + 3602),
+                              LocalTime, "20261018T235959L", 3000000));
+
   for (int delta : {-121, 121, 86400})
     CHECK(!check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
   for (int delta : {-120, 120})

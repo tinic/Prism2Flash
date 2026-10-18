@@ -20,7 +20,7 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Add `Prism2Flash program|verify` and built-in help. Build the intended image
   from the same insertion's fresh PDA, preserve CIS/PDA and all gaps, save/reopen
   it and optionally check an independently prepared expected-image hash.
-- Retain persistent destination locks, checked UTC/clock offset, one exclusive
+- Retain persistent destination locks, automatic local timestamps (optional explicit UTC/offset), one exclusive
   claim and one full saved/reopened 8 MiB capture before and after each transaction, checking all 128 KiB aliases.
   Compare the whole exposed interval with the intended image after programming.
 - Qualify actual A1200 Genesis double latch, both true byte-write lanes,
@@ -47,8 +47,14 @@ profiles, generic dead-card recovery and a running-primary regular-flash path
 remain separate work. Exact hardware runs and their limitations are recorded
 in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
 
-- Put a concise quick start first in README/docs. Generate UTC timestamps and
-  short backup subdrawers from the checked Amiga clock with `--backup-dir`.
+- Put a concise quick start first in README/docs. Generate local timestamps and
+  short backup subdrawers from the Amiga clock with `--backup-dir`; timezone
+  arguments are optional. Local labels end in L and never claim UTC.
+- Replace per-word GetSysTime pacing with a monotonic E-clock wait. Refuse if
+  firmware disables AUX mid-capture, preserving its disabled state. Add timer
+  wrap, AUX-loss and local-clock boundary tests. Physical timing qualification
+  of the pacing change remains pending; the actual upgrade and cold-boot IDs
+  are recorded separately from the failed additional reader transactions.
 
 ## [0.7.0-alpha.1] - 2026-10-18
 

@@ -9,6 +9,12 @@ namespace p2::preflight {
 struct Clock {
   int32_t days = 0, minutes = 0, ticks = 0;
 };
+// No timezone is inferred from DateStamp. Local timestamps end in L, UTC in Z.
+inline constexpr int LocalTime = 10001;
+[[nodiscard]] constexpr bool valid_offset(int east) {
+  return east == LocalTime || (east >= -840 && east <= 840);
+}
+[[nodiscard]] bool valid_timestamp(std::string_view, int offset_east);
 // Offset is explicitly supplied minutes EAST of UTC. It is not guessed from
 // the host, locale, or a DateStamp; matching checks consistency, not NTP truth.
 [[nodiscard]] CardResult<int64_t> utc_seconds(std::string_view utc);

@@ -57,7 +57,7 @@ def valid_output(name, text, suite="genesis"):
     if suite == "flash":
         if name == "version":
             return text.strip() == f"Prism2Flash {VERSION}"
-        if name in ("program_missing_files", "verify_missing_files"):
+        if name in ("program_missing_files", "verify_missing_files", "program_local_missing_files", "verify_local_missing_files"):
             return "Cannot open firmware file:" in text
         return f"Prism2Flash {VERSION}" in text and "Fresh full before/after captures" in text
     if suite == "firmware":
@@ -226,6 +226,8 @@ def main():
             ("missing_args", "program", 20),
             ("program_missing_files", "program --initial missing-initial.hex" + options, 20),
             ("verify_missing_files", "verify" + options, 20),
+            ("program_local_missing_files", "program --initial missing-initial.hex --primary missing-primary.hex --station missing-station.hex --backup-dir Work:P2Backups", 20),
+            ("verify_local_missing_files", "verify --primary missing-primary.hex --station missing-station.hex --backup-dir Work:P2Backups", 20),
             ("bad_offset", "program --initial missing-initial.hex" + options.replace("--utc-offset 0", "--utc-offset 9999"), 20),
             ("reject_force", "program --force yes" + options, 20),
             ("help_after_errors", "--help", 0),

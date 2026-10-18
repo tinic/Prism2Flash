@@ -3,8 +3,9 @@
 The actual A1200 Netgear MA401 V2.5 / PD5LMWP200 is the qualified target.
 On 2026-10-18 it passed x16 Genesis, original initial-code loading, SST BF:D5
 identification, programming and complete intended-image readback. Cold-boot
-verification is the remaining active hardware step. The machine remains
-reserved until that verification and handoff are complete.
+NIC/PRI/STA identities also matched without a host RAM bootstrap. The slot was
+released and Claude received the firmware results and A1200 at 23:10 UTC.
+See [the sanitized report](evidence/ma401-upgrade-2026-10-18.json).
 
 ## Native programming — 2026-10-18
 
@@ -31,6 +32,30 @@ reserved until that verification and handoff are complete.
   `c86451112ad242c9d375260d8113f848b83e77b86d8c48e4ec6f7be49725cd96`.
 - Fix `2bfbbd4` clears AUXOFFSET after the flash engine's final word reads;
   its regression checks normal register visibility before the next capture.
+
+## Cold boot and handoff — 2026-10-18
+
+- SyncReboot flushed the system before one power cycle. The wrapper's readiness
+  ping failed because playhouse2 lacked NET_RAW; independent HTTP 200 and an
+  Amiga command exit 0 confirmed startup. No second power cycle was issued.
+- `0d5622b`, run `20261018T224923Z-verify`: the fresh full 8 MiB before capture
+  matched `04306435...`. INIT and all expected identities passed:
+  NIC `800c/0/1/0`, PRI `0015/1/1/1`, STA `001f/4/1/7`.
+  No initial image was loaded by the host. This establishes self-booted
+  PRI 1.1.1 / STA 1.7.4; it does not establish WPA2 association or traffic.
+- That verifier's after-capture failed before any saved bytes because consecutive
+  NV pages disagreed. Later attempts retained every partial file and failure;
+  `0c8cd0d` timed out after 240 seconds and 4,186,112 bytes, before INIT.
+  Cleanup completed and no recovery hold remained. There was no extra erase,
+  rewrite or reset in these attempts.
+- Sustained NV capture with the running MAC remains a tool qualification issue.
+  Offline follow-up replaces per-word GetSysTime conversion with an E-clock
+  wait and fails on an unexpected AUX disable. The 240-second deadline,
+  consecutive-page agreement, all-alias check and intended-image comparison
+  remain enforced. Hardware timing of that follow-up is not yet established.
+- At 23:10:49 UTC, Claude was notified that the A1200 was available for dependent
+  driver tests, with exact firmware identities, complete earlier readback hash
+  and the additional verifier limitation.
 
 Private evidence retains all original, partial and completed raw files,
 commands, exact binaries, hashes, phase manifests and cleanup records under
