@@ -124,6 +124,26 @@ static void capture_tests(int enabled, int mismatch, bool hidden = false) {
   fclose(b);
   p2_mock_free(&m);
 }
+static void single_capture_tests() {
+  for (bool corrupt_alias : {false, true}) {
+    p2_mock m;
+    init_nv(&m);
+    m.nv_selector_hides_control = true;
+    if (corrupt_alias)
+      m.nv_memory[0xe8258] ^= 0x20;
+    FILE *file = tmpfile();
+    CHECK(file);
+    const auto result = p2::backup::capture_single(m.bus, *file, 0x20000);
+    CHECK(result.error == (corrupt_alias ? P2_E_VERIFY : P2_OK));
+    CHECK(result.bytes[0] == p2::backup::NvBytes && !result.bytes[1]);
+    CHECK(result.mismatch_bytes == (corrupt_alias ? 1u : 0u));
+    CHECK(!corrupt_alias || result.first_mismatch == 0xe8258);
+    CHECK(!m.payload_writes && !m.command_writes && !m.configuration_writes);
+    CHECK(ftell(file) == p2::backup::NvBytes);
+    fclose(file);
+    p2_mock_free(&m);
+  }
+}
 static void failure_tests(void) {
   struct p2_mock m;
   p2::backup::CaptureReport result;
@@ -183,6 +203,7 @@ int main(void) {
   capture_tests(1, 0);
   capture_tests(1, 0, true);
   capture_tests(0, 1);
+  single_capture_tests();
   failure_tests();
   CHECK(p2::backup::valid_utc("20261018T104000Z"));
   CHECK(p2::backup::valid_utc("20240229T235959Z"));

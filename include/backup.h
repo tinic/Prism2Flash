@@ -17,6 +17,10 @@ struct CaptureReport {
 };
 // A report retains partial acquisition and cleanup evidence even on failure.
 [[nodiscard]] CaptureReport capture(p2_bus &bus, FILE &first, FILE &second);
+// One complete capture, checking every alias against the first physical image.
+// Only qualified maps may supply alias_bytes; no voting or repaired bytes.
+[[nodiscard]] CaptureReport capture_single(p2_bus &, FILE &,
+                                           uint32_t alias_bytes);
 [[nodiscard]] bool valid_utc(std::string_view timestamp);
 int run_command(const char *directory, const char *utc);
 // Exact length/hash check, including checked read-stream close. Also used for

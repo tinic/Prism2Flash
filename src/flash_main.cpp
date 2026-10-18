@@ -74,7 +74,8 @@ std::optional<Image> load(const char *path, std::string_view expected) {
   if (!file)
     return {};
   auto image = Image::read(*file);
-  if (!image || !file.close() || image->source_sha256() != expected)
+  if (!image || !file.close() ||
+      (!expected.empty() && image->source_sha256() != expected))
     return {};
   return std::move(*image);
 }
@@ -269,12 +270,8 @@ int main(int argc, char **argv) {
         "Native programming admission remains disabled; no card access.\n");
     return 20;
   }
-  auto primary = load<firmware::Image>(
-      options->primary,
-      "20638ee6180583488f769d95ed0b240b115bb8b8f6a72e2597dd72d58b4b7791");
-  auto station = load<firmware::Image>(
-      options->station,
-      "92e3101220003bed0caeebe42d0817e96db67b1541c62c7601e7772f1c6aa3e5");
+  auto primary = load<firmware::Image>(options->primary, {});
+  auto station = load<firmware::Image>(options->station, {});
   if (!primary || !station)
     return 20;
   auto context = make_owned<Context>(std::move(*primary), std::move(*station));

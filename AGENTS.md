@@ -62,3 +62,13 @@
   fixed and tested. Proceed with the user's authorized firmware update using
   the same exact card profile, pinned images, fresh owned captures and intended
   image hash. Do not reopen the accepted layout or ask for that permission again.
+
+- Human update, 2026-10-18: four captures are excessive when checksums match.
+  Native transactions now require one full timestamped before capture and one
+  full after capture, saved/reopened SHA-256 verification and intended-image
+  comparison. Validate all 64 aliases against the canonical 128 KiB image;
+  reject disagreements without voting, repair or silent retry. This supersedes
+  older four-file/repeated-full-capture requirements for the qualified MA401.
+  Confirm Claude's WPA2 firmware target, complete hardware verification, then
+  finalize a usable tool accepting compatible user-supplied firmware. Put a
+  short step-by-step guide first in README and docs; minimize prose.

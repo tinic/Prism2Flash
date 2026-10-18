@@ -70,6 +70,8 @@ public:
       else
         p2_snprintf(paths_[i].data(), paths_[i].size(), "%s/%s", directory_,
                     Names[i]);
+      if (native_ && (i == 1 || i == 3))
+        continue;
       files_[i] = File::open(paths_[i].data(), "w+b");
       if (!files_[i]) {
         for (std::size_t raw = 0; raw < 6; ++raw)
@@ -105,7 +107,10 @@ public:
     }
 #endif
     if (!timestamp_error)
-      result = backup::capture(bus, *files_[index * 2], *files_[index * 2 + 1]);
+      result = native_
+                   ? backup::capture_single(bus, *files_[index * 2], 0x20000)
+                   : backup::capture(bus, *files_[index * 2],
+                                     *files_[index * 2 + 1]);
     const auto ended = bus.now_us(bus.ctx);
     int error = timestamp_error ? timestamp_error : result.error;
     for (std::size_t i = index * 2; i < index * 2 + 2; ++i)
@@ -115,7 +120,7 @@ public:
     if (!error) {
       error = backup::verify_file(paths_[index * 2].data(),
                                   result.sha256[0].data());
-      if (!error)
+      if (!error && !native_)
         error = backup::verify_file(paths_[index * 2 + 1].data(),
                                     result.sha256[1].data());
       saved = !error;
@@ -140,6 +145,20 @@ public:
     if (!storage)
       return std::unexpected{P2_E_IO};
     auto &text = *storage;
+    std::array<char, 64> byte_counts{};
+    std::array<char, 144> hashes{};
+    if (native_) {
+      p2_snprintf(byte_counts.data(), byte_counts.size(), "[%lu]",
+                  static_cast<unsigned long>(result.bytes[0]));
+      p2_snprintf(hashes.data(), hashes.size(), "[\"%s\"]",
+                  result.sha256[0].data());
+    } else {
+      p2_snprintf(byte_counts.data(), byte_counts.size(), "[%lu, %lu]",
+                  static_cast<unsigned long>(result.bytes[0]),
+                  static_cast<unsigned long>(result.bytes[1]));
+      p2_snprintf(hashes.data(), hashes.size(), "[\"%s\", \"%s\"]",
+                  result.sha256[0].data(), result.sha256[1].data());
+    }
     const auto count = p2_snprintf(
         text.data(), text.size(),
         "{\n  \"format\": \"Prism2 transaction capture 2\",\n"
@@ -157,8 +176,10 @@ public:
         "  \"cis_manufacturer\": %u,\n  \"cis_product\": %u,\n"
         "  \"selector\": 1,\n  \"range\": [0, 8388608],\n"
         "  \"byte_order\": \"little-endian word bytes\",\n"
-        "  \"bytes_read\": [%lu, %lu],\n"
-        "  \"sha256\": [\"%s\", \"%s\"],\n"
+        "  \"capture_count\": %u,\n"
+        "  \"alias_bytes\": %lu,\n"
+        "  \"bytes_read\": %s,\n"
+        "  \"sha256\": %s,\n"
         "  \"capture_error\": %d,\n  \"cleanup_error\": %d,\n"
         "  \"saved_file_error\": %d,\n"
         "  \"files_reopened_and_verified\": %s\n}\n",
@@ -173,11 +194,9 @@ public:
                 : "operator-supplied UTC, unverified; start/end are wrapping "
                   "model microseconds, not UTC",
         static_cast<unsigned long>(started), static_cast<unsigned long>(ended),
-        info.manufacturer, info.product,
-        static_cast<unsigned long>(result.bytes[0]),
-        static_cast<unsigned long>(result.bytes[1]), result.sha256[0].data(),
-        result.sha256[1].data(), result.error, result.cleanup_error, error,
-        saved ? "true" : "false");
+        info.manufacturer, info.product, native_ ? 1u : 2u,
+        native_ ? 0x20000ul : 0ul, byte_counts.data(), hashes.data(),
+        result.error, result.cleanup_error, error, saved ? "true" : "false");
     const int manifest_error = save_text(4 + index, text, count);
     if (!error)
       error = manifest_error;
@@ -189,10 +208,13 @@ public:
     if (!verified_[0] || !verified_[1])
       return std::unexpected{P2_E_VERIFY};
     // Recheck on-disk content, including the original backup, before comparing.
-    for (std::size_t i = 0; i < 4; ++i)
+    for (std::size_t i = 0; i < 4; ++i) {
+      if (native_ && (i == 1 || i == 3))
+        continue;
       if (int error = backup::verify_file(
               paths_[i].data(), captures_[i / 2].sha256[i % 2].data()))
         return std::unexpected{static_cast<p2_error>(error)};
+    }
     if (expected_.compare)
       return expected_.compare(paths_[0].data(), paths_[2].data(),
                                expected_.context);

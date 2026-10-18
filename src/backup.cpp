@@ -42,6 +42,9 @@ class NvCapture {
 public:
   NvCapture(p2_bus &bus, FILE &first, FILE &second)
       : bus_(bus), card_(bus), files_{&first, &second} {}
+  NvCapture(p2_bus &bus, FILE &first, uint32_t alias_bytes)
+      : bus_(bus), card_(bus), files_{&first, nullptr},
+        alias_bytes_(alias_bytes), passes_(1) {}
   CaptureReport run() {
     if (files_[0] == files_[1]) {
       report_.error = P2_E_ARGUMENT;
@@ -51,6 +54,17 @@ public:
     if (!buffers_) {
       report_.error = P2_E_IO;
       return report_;
+    }
+    if (passes_ == 1) {
+      if (!alias_bytes_ || alias_bytes_ % 4096 || NvBytes % alias_bytes_) {
+        report_.error = P2_E_ARGUMENT;
+        return report_;
+      }
+      canonical_ = ByteBuffer::allocate(alias_bytes_);
+      if (!canonical_) {
+        report_.error = P2_E_IO;
+        return report_;
+      }
     }
     const auto acquisition = acquire();
     const auto cleanup = acquired_ ? finish() : CardStatus{};
@@ -132,7 +146,7 @@ private:
     bool changed = false;
     auto chunk = std::span<uint8_t, 4096>{buffers_.bytes().data(), 4096};
     auto comparison = buffers_.bytes().subspan(4096);
-    for (std::size_t pass = 0; pass < files_.size(); ++pass) {
+    for (std::size_t pass = 0; pass < passes_; ++pass) {
       if (pass && (fflush(files_[0]) || fseek(files_[0], 0, SEEK_SET)))
         return std::unexpected{P2_E_IO};
       Sha256 hash;
@@ -156,6 +170,21 @@ private:
               ++report_.mismatch_bytes;
             }
         }
+        if (passes_ == 1) {
+          if (address < alias_bytes_)
+            std::copy(chunk.begin(), chunk.end(),
+                      canonical_.bytes().begin() + address);
+          else {
+            const auto expected = canonical_.bytes().subspan(
+                address % alias_bytes_, chunk.size());
+            for (std::size_t i = 0; i < chunk.size(); ++i)
+              if (chunk[i] != expected[i]) {
+                if (!report_.mismatch_bytes)
+                  report_.first_mismatch = address + static_cast<uint32_t>(i);
+                ++report_.mismatch_bytes;
+              }
+          }
+        }
         if (fwrite(chunk.data(), 1, chunk.size(), files_[pass]) != chunk.size())
           return std::unexpected{P2_E_IO};
         changed |= std::any_of(chunk.begin() + 1, chunk.end(),
@@ -175,7 +204,7 @@ private:
       report_.sha256[pass] = hash.hex();
     }
     if (!changed || report_.mismatch_bytes ||
-        report_.sha256[0] != report_.sha256[1])
+        (passes_ == 2 && report_.sha256[0] != report_.sha256[1]))
       return std::unexpected{P2_E_VERIFY};
     return {};
   }
@@ -210,6 +239,9 @@ private:
   Card card_;
   std::array<FILE *, 2> files_;
   ByteBuffer buffers_;
+  ByteBuffer canonical_;
+  uint32_t alias_bytes_ = 0;
+  std::size_t passes_ = 2;
   CaptureReport report_;
   uint32_t start_ = 0;
   uint16_t control_ = 0;
@@ -239,6 +271,9 @@ int verify_file(const char *name, const char *expected, uint32_t size) {
 }
 CaptureReport capture(p2_bus &bus, FILE &first, FILE &second) {
   return NvCapture{bus, first, second}.run();
+}
+CaptureReport capture_single(p2_bus &bus, FILE &file, uint32_t alias_bytes) {
+  return NvCapture{bus, file, alias_bytes}.run();
 }
 int run_command(const char *directory, const char *utc) {
   if (!valid_utc(utc) || !std::strstr(directory, utc) ||
