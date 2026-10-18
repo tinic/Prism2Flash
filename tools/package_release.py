@@ -123,7 +123,7 @@ def main():
     bundle[f'{prefix}/build-info.json'] = info_bytes
     include = ['README.md', 'COPYING', 'CHANGELOG.md', 'ROADMAP.md', 'VERSION', 'RELEASE_DATE',
                'docs/INSTALL.md', 'docs/HARDWARE-TESTING.md', 'docs/PROTOCOL.md', 'docs/SOURCES.md',
-               'docs/EMULATOR-RESULTS.md', 'docs/OFFLINE-FIRMWARE.md', 'docs/FIRMWARE-FINDINGS.md',
+               'docs/EMULATOR-RESULTS.md', 'docs/evidence/ma401-upgrade-2026-10-18.json', 'docs/OFFLINE-FIRMWARE.md', 'docs/FIRMWARE-FINDINGS.md',
                'docs/DOS-REFERENCE.md', 'docs/OPERATION-TRANSACTION.md', 'docs/NATIVE-FLASH.md', 'docs/QUICKSTART.md',
                'third_party/NOTICES', 'third_party/AmiNetXDuo-LICENSE',
                'third_party/pccard/GPL', 'third_party/pccard/LGPL', 'third_party/pccard/pccard.lha',

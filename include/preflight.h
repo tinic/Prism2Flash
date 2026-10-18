@@ -17,7 +17,8 @@ inline constexpr int LocalTime = 10001;
 [[nodiscard]] bool valid_timestamp(std::string_view, int offset_east);
 // Offset is explicitly supplied minutes EAST of UTC. It is not guessed from
 // the host, locale, or a DateStamp; matching checks consistency, not NTP truth.
-[[nodiscard]] CardResult<int64_t> utc_seconds(std::string_view utc);
+[[nodiscard]] CardResult<int64_t> utc_seconds(std::string_view utc,
+                                              unsigned min_year = 2020);
 [[nodiscard]] CardResult<std::array<char, 17>> format_clock(Clock,
                                                             int offset_east);
 [[nodiscard]] CardResult<int64_t> check_clock(Clock local, int offset_east,

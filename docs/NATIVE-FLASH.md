@@ -17,7 +17,9 @@ Use `--backup-dir EXISTING_DRAWER` to create a short timestamped subdrawer
 automatically. Both `program` and `verify` accept this form. Local timestamps
 end in `L`; the manifests identify them as local time with an unknown UTC
 offset. The tool still checks for wall-clock jumps against its monotonic timer.
-No timezone argument is required.
+No timezone argument is required. Local labels use the clock as set (including
+1978 on a machine without a working clock battery); they never claim verified
+UTC. An existing subdrawer is always refused.
 
 For automatic UTC instead, add `--utc-offset MINUTES_EAST` (for example,
 `0` for a UTC clock or `-300` for UTC minus five hours). UTC timestamps end in

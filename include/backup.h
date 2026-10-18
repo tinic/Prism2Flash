@@ -22,7 +22,8 @@ struct CaptureReport {
 // Only qualified maps may supply alias_bytes; no voting or repaired bytes.
 [[nodiscard]] CaptureReport capture_single(p2_bus &, FILE &,
                                            uint32_t alias_bytes);
-[[nodiscard]] bool valid_utc(std::string_view timestamp);
+[[nodiscard]] bool valid_utc(std::string_view timestamp,
+                             unsigned min_year = 2020);
 int run_command(const char *directory, const char *utc);
 // Exact length/hash check, including checked read-stream close. Also used for
 // saved transaction manifests; defaults to the complete AUX NV capture size.

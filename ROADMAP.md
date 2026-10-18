@@ -10,7 +10,7 @@ the results and A1200 for the dependent driver tests.
       initial-image loading, low-07 handoff and SST host erase/program sequence.
       DeepSeek independently reviewed the derivation and implementation.
 - [x] Implement owned native transactions with persistent destination locks,
-      checked UTC/offset, dual full captures, close/reopen/hash verification,
+      automatic local or explicit UTC timestamps, full captures, close/reopen/hash verification,
       sticky removal and exact CIS/PDA profile binding.
 - [x] Qualify actual MA401 x16 Genesis, both true RAM byte-write lanes, all
       initial-code regions and NV JEDEC BF:D5 with four unchanged full captures.
@@ -18,8 +18,8 @@ the results and A1200 for the dependent driver tests.
       CIS and PDA, save/reopen the intended 128 KiB image and pin its hash.
 - [x] Program the actual card once; compare every physical flash byte and obtain
       two complete 8 MiB after-readbacks matching the intended image exactly.
-- [ ] Verify cold-boot running NIC/PRI/STA identities and fresh full captures.
-- [ ] Hand verified results and A1200 back to Claude.
+- [x] Verify cold-boot running NIC/PRI/STA identities and a fresh full capture.
+- [x] Hand verified results and A1200 back to Claude (23:10 UTC).
 - [ ] Finish the matching committed release and remove task staging.
 
 The full 8 MiB AUX NV layout is accepted for this qualified card; do not reopen

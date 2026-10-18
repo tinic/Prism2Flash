@@ -13,14 +13,38 @@
 // directory and test file are removed only after successful close/reopen/hash
 // checks. Failure preserves the owned directory for inspection.
 int main(int argc, char **argv) {
-  if (argc != 4)
-    return 20;
+  std::array<char, 17> generated_stamp{};
+  std::array<char, 384> generated_directory{};
+  const char *directory = nullptr, *timestamp = nullptr;
   int east = 10000;
-  const auto end = argv[3] + std::strlen(argv[3]);
-  const auto parsed = std::from_chars(argv[3], end, east);
-  if (parsed.ec != std::errc{} || parsed.ptr != end)
+  if (argc == 3 && !std::strcmp(argv[1], "--local")) {
+    struct DateStamp now {};
+    DateStamp(&now);
+    east = p2::preflight::LocalTime;
+    auto stamp = p2::preflight::format_clock(
+        {now.ds_Days, now.ds_Minute, now.ds_Tick}, east);
+    if (!stamp)
+      return 20;
+    generated_stamp = *stamp;
+    timestamp = generated_stamp.data();
+    const auto length = std::strlen(argv[2]);
+    const auto count = p2_snprintf(
+        generated_directory.data(), generated_directory.size(), "%s%sP2-%s",
+        argv[2], length && argv[2][length - 1] == ':' ? "" : "/", timestamp);
+    if (count <= 0 || size_t(count) >= generated_directory.size())
+      return 20;
+    directory = generated_directory.data();
+  } else if (argc == 4) {
+    directory = argv[1];
+    timestamp = argv[2];
+    const auto end = argv[3] + std::strlen(argv[3]);
+    const auto parsed = std::from_chars(argv[3], end, east);
+    if (parsed.ec != std::errc{} || parsed.ptr != end)
+      return 20;
+  } else
     return 20;
-  auto session = p2::preflight::NativeSession::create(argv[1], argv[2], east);
+  auto session =
+      p2::preflight::NativeSession::create(directory, timestamp, east);
   if (!session) {
     p2_printf("Native session rejected: %d\n", session.error());
     return 20;
@@ -46,18 +70,20 @@ int main(int argc, char **argv) {
     auto stamp = (*session)->stamp(point, clock);
     if (!stamp)
       return 20;
-    p2_printf("Native phase %u UTC: %s\n", unsigned(point), stamp->data());
+    p2_printf("Native phase %u %s: %s\n", unsigned(point),
+              east == p2::preflight::LocalTime ? "local" : "UTC",
+              stamp->data());
   }
   if (!DeleteFile((CONST_STRPTR) "session-test.bin"))
     return 20;
   // The live destination lock/current directory must prevent its deletion.
-  if (DeleteFile((CONST_STRPTR)argv[1]))
+  if (DeleteFile((CONST_STRPTR)directory))
     return 20;
   session->reset();
-  if (!DeleteFile((CONST_STRPTR)argv[1]))
+  if (!DeleteFile((CONST_STRPTR)directory))
     return 20;
   puts("Native storage: create, relative stream, flush/close/reopen/hash, "
-       "four UTC phases, retained lock and restored directory passed; "
+       "four timestamp phases, retained lock and restored directory passed; "
        "no card access.");
   return 0;
 }

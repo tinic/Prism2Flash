@@ -18,7 +18,8 @@ CardResult<int64_t> clock_seconds(Clock local, int offset_east) {
          int64_t(offset_east) * 60;
 }
 bool leap(unsigned y) { return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0); }
-CardResult<std::array<char, 17>> format_utc(int64_t seconds) {
+CardResult<std::array<char, 17>> format_utc(int64_t seconds,
+                                            unsigned min_year) {
   if (seconds < 0)
     return std::unexpected{P2_E_ARGUMENT};
   auto days = seconds / 86400;
@@ -35,7 +36,7 @@ CardResult<std::array<char, 17>> format_utc(int64_t seconds) {
     days -= count;
   }
   std::array<char, 17> result{};
-  if (year < 2020 || year > 2099 ||
+  if (year < min_year || year > 2099 ||
       p2_snprintf(result.data(), result.size(), "%04u%02u%02uT%02u%02u%02uZ",
                   year, month, unsigned(days + 1), within / 3600,
                   within % 3600 / 60, within % 60) != 16)
@@ -47,7 +48,7 @@ CardResult<std::array<char, 17>> format_clock(Clock local, int offset_east) {
   const auto seconds = clock_seconds(local, offset_east);
   if (!seconds)
     return std::unexpected{seconds.error()};
-  auto result = format_utc(*seconds);
+  auto result = format_utc(*seconds, offset_east == LocalTime ? 1978 : 2020);
   if (result && offset_east == LocalTime)
     (*result)[15] = 'L';
   return result;
@@ -62,10 +63,10 @@ bool valid_timestamp(std::string_view timestamp, int offset_east) {
   std::array<char, 17> calendar{};
   std::copy(timestamp.begin(), timestamp.end(), calendar.begin());
   calendar[15] = 'Z';
-  return backup::valid_utc(calendar.data());
+  return backup::valid_utc(calendar.data(), 1978);
 }
-CardResult<int64_t> utc_seconds(std::string_view utc) {
-  if (!backup::valid_utc(utc))
+CardResult<int64_t> utc_seconds(std::string_view utc, unsigned min_year) {
+  if (!backup::valid_utc(utc, min_year))
     return std::unexpected{P2_E_ARGUMENT};
   auto number = [&](size_t start, size_t count) {
     unsigned value = 0;
@@ -95,7 +96,8 @@ CardResult<int64_t> check_clock(Clock local, int offset_east,
   std::array<char, 17> calendar{};
   std::copy(supplied.begin(), supplied.end(), calendar.begin());
   calendar[15] = 'Z';
-  auto reference = utc_seconds(calendar.data());
+  auto reference =
+      utc_seconds(calendar.data(), offset_east == LocalTime ? 1978 : 2020);
   auto actual = clock_seconds(local, offset_east);
   if (!reference || !actual)
     return std::unexpected{P2_E_ARGUMENT};

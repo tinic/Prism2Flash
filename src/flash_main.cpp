@@ -288,7 +288,7 @@ int main(int argc, char **argv) {
     const auto utc = preflight::format_clock(
         {stamp.ds_Days, stamp.ds_Minute, stamp.ds_Tick}, options->east);
     if (!utc) {
-      p2_fprintf(stderr, "Cannot read a valid Amiga date/time (2020-2099).\n");
+      p2_fprintf(stderr, "Cannot read a valid Amiga date/time.\n");
       return 20;
     }
     generated_utc = *utc;

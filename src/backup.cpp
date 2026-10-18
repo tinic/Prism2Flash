@@ -13,7 +13,7 @@
 #define P2_CAPTURE_SIMULATION "true"
 #endif
 namespace p2::backup {
-bool valid_utc(std::string_view timestamp) {
+bool valid_utc(std::string_view timestamp, unsigned min_year) {
   constexpr std::array<unsigned, 12> month_days{31, 28, 31, 30, 31, 30,
                                                 31, 31, 30, 31, 30, 31};
   if (timestamp.size() != 16 || timestamp[8] != 'T' || timestamp[15] != 'Z')
@@ -29,7 +29,7 @@ bool valid_utc(std::string_view timestamp) {
   const unsigned hour = (timestamp[9] - '0') * 10 + timestamp[10] - '0';
   const unsigned minute = (timestamp[11] - '0') * 10 + timestamp[12] - '0';
   const unsigned second = (timestamp[13] - '0') * 10 + timestamp[14] - '0';
-  if (year < 2020 || year > 2099 || month < 1 || month > 12 || hour > 23 ||
+  if (year < min_year || year > 2099 || month < 1 || month > 12 || hour > 23 ||
       minute > 59 || second > 59)
     return false;
   const bool leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);

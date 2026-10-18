@@ -37,6 +37,12 @@ int main() {
   CHECK(!valid_timestamp(local->data(), 0));
   CHECK(!valid_timestamp("20261018T070000Z", LocalTime));
   CHECK(!valid_timestamp("20260229T070000L", LocalTime));
+  auto unset = format_clock(Clock{}, LocalTime);
+  CHECK(unset && std::string_view{unset->data()} == "19780101T000000L");
+  CHECK(check_clock(Clock{}, LocalTime, unset->data()));
+  CHECK(!valid_timestamp("19780101T000000Z", 0));
+  CHECK(!valid_timestamp("19770101T000000L", LocalTime));
+  CHECK(!valid_timestamp("19780229T000000L", LocalTime));
   CHECK(check_clock(stamp(*reference - 300 * 60), LocalTime, local->data()));
   CHECK(!check_clock(stamp(*reference - 300 * 60 + 121), LocalTime,
                      local->data()));
