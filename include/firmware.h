@@ -17,6 +17,11 @@ inline constexpr unsigned long MaxInputBytes = 8ul * 1024 * 1024;
 inline constexpr unsigned long MaxLines = 65536;
 
 enum class Mode { Ram, Flash };
+enum class PlugPolicy { RequireAll, DosOptionalDefaults };
+struct PlugFallback {
+  uint32_t pdr = 0, expected_bytes = 0, actual_bytes = 0;
+  bool missing = false;
+};
 enum class Errc { Format, Limit, Memory, Io, Incompatible, Pda };
 struct Error {
   Errc code;
@@ -65,7 +70,8 @@ public:
   [[nodiscard]] static Result<Image> read(FILE &file);
   [[nodiscard]] Status validate(Mode mode, const CardSnapshot &card,
                                 std::span<const uint8_t> pda,
-                                const Image *primary = nullptr) const;
+                                const Image *primary = nullptr,
+                                PlugPolicy = PlugPolicy::RequireAll) const;
   [[nodiscard]] const p2::Identity &component() const { return component_; }
   [[nodiscard]] uint32_t entry() const { return entry_; }
   [[nodiscard]] unsigned long records() const { return records_; }
@@ -139,15 +145,18 @@ public:
   PreparedImage &operator=(const PreparedImage &) = delete;
   [[nodiscard]] static Result<PreparedImage>
   create(ImageSource target, Mode mode, const CardSnapshot &card,
-         std::span<const uint8_t> pda, std::optional<ImageSource> primary = {});
+         std::span<const uint8_t> pda, std::optional<ImageSource> primary = {},
+         PlugPolicy = PlugPolicy::RequireAll);
   [[nodiscard]] auto segments() const { return segments_.view(); }
   [[nodiscard]] uint32_t entry() const { return entry_; }
   [[nodiscard]] std::size_t payload_bytes() const { return payload_bytes_; }
+  [[nodiscard]] auto fallbacks() const { return fallbacks_.view(); }
 
 private:
   PreparedImage() = default;
   BoundedVector<Segment, MaxSegments * 2> segments_;
   uint32_t entry_ = 0;
   std::size_t payload_bytes_ = 0;
+  BoundedVector<PlugFallback, MaxItems * 2> fallbacks_;
 };
 } // namespace p2::firmware

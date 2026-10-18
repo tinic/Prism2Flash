@@ -148,13 +148,14 @@ CardStatus Card::seek_nv_byte(uint32_t address) {
     return std::unexpected{P2_E_UNSUPPORTED};
   if (auto result = interrupted(); !result)
     return result;
-  // ILHOPFW 0a22:02f9 direct seek retains bit zero in AUXOFFSET, then
-  // 0a22:000a/004f selects AUXDATA+1 for an odd byte address.
+  // Use the aligned word plus the selected byte lane. This is also the
+  // effective address of DOS's legacy address/2 advance workaround. Odd
+  // reads on this Amiga card require GETODD (aligned word, low CPU byte).
   bus_.write16(bus_.ctx, P2_AUXPAGE, static_cast<uint16_t>(address >> 7));
   if (auto result = interrupted(); !result)
     return result;
   bus_.write16(bus_.ctx, P2_AUXOFFSET,
-               static_cast<uint16_t>((address & 127) | 0x1000));
+               static_cast<uint16_t>((address & 126) | 0x1000));
   bus_.delay_us(bus_.ctx, 5);
   return interrupted();
 }
@@ -354,7 +355,7 @@ CardStatus Card::restore_aux(bool was_enabled) {
     return alive();
   return enable_aux(was_enabled);
 }
-ProbeReport Card::probe(unsigned bits) {
+ProbeReport Card::enter_genesis(unsigned bits) {
   constexpr std::array<uint8_t, 4> pattern{0x00, 0xe1, 0xa1, 0xff};
   ProbeReport report;
   report.sram_bits = bits;
@@ -362,7 +363,6 @@ ProbeReport Card::probe(unsigned bits) {
     report.error = P2_E_ARGUMENT;
     return report;
   }
-  bool aux_acquired = false;
   const auto exercise = [&]() -> CardStatus {
     if (auto result = interrupted(); !result)
       return result;
@@ -385,7 +385,7 @@ ProbeReport Card::probe(unsigned bits) {
     // previous COR or the CIS tuple index. The native x16 path follows it.
     // x8 remains a Host AP model experiment, unavailable on native hardware.
     report.cor_used = bits == 16 ? 0x45 : report.cor_before;
-    aux_acquired = true; // Also restore AUX after a failed enable handshake.
+    report.aux_state_acquired = true; // Restore even a failed handshake.
     if (!report.aux_was_enabled) {
       if (auto result = enable_aux(true); !result)
         return result;
@@ -420,6 +420,11 @@ ProbeReport Card::probe(unsigned bits) {
     return {};
   };
   const auto result = exercise();
+  report.error = result ? P2_OK : result.error();
+  return report;
+}
+ProbeReport Card::leave_genesis(ProbeReport report) {
+  const auto bits = report.sram_bits;
   const auto cancellation = bus_.cancelled;
   // Cleanup cannot be vetoed by Ctrl-C; sticky removal still forbids I/O.
   const IgnoreCancellation cleanup_scope{bus_};
@@ -443,15 +448,18 @@ ProbeReport Card::probe(unsigned bits) {
     report.io_configuration_restored = normal.has_value();
   }
   CardStatus aux;
-  if (aux_acquired)
+  if (report.aux_state_acquired)
     aux = restore_aux(report.aux_was_enabled);
   report.aux_cleanup_error = aux ? P2_OK : aux.error();
   report.cleanup_error = normal ? report.aux_cleanup_error : normal.error();
   const bool cancelled = cancellation && cancellation(bus_.ctx);
-  report.error = result ? (report.cleanup_error ? report.cleanup_error
-                           : cancelled          ? P2_E_CANCELLED
-                                                : P2_OK)
-                        : result.error();
+  if (!report.error)
+    report.error = report.cleanup_error ? report.cleanup_error
+                   : cancelled          ? P2_E_CANCELLED
+                                        : P2_OK;
   return report;
+}
+ProbeReport Card::probe(unsigned bits) {
+  return leave_genesis(enter_genesis(bits));
 }
 } // namespace p2

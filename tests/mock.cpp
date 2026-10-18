@@ -84,7 +84,8 @@ static void write16(void *ctx, uint16_t reg, uint16_t value) {
   } else if (reg == P2_CONTROL && !m->stuck_aux) {
     value = (value & 0xc000) == 0x8000 ? 0xc000 : 0;
   } else if (reg == P2_AUXDATA && m->aux_address < 0x800000 - 1) {
-    if (!m->drop_ram_writes) {
+    if (!m->drop_ram_writes &&
+        (!m->drop_ram_after || m->payload_writes < m->drop_ram_after)) {
       m->memory[m->aux_address] = static_cast<uint8_t>(value);
       m->memory[m->aux_address + 1] = static_cast<uint8_t>(value >> 8);
     }

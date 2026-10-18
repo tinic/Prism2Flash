@@ -176,7 +176,14 @@ static void write16(void *ctx, uint16_t reg, uint16_t value) {
 }
 static uint8_t read8(void *ctx, uint16_t reg) {
   auto *p = static_cast<p2_platform *>(ctx);
-  return p->present ? p->io[p2::gayle_byte_offset(reg)] : 0xff;
+  if (!p->present)
+    return 0xff;
+  // MA401 asserts IOIS16 on reads: the odd-byte bank floats (verified on
+  // the real card against a valid PDA). GETODD reads the odd byte as the
+  // low CPU byte of the aligned word. Writes still use true byte cycles.
+  if (reg & 1)
+    return static_cast<uint8_t>(*(volatile UWORD *)(p->io + reg - 1));
+  return p->io[reg];
 }
 static void write8(void *ctx, uint16_t reg, uint8_t value) {
   auto *p = static_cast<p2_platform *>(ctx);

@@ -33,8 +33,9 @@ public:
 #ifdef PRISM2_AMIGA
       // The human accepted the complete 8 MiB AUX NV layout for one RAM-only
       // x16 test. This is not an approval of erase/programming geometry.
-      if (std::strcmp(operation_, "probe-x16") || offset_east_ < -840 ||
-          offset_east_ > 840)
+      if ((std::strcmp(operation_, "probe-x16") &&
+           std::strcmp(operation_, "bootstrap-x16")) ||
+          offset_east_ < -840 || offset_east_ > 840)
         return std::unexpected{P2_E_UNSUPPORTED};
       auto session =
           preflight::NativeSession::create(directory_, utc_, offset_east_);

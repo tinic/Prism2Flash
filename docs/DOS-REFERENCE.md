@@ -93,3 +93,41 @@ True byte I/O uses Gayle's separate odd-byte bank, as defined by
 an odd port adds0xffff to its offset, making AUXDATA+1 use bankoffset0x1003e.
 DOS byte helpers preserve the odd address in AUXOFFSET and select port3f;
 the Amiga backend maps that port with a byte cycle, never a word RMW.
+
+## DOS preparation and host writer implementation
+
+DeepSeek corrected its initial copy-direction report by tracing117c:04f6:
+matching PDA payloads flow into the firmware image. Missing or mismatched
+records retain the entire HEX field, with a warning. No partial PDA field is
+copied. `--plug-policy dos` implements that behavior for the twelve optional
+fields observed in this pair; RF calibration, identity and regulatory data
+remain required. Every fallback is reported. Inactive overlapping plugs do
+not write; active overlapping destinations remain rejected. DOS filename
+fields are uppercase, bounded by the field and20bytes. The standalone PRI
+signature placeholder can be replaced by the STA DE C0 prefix.
+
+`bootstrap::load` splits Genesis entry from exit so raw INITIAL CODE can be
+written and independently verified before low07. It sends no INIT/DOWNLOAD.
+A failed load retains Genesis and reports recovery required. The native
+`bootstrap` command admits only the exact original ID010001 source hash and
+uses the same fresh owned full before/after capture transaction. It checks
+NV/PDA and JEDEC ID/read-mode restoration without erase/programming.
+
+`flash::program_sst` implements DOS's two ID-unlock attempts, exact SST BF/D5
+admission, full128KiB old-image comparison, whole-chip erase, single-write
+per-byte equality polling and complete post-verification. Erase timeout has
+no continue option. Errors after erase setup retain a recovery-required
+result; the caller must retain power/session. No native programming command
+is enabled yet. `flash::Plan` overlays only actual prepared bytes on the
+complete old image and preserves the CIS/PDA gap; descriptor holes are not
+filled. Tests cover preservation, unknown IDs, stale contents, wraparound,
+erase/program timeouts, cancellation and post-verification failures.
+
+The first native byte diagnostic established that even-byte reads matched
+all512 original PDA bytes, while every odd-bank byte floated FF. The Amiga
+backend now uses the established GETODD aligned-word read for the odd byte;
+writes retain true byte cycles in Gayle's odd bank. AUX byte seeks align the
+word and select the lane. This correction requires physical validation;
+word-read PDA after power-cycle matched the original exactly. The diagnostic
+also now clears AUXOFFSET while AUX is enabled, as the established backup
+reader already does.

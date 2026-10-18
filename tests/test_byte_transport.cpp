@@ -43,7 +43,7 @@ int main() {
     p2::Card card{m.mock.bus};
     assert(card.write_nv_byte(address, 0xa5));
     assert(m.writes == 1 && !m.reads && m.value == 0xa5);
-    assert(m.address == address && m.mock.aux_space == 1);
+    assert(m.address == (address & ~1u) && m.mock.aux_space == 1);
     assert(m.port == P2_AUXDATA + (address & 1));
     auto read = card.read_nv_byte(address);
     assert(read && *read == 0xa5 && m.reads == 1);

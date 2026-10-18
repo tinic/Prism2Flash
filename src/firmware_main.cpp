@@ -22,7 +22,7 @@ static void usage(void) {
        "                         [--primary PRIMARY_IMAGE]\n"
        "  Prism2Firmware prepare IMAGE --mode ram|flash --card SNAPSHOT --pda "
        "PDA\n"
-       "                        [--primary PRIMARY_IMAGE]\n"
+       "                        [--primary PRIMARY_IMAGE] [--plug-policy dos]\n"
        "PDA must be a CRC-checked 1024-byte binary backup. See "
        "docs/OFFLINE-FIRMWARE.md.\n"
        "prepare builds a private in-memory copy and reports its hashes.\n"
@@ -39,6 +39,8 @@ struct Options {
   const char *card = nullptr;
   const char *pda = nullptr;
   const char *primary = nullptr;
+  PlugPolicy plug_policy = PlugPolicy::RequireAll;
+  bool policy_supplied = false;
 
   static std::optional<Options> parse(int argc, char **argv) {
     if (argc < 3)
@@ -66,7 +68,11 @@ struct Options {
         options.pda = argv[i + 1];
       else if (key == "--primary" && !options.primary)
         options.primary = argv[i + 1];
-      else
+      else if (key == "--plug-policy" && value == "dos" &&
+               !options.policy_supplied) {
+        options.plug_policy = PlugPolicy::DosOptionalDefaults;
+        options.policy_supplied = true;
+      } else
         return std::nullopt;
     }
     if (!options.mode || !options.card || !options.pda)
@@ -160,8 +166,9 @@ int validate(const Options &options, const Image &image) {
       return 20;
     primary = std::move(*parsed);
   }
-  if (auto result = image.validate(*options.mode, *card, pda.bytes(),
-                                   primary ? &*primary : nullptr);
+  if (auto result =
+          image.validate(*options.mode, *card, pda.bytes(),
+                         primary ? &*primary : nullptr, options.plug_policy);
       !result) {
     p2_fprintf(stderr, "Offline validation rejected: %s\n",
                result.error().message);
@@ -179,7 +186,7 @@ int validate(const Options &options, const Image &image) {
       source.emplace(*primary, basename(options.primary));
     auto prepared =
         PreparedImage::create({image, basename(options.image)}, *options.mode,
-                              *card, pda.bytes(), source);
+                              *card, pda.bytes(), source, options.plug_policy);
     if (!prepared) {
       p2_fprintf(stderr, "Offline preparation rejected: %s\n",
                  prepared.error().message);
@@ -204,6 +211,13 @@ int validate(const Options &options, const Image &image) {
                 static_cast<unsigned long>(segment.data.size()),
                 hash.hex().data());
     }
+    for (const auto &fallback : prepared->fallbacks())
+      p2_printf("DOS image default retained: PDR=0x%04lx expected=%lu "
+                "actual=%lu %s\n",
+                static_cast<unsigned long>(fallback.pdr),
+                static_cast<unsigned long>(fallback.expected_bytes),
+                static_cast<unsigned long>(fallback.actual_bytes),
+                fallback.missing ? "missing" : "length mismatch");
     puts("Offline preparation passed. PDA plugs, filename fields and C0DE "
          "stamps\n"
          "were applied to private copies. Source/PDA files are unchanged.\n"

@@ -2,6 +2,7 @@
 // Host-only byte oracle adapter. No transport or backend is linked.
 #include "file.h"
 #include "firmware.h"
+#include "flash_plan.h"
 #include "sha256.h"
 #include <cassert>
 
@@ -49,6 +50,22 @@ int main(int argc, char **argv) {
   assert(prepared);
   assert(before == payload_hash(*image) && original_pda == bytes);
   assert(!primary || primary_before == payload_hash(*primary));
+  if (!image->entry()) {
+    auto before_flash = p2::ByteBuffer::allocate(p2::flash::Bytes);
+    assert(before_flash);
+    for (std::size_t i = 0; i < before_flash.size(); ++i)
+      before_flash.bytes()[i] = static_cast<uint8_t>(i * 37);
+    auto plan = p2::flash::Plan::create(before_flash.bytes(), *prepared);
+    assert(plan);
+    for (std::size_t offset = 0; offset < p2::flash::Bytes; ++offset) {
+      uint8_t expected = before_flash.bytes()[offset];
+      for (const auto &segment : prepared->segments())
+        if (segment.contains(0x7e0000 + offset, 1))
+          expected = segment.data.bytes()[offset + 0x7e0000 - segment.address];
+      assert(plan->desired()[offset] == expected);
+      assert(plan->before()[offset] == before_flash.bytes()[offset]);
+    }
+  }
   puts("CANONICAL");
   printf("I %lu\n", static_cast<unsigned long>(prepared->entry()));
   for (const auto &segment : prepared->segments()) {

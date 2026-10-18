@@ -83,10 +83,12 @@ struct ProbeReport {
   unsigned genesis_latches = 0;
   bool aux_was_enabled = false, reset_started = false;
   bool io_configuration_restored = false;
+  bool aux_state_acquired = false;
 };
 class Card {
 public:
   explicit Card(p2_bus &bus) : bus_(bus) {}
+  [[nodiscard]] p2_bus &transport() { return bus_; }
   Card(const Card &) = delete;
   Card &operator=(const Card &) = delete;
   [[nodiscard]] CardStatus enable_aux(bool enable);
@@ -107,6 +109,10 @@ public:
   [[nodiscard]] CardResult<uint32_t>
   read_pda(std::span<uint8_t, P2_PDA_SIZE> data);
   [[nodiscard]] ProbeReport probe(unsigned sram_bits);
+  // Split entry/exit for the DOS initial loader. A failed RAM load must keep
+  // its recovery state; callers explicitly decide when to leave Genesis.
+  [[nodiscard]] ProbeReport enter_genesis(unsigned sram_bits);
+  [[nodiscard]] ProbeReport leave_genesis(ProbeReport);
   [[nodiscard]] static bool supports(uint16_t nic_id);
 
 private:
