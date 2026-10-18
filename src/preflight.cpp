@@ -6,6 +6,41 @@
 #include <cstring>
 
 namespace p2::preflight {
+namespace {
+CardResult<int64_t> clock_seconds(Clock local, int offset_east) {
+  if (offset_east < -840 || offset_east > 840 || local.days < 0 ||
+      local.days > 44559 || local.minutes < 0 || local.minutes >= 1440 ||
+      local.ticks < 0 || local.ticks >= 3000)
+    return std::unexpected{P2_E_ARGUMENT};
+  return int64_t(local.days) * 86400 + local.minutes * 60 + local.ticks / 50 -
+         int64_t(offset_east) * 60;
+}
+bool leap(unsigned y) { return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0); }
+CardResult<std::array<char, 17>> format_utc(int64_t seconds) {
+  if (seconds < 0)
+    return std::unexpected{P2_E_ARGUMENT};
+  auto days = seconds / 86400;
+  const auto within = unsigned(seconds % 86400);
+  unsigned year = 1978, month = 1;
+  for (; year <= 2099 && days >= 365 + leap(year); ++year)
+    days -= 365 + leap(year);
+  constexpr std::array<unsigned, 12> lengths{31, 28, 31, 30, 31, 30,
+                                             31, 31, 30, 31, 30, 31};
+  for (; month < 12; ++month) {
+    const auto count = lengths[month - 1] + (month == 2 && leap(year));
+    if (days < count)
+      break;
+    days -= count;
+  }
+  std::array<char, 17> result{};
+  if (year < 2020 || year > 2099 ||
+      p2_snprintf(result.data(), result.size(), "%04u%02u%02uT%02u%02u%02uZ",
+                  year, month, unsigned(days + 1), within / 3600,
+                  within % 3600 / 60, within % 60) != 16)
+    return std::unexpected{P2_E_ARGUMENT};
+  return result;
+}
+} // namespace
 CardResult<int64_t> utc_seconds(std::string_view utc) {
   if (!backup::valid_utc(utc))
     return std::unexpected{P2_E_ARGUMENT};
@@ -33,16 +68,45 @@ CardResult<int64_t> utc_seconds(std::string_view utc) {
 CardResult<int64_t> check_clock(Clock local, int offset_east,
                                 std::string_view supplied) {
   auto reference = utc_seconds(supplied);
-  if (!reference || offset_east < -840 || offset_east > 840 || local.days < 0 ||
-      local.days > 44559 || local.minutes < 0 || local.minutes >= 1440 ||
-      local.ticks < 0 || local.ticks >= 3000)
+  auto actual = clock_seconds(local, offset_east);
+  if (!reference || !actual)
     return std::unexpected{P2_E_ARGUMENT};
-  const int64_t actual = int64_t(local.days) * 86400 + local.minutes * 60 +
-                         local.ticks / 50 - int64_t(offset_east) * 60;
-  const auto skew = actual - *reference;
+  const auto skew = *actual - *reference;
   if (skew < -120 || skew > 120)
     return std::unexpected{P2_E_VERIFY};
-  return actual;
+  return *actual;
+}
+CardResult<std::array<char, 17>> Timeline::stamp(Checkpoint point, Clock local,
+                                                 int east,
+                                                 std::string_view reference,
+                                                 uint32_t now) {
+  auto fail = [&](p2_error error) -> CardResult<std::array<char, 17>> {
+    failed_ = true;
+    return std::unexpected{error};
+  };
+  if (failed_ || unsigned(point) != next_ || next_ >= 4)
+    return fail(P2_E_ARGUMENT);
+  auto utc = clock_seconds(local, east);
+  if (!utc)
+    return fail(utc.error());
+  if (!next_) {
+    if (auto checked = check_clock(local, east, reference); !checked)
+      return fail(checked.error());
+    first_utc_ = *utc;
+    first_us_ = now;
+  }
+  const uint32_t elapsed = now - first_us_;
+  const auto skew = *utc - (first_utc_ + elapsed / 1000000);
+  if (elapsed > 1800000000u || elapsed < last_elapsed_ || skew < -2 ||
+      skew > 2 || (next_ && *utc < last_utc_))
+    return fail(P2_E_VERIFY);
+  auto text = format_utc(*utc);
+  if (!text)
+    return fail(text.error());
+  last_utc_ = *utc;
+  last_elapsed_ = elapsed;
+  ++next_;
+  return text;
 }
 CardStatus check_volume(const Volume &v) {
   // Fail closed on unknown/RAM/custom filesystem types. Add a filesystem only

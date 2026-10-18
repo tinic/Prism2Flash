@@ -14,6 +14,16 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 ## [0.8.0-alpha.1] - 2026-10-18
 
+- Add the owned MA401 x16 RAM-only transaction using the user-accepted full
+  8 MiB AUX NV layout: exact profile checks and dual saved-file-verified
+  captures before and after work, all under one exclusive card claim.
+- Retain resolved parent/destination DOS locks across every stream and compare
+  per-phase UTC against the monotonic timer. The real A1200 storage/lock test
+  passed at a 4 KiB stack; a fresh dual 8 MiB acquisition also passed.
+- Execute the original DOS ILHOPFW.EXE help and trace its hardware routines.
+  Add a distinct initial-bootstrap parser: raw RAM images with S7=0 cannot be
+  treated as PRI/STA flash images or sent through PDA/signature preparation.
+
 ### Changed
 
 - Address DeepSeek P2R9 F1-F4: walk the bounded candidate CIS chain and check
@@ -47,10 +57,10 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 ### Scope
 
-No hardware testing, native Genesis, bootstrap, JEDEC/autoselect or flash
-programming. Preflight is a diagnostic snapshot; retained directory locks,
-per-phase checked UTC timestamps, physical map binding, native file journal
-and independent native gate approval remain prerequisites for enablement.
+Fresh non-resetting hardware acquisition and the native filesystem/lock test
+passed. Genesis, bootstrap and flash programming are not yet hardware-tested.
+Native admission is restricted to the accepted MA401 x16 RAM-only transaction;
+normal inspection, x8 probing and programming remain unavailable.
 
 ## [0.7.0-alpha.1] - 2026-10-18
 

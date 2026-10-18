@@ -7,6 +7,8 @@
 #include "preflight.h"
 #endif
 #include "version.h"
+#include <charconv>
+#include <cstring>
 #include <optional>
 #include <string_view>
 
@@ -32,8 +34,12 @@ static void usage(void) {
        "firmware/PDA.\n"
        "probe resets the card and writes four RAM bytes, then restores normal "
        "mode.\n"
-       "Native inspect/probe are blocked pending physical profile and backup "
-       "gate review.\n"
+       "Native MA401 x16 probe: append --output NEW_DIRECTORY --utc "
+       "YYYYMMDDTHHMMSSZ\n"
+       "  --utc-offset MINUTES_EAST_OF_UTC; fresh before/after backups are "
+       "mandatory.\n"
+       "Native inspect, x8 probing and probing without backup arguments "
+       "remain blocked.\n"
        "backup reads all AUX NV addresses twice; it never initializes or "
        "resets the card.\n"
        "Select SRAM width from the exact card's hardware documentation.\n"
@@ -45,8 +51,20 @@ struct Options {
   enum class Command { Info, Inspect, Probe } command;
   unsigned bits = 0;
   const char *directory = nullptr, *utc = nullptr;
+  int offset_east = 10000;
+  bool native_profile = false;
   static std::optional<Options> parse(int argc, char **argv) {
     const char *directory = nullptr, *utc = nullptr;
+    int east = 10000;
+    if (argc >= 4 && std::string_view{argv[argc - 2]} == "--utc-offset") {
+      const char *text = argv[argc - 1];
+      const char *end = text + std::strlen(text);
+      auto parsed = std::from_chars(text, end, east);
+      if (parsed.ec != std::errc{} || parsed.ptr != end || east < -840 ||
+          east > 840)
+        return std::nullopt;
+      argc -= 2;
+    }
     if (argc >= 6 && std::string_view{argv[argc - 4]} == "--output" &&
         std::string_view{argv[argc - 2]} == "--utc") {
       directory = argv[argc - 3];
@@ -54,14 +72,16 @@ struct Options {
       argc -= 4;
     }
     if (argc == 2 && std::string_view{argv[1]} == "info")
-      return directory ? std::nullopt : std::optional{Options{Command::Info}};
+      return directory || east != 10000 ? std::nullopt
+                                        : std::optional{Options{Command::Info}};
     if (argc == 2 && std::string_view{argv[1]} == "inspect")
-      return Options{Command::Inspect, 0, directory, utc};
+      return Options{Command::Inspect, 0, directory, utc, east};
     if (argc == 4 && std::string_view{argv[1]} == "probe" &&
         std::string_view{argv[2]} == "--sram") {
       const std::string_view width = argv[3];
       if (width == "8" || width == "16")
-        return Options{Command::Probe, width == "8" ? 8u : 16u, directory, utc};
+        return Options{Command::Probe, width == "8" ? 8u : 16u, directory, utc,
+                       east};
     }
     return std::nullopt;
   }
@@ -78,7 +98,9 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
   if (!nic)
     return std::unexpected{nic.error()};
   show_id("NIC", *nic);
-  if (!p2::Card::supports(nic->id)) {
+  const bool ma401 = options.native_profile && nic->id == 0x800c &&
+                     nic->variant == 0 && nic->major == 1 && nic->minor == 0;
+  if (!ma401 && !p2::Card::supports(nic->id)) {
     p2_fprintf(stderr, "NIC is outside the initial HFA3842 profile list.\n");
     return std::unexpected{P2_E_UNSUPPORTED};
   }
@@ -92,12 +114,16 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
     puts("STA: unavailable (primary-only firmware may be running)");
   else
     return std::unexpected{station.error()};
-  std::array<uint8_t, P2_PDA_SIZE> pda;
-  auto address = card.read_pda(pda);
-  if (!address)
-    return std::unexpected{address.error()};
-  p2_printf("PDA: validated 1024-byte read at 0x%08lx\n",
-            static_cast<unsigned long>(*address));
+  if (options.native_profile)
+    puts("PDA: CRC/NIC/SRAM validated from the fresh, owned NV backup.");
+  else {
+    std::array<uint8_t, P2_PDA_SIZE> pda;
+    auto address = card.read_pda(pda);
+    if (!address)
+      return std::unexpected{address.error()};
+    p2_printf("PDA: validated 1024-byte read at 0x%08lx\n",
+              static_cast<unsigned long>(*address));
+  }
   if (options.command != Options::Command::Probe)
     return {};
   p2_printf("Testing Genesis with %u-bit SRAM; no flash commands.\n",
@@ -165,10 +191,13 @@ int main(int argc, char **argv) {
 #if defined(PRISM2_AMIGA) || defined(PRISM2_NATIVE_TRANSACTION_TEST)
   if (options->command != Options::Command::Info && options->directory) {
     auto work_options = *options;
+    work_options.native_profile = true;
     return p2::operation::run_native(
         options->directory, options->utc,
-        options->command == Options::Command::Inspect ? "inspect" : "probe",
-        inspect_work, &work_options);
+        options->command == Options::Command::Inspect ? "inspect"
+        : options->bits == 16                         ? "probe-x16"
+                                                      : "probe-x8",
+        inspect_work, &work_options, options->offset_east);
   }
 #endif
   // Refuse before opening the slot. An existing file or force option must

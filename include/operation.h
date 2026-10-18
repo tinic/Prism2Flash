@@ -18,8 +18,8 @@ struct Report {
 };
 // A journal must save, close and reopen-verify both raw captures and the phase
 // manifest before capture() succeeds. No persisted flag authorizes a session.
-// The only production implementation currently models an 8 MiB linear NV map;
-// it is not an approved physical-card profile or a native enabling switch.
+// Native RAM-only admission uses the user-accepted MA401 8 MiB NV map;
+// model files and stored manifest flags never grant native admission.
 class Journal {
 public:
   virtual ~Journal() = default;
@@ -33,8 +33,8 @@ using Work = CardStatus (*)(Card &, void *);
 // through file verification, operation and readback. Never reclaim/retry/reset.
 [[nodiscard]] Report run(Journal &, Work, void *context);
 int run_native(const char *directory, const char *utc, const char *operation,
-               Work, void *context);
-// Host model only. Native commands remain blocked before any backend call.
+               Work, void *context, int offset_east = 10000);
+// Host model only. This factory cannot select a physical backend.
 [[nodiscard]] Owned<Journal> make_model_journal(const char *directory,
                                                 const char *utc,
                                                 const char *operation);

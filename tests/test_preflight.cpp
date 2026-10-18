@@ -32,6 +32,49 @@ int main() {
     CHECK(!check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
   for (int delta : {-120, 120})
     CHECK(check_clock(stamp(*reference + delta), 0, "20261018T120000Z"));
+  // A several-minute capture advances past the initial reference's skew
+  // window, including a wrapping 32-bit timer. Wall-clock jumps still fail.
+  Timeline timeline;
+  constexpr uint32_t timer_start = 0xffff0000;
+  auto boundary = [&](Checkpoint point, unsigned seconds) {
+    return timeline.stamp(point, stamp(*reference + seconds - 300 * 60), -300,
+                          "20261018T120000Z", timer_start + seconds * 1000000u);
+  };
+  auto first = boundary(Checkpoint::BeforeStart, 0);
+  CHECK(first && std::string_view{first->data()} == "20261018T120000Z");
+  CHECK(boundary(Checkpoint::BeforeEnd, 183));
+  CHECK(boundary(Checkpoint::AfterStart, 184));
+  auto last = boundary(Checkpoint::AfterEnd, 367);
+  CHECK(last && std::string_view{last->data()} == "20261018T120607Z");
+  CHECK(!boundary(Checkpoint::AfterEnd, 368));
+  for (int delta : {-60, 60, 3600}) {
+    Timeline jumping;
+    CHECK(jumping.stamp(Checkpoint::BeforeStart, stamp(*reference), 0,
+                        "20261018T120000Z", 0));
+    CHECK(!jumping.stamp(Checkpoint::BeforeEnd, stamp(*reference + 183 + delta),
+                         0, "20261018T120000Z", 183000000));
+    CHECK(!jumping.stamp(Checkpoint::BeforeEnd, stamp(*reference + 183), 0,
+                         "20261018T120000Z", 183000000));
+  }
+  Timeline reversed;
+  CHECK(!reversed.stamp(Checkpoint::AfterStart, stamp(*reference), 0,
+                        "20261018T120000Z", 0));
+  Timeline expired;
+  CHECK(expired.stamp(Checkpoint::BeforeStart, stamp(*reference), 0,
+                      "20261018T120000Z", 0));
+  CHECK(!expired.stamp(Checkpoint::BeforeEnd, stamp(*reference + 1801), 0,
+                       "20261018T120000Z", 1801000000));
+  static unsigned released = 0;
+  auto release_lock = +[](uintptr_t value) { released += unsigned(value); };
+  {
+    DirectoryLock first_lock{1, release_lock};
+    DirectoryLock second_lock{2, release_lock};
+    auto moved_lock = std::move(first_lock);
+    CHECK(!first_lock.get() && moved_lock.get() == 1);
+    second_lock = std::move(moved_lock);
+    CHECK(released == 2 && !moved_lock.get() && second_lock.get() == 1);
+  }
+  CHECK(released == 3);
   CHECK(!check_clock(Clock{-1, 0, 0}, 0, "20261018T120000Z"));
   CHECK(!check_clock(Clock{17822, 1440, 0}, 0, "20261018T120000Z"));
   CHECK(!check_clock(Clock{17822, 0, 3000}, 0, "20261018T120000Z"));
@@ -49,7 +92,7 @@ int main() {
                    Volume{0x444f5301, 82, 100, -1, 512, false},
                    Volume{0x444f5301, 82, 1000000, 0, -1, false}})
     CHECK(!check_volume(bad));
-  CHECK(!p2::profile::native_approved());
+  CHECK(!p2::profile::programming_approved());
   // Original synthetic PDA with independent polynomial-long-division CRC.
   std::array<uint8_t, P2_PDA_SIZE> pda{};
   auto put = [&](size_t pos, uint16_t value) {

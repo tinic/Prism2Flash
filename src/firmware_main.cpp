@@ -16,6 +16,7 @@ static void usage(void) {
        " - offline firmware inspection and validation\n"
        "  Prism2Firmware --version\n"
        "  Prism2Firmware inspect IMAGE\n"
+       "  Prism2Firmware inspect-initial IMAGE (DOS raw RAM bootstrap)\n"
        "  Prism2Firmware validate IMAGE --mode ram|flash --card SNAPSHOT --pda "
        "PDA\n"
        "                         [--primary PRIMARY_IMAGE]\n"
@@ -228,6 +229,33 @@ int main(int argc, char **argv) {
       usage();
       return 0;
     }
+  }
+  if (argc == 3 && std::string_view{argv[1]} == "inspect-initial") {
+    auto file = p2::File::open(argv[2], "rb");
+    if (!file)
+      return 20;
+    auto image = p2::firmware::InitialImage::read(*file);
+    if (!image || !file.close()) {
+      p2_fprintf(stderr, "Initial image rejected: %s\n",
+                 image ? "File close failed" : image.error().message);
+      return 20;
+    }
+    p2_printf(
+        "Initial RAM bootstrap: %lu bytes, %lu S3 records; zero S7 marker\n"
+        "Source SHA-256: %s\n",
+        static_cast<unsigned long>(image->payload_bytes()), image->records(),
+        image->source_sha256().data());
+    for (const auto &segment : image->segments()) {
+      p2::Sha256 hash;
+      hash.update(segment.data.bytes());
+      p2_printf("Initial segment: address=0x%08lx bytes=%lu sha256=%s\n",
+                static_cast<unsigned long>(segment.address),
+                static_cast<unsigned long>(segment.data.size()),
+                hash.hex().data());
+    }
+    puts("Structural checks passed; no flash classification, PDA plugs or "
+         "signature stamping. No card access or loading.");
+    return 0;
   }
   const auto options = Options::parse(argc, argv);
   if (!options) {

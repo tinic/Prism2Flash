@@ -11,6 +11,7 @@ is written.
 ```text
 Prism2Firmware --version
 Prism2Firmware inspect image.hex
+Prism2Firmware inspect-initial ID010001.HEX
 Prism2Firmware validate station.hex --mode flash --card card.txt --pda pda.bin
 Prism2Firmware validate station.hex --mode flash --card card.txt --pda pda.bin --primary primary.hex
 Prism2Firmware prepare station.hex --mode flash --card card.txt --pda pda.bin --primary primary.hex
@@ -21,6 +22,13 @@ zero S7 entry is flash class; a nonzero entry is RAM class. These are validation
 modes and never request a card operation. There is no force, flash or download
 command. Return code 0 means the requested checks passed; rejected input or
 file errors return 20.
+
+`inspect-initial` is a separate raw RAM-bootstrap reader for DOS initial images.
+It requires S7=0, bounded even 23-bit RAM regions, checked record counts,
+checksums and nonoverlap. It does not classify that marker as flash, apply PDA
+plugs or stamp signatures. It reports every region and SHA-256; no loading or
+card compatibility is implied. Regular `inspect` continues to require component
+metadata and rejects raw initial images.
 
 Inspection reports component identity, entry point, payload segments, exact
 platform identities, supplier/actor ranges, PDA plugs and signature descriptors.

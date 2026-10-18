@@ -34,6 +34,15 @@
 - Until full backup acquisition/export and its operation gate are implemented
   and verified, native inspect/probe must refuse before opening the slot.
   Do not add force/skip-backup options or accept an old backup as authorization.
+- Human handoff, 2026-10-18 21:22 UTC: hardware testing is authorized now.
+  The user explicitly accepts the full 8 MiB AUX NV layout for the MA401 x16
+  RAM-only Genesis probe and requires that the layout question not be reopened.
+  Implement and verify the owned fresh before/after transaction, then perform
+  the test. Derive entry/detection/bootstrap/programming behavior from the DOS
+  ILHOPFW.EXE; DeepSeek was explicitly assigned its reverse engineering.
+  This updates the earlier layout/admission hold for that RAM-only test. Full
+  fresh saved-file-verified captures, sticky removal and no blind reset/retry
+  remain required. No firmware programming routine is implemented yet.
 
 - Project-owned implementation and native tests use C++23 with exceptions and
   RTTI disabled. Follow LLVM formatting via pinned clang-format 18.1.8 and

@@ -78,7 +78,11 @@ CARD = 'P2CARD 1\nNIC 0x8013 1 1 0\nMAC 02:00:00:00:00:01\nSUP 3 2 3 6\nSUP 4 1 
 
 
 def write_fixtures(directory):
+    initial = (srec(3, 0x840, bytes(range(16))) +
+               srec(3, 0x7e0038, bytes(range(4))) +
+               srec(3, 0x7fe000, bytes(range(4))) + srec(7, 0))
     files = {'station.hex': firmware(), 'ram.hex': firmware(entry=0x3f0c01),
+             'initial.hex': initial,
              'primary.hex': firmware(component=0x15), 'card.txt': CARD,
              'pda.bin': pda(), 'bad.hex': firmware().replace('S325', 'S324', 1)}
     for name, data in files.items():

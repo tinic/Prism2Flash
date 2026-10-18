@@ -15,7 +15,7 @@ struct Observation {
 // this reports observations and cannot issue an operation capability.
 [[nodiscard]] CardResult<Observation>
 observe(const p2_card_info &cis, std::span<const uint8_t, P2_PDA_SIZE> pda);
-// No physical profile is approved in this release. No writable flags, JSON
-// profile, CLI argument or observed NIC can turn approval into true.
-[[nodiscard]] bool native_approved();
+// No programming profile exists. RAM-only admission uses the user-accepted
+// full 8 MiB NV map and fresh owned capture, never a saved observation flag.
+[[nodiscard]] bool programming_approved();
 } // namespace p2::profile

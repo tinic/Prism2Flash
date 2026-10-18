@@ -55,6 +55,10 @@ def stop_child(proc):
 
 def valid_output(name, text, suite="genesis"):
     if suite == "firmware":
+        if name == "initial_bootstrap":
+            return "Initial RAM bootstrap: 24 bytes, 3 S3 records" in text and "No card access or loading" in text
+        if name == "reject_initial_as_firmware":
+            return "Image rejected" in text and "Missing S7, component" in text
         if name == "version":
             return text.strip() == f"Prism2Firmware {VERSION}"
         if name.startswith("inspect_"):
@@ -80,7 +84,7 @@ def valid_output(name, text, suite="genesis"):
         return (("NV capture failed:" in text and ("Cannot own PCMCIA card" in text or "No card.resource" in text))
                 or "Cannot create a NEW backup directory" in text)
     if name in ("inspect", "probe8", "probe16", "inspect_again",
-                "inspect_transaction", "probe_transaction"):
+                "inspect_transaction", "probe_transaction", "probe_transaction_ram"):
         return ("Operation blocked: a verified timestamped full-flash backup is required." in text
                 and "no card access was attempted" in text)
     active = name in ("info", "info_again")
@@ -194,6 +198,8 @@ def main():
             ("help", "--help", 0), ("version", "--version", 0),
             ("inspect_flash", f"inspect {prefix}station.hex", 0),
             ("inspect_ram", f"inspect {prefix}ram.hex", 0),
+            ("initial_bootstrap", f"inspect-initial {prefix}initial.hex", 0),
+            ("reject_initial_as_firmware", f"inspect {prefix}initial.hex", 20),
             ("validate_flash", f"validate {prefix}station.hex --mode flash" + options, 0),
             ("validate_ram", f"validate {prefix}ram.hex --mode ram" + options, 0),
             ("validate_pair", f"validate {prefix}station.hex --mode flash" + options + f" --primary {prefix}primary.hex", 0),
@@ -212,6 +218,7 @@ def main():
         CASES=CASES[:-1]+[
             ("inspect_transaction", "inspect --output Work:20261018T104000Z --utc 20261018T104000Z", 20),
             ("probe_transaction", "probe --sram 16 --output Work:20261018T104000Z --utc 20261018T104000Z", 20),
+            ("probe_transaction_ram", "probe --sram 16 --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset 0", 20),
             ("preflight_ram", "preflight --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset 0", 20),
             ("preflight_offset", "preflight --output RAM:probe-20261018T104000Z --utc 20261018T104000Z --utc-offset invalid", 20),
             ("backup_bad_utc", "backup --output RAM:invalid --utc invalid", 20),

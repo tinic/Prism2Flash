@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Exercise the real offline CLI against original synthetic and malformed data."""
 import os
+import hashlib
 from pathlib import Path
 import random
 import struct
@@ -50,6 +51,32 @@ class FirmwareTests(unittest.TestCase):
                       'id=0x8013 major=1 minor=0 variant=1', 'Name: SYNTHETIC.HEX',
                       'Build sequence: 123', 'Signature descriptor:', 'not computed CRC']:
             self.assertIn(value, text)
+
+    def test_dos_initial_bootstrap_is_separate_from_firmware(self):
+        text = (srec(3, 0x840, bytes(range(16))) + '\n' +
+                srec(3, 0x7e0038, b'\x00\xe1\xa1\xff') + '\n' +
+                srec(3, 0x7fe000, b'\x10\x32\x54\x76') + '\n' +
+                srec(7, 0, b'') + '\n')
+        name = self.image(text)
+        report = self.run_cli('inspect-initial', name)
+        for item in ['Initial RAM bootstrap: 24 bytes, 3 S3 records',
+                     'zero S7 marker', 'address=0x00000840 bytes=16',
+                     hashlib.sha256(text.encode()).hexdigest(),
+                     hashlib.sha256(b'\x00\xe1\xa1\xff').hexdigest()]:
+            self.assertIn(item, report)
+        self.run_cli('inspect', name, expected=20, contains='Missing S7, component')
+        self.run_cli('inspect-initial', 'station.hex', expected=20)
+        self.validate(name, expected=20)
+        for invalid in [
+                text.replace(srec(7, 0, b''), srec(7, 0x7e0038, b'')),
+                text.replace(srec(7, 0, b''), ''),
+                srec(3, 0x841, b'\x00\x00') + '\n' + srec(7, 0, b''),
+                srec(3, 0x840, b'\x00') + '\n' + srec(7, 0, b''),
+                srec(3, 0x800000, b'\x00\x00') + '\n' + srec(7, 0, b''),
+                srec(3, 0xff000000, bytes(12)) + '\n' + srec(7, 0, b''),
+                srec(3, 0x840, bytes(16)) + '\n' + text,
+                text[:-4] + '00\n']:
+            self.run_cli('inspect-initial', self.image(invalid), expected=20)
 
     def test_valid_modes_and_pair(self):
         self.validate(contains='Offline metadata and PDA checks passed')

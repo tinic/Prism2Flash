@@ -7,41 +7,62 @@
 #include "sha256.h"
 #include "storage.h"
 #include "version.h"
+#ifdef PRISM2_AMIGA
+#include "card_profile.h"
+#include "preflight.h"
+#endif
 #include <cstring>
 
 namespace p2::operation {
 namespace {
-// Explicitly a synthetic profile. The actual MA401 profile has no native
-// approval and cannot be selected through this journal or any CLI option.
+constexpr std::array Names{"before-read-1.bin", "before-read-2.bin",
+                           "after-read-1.bin",  "after-read-2.bin",
+                           "before.json",       "after.json",
+                           "transaction.json"};
+// The model uses a synthetic profile. Native admission is confined to the
+// user-accepted MA401 8 MiB NV map and a RAM-only x16 operation.
 class CaptureJournal final : public Journal {
 public:
   CaptureJournal(const char *directory, const char *utc, const char *operation,
-                 bool native = false) noexcept
+                 bool native = false, int offset_east = 10000) noexcept
       : directory_(directory), utc_(utc), operation_(operation),
-        native_(native) {}
+        native_(native), offset_east_(offset_east) {}
   CardStatus prepare() override {
-    // A candidate observation cannot grant a physical operation. Refuse before
-    // creating outputs or opening the slot until independent approval exists.
-    if (native_)
+    // Only the explicit RAM profile can reach native storage/slot acquisition.
+    if (native_) {
+#ifdef PRISM2_AMIGA
+      // The human accepted the complete 8 MiB AUX NV layout for one RAM-only
+      // x16 test. This is not an approval of erase/programming geometry.
+      if (std::strcmp(operation_, "probe-x16") || offset_east_ < -840 ||
+          offset_east_ > 840)
+        return std::unexpected{P2_E_UNSUPPORTED};
+      auto session =
+          preflight::NativeSession::create(directory_, utc_, offset_east_);
+      if (!session)
+        return std::unexpected{session.error()};
+      session_ = std::move(*session);
+      created_ = true;
+#else
       return std::unexpected{P2_E_UNSUPPORTED};
+#endif
+    }
     if (!backup::valid_utc(utc_) || !std::strstr(directory_, utc_) ||
         std::strlen(directory_) > 320)
       return std::unexpected{P2_E_ARGUMENT};
-    if (p2_platform_backup_directory(directory_))
+    if (!native_ && p2_platform_backup_directory(directory_))
       return std::unexpected{P2_E_IO};
     created_ = true;
-    constexpr std::array names{"before-read-1.bin", "before-read-2.bin",
-                               "after-read-1.bin",  "after-read-2.bin",
-                               "before.json",       "after.json",
-                               "transaction.json"};
     // Preflight all outputs before claiming the card. A later write/close can
     // still fail; such errors remain failures and preserve partial evidence.
     for (std::size_t step = 0; step < paths_.size(); ++step) {
       // Reserve the failure record first, so later output-open failures can
       // still be recorded without claiming a slot.
       const std::size_t i = step ? step - 1 : 6;
-      p2_snprintf(paths_[i].data(), paths_[i].size(), "%s/%s", directory_,
-                  names[i]);
+      if (native_)
+        p2_snprintf(paths_[i].data(), paths_[i].size(), "%s", Names[i]);
+      else
+        p2_snprintf(paths_[i].data(), paths_[i].size(), "%s/%s", directory_,
+                    Names[i]);
       files_[i] = File::open(paths_[i].data(), "w+b");
       if (!files_[i]) {
         for (std::size_t raw = 0; raw < 6; ++raw)
@@ -53,7 +74,8 @@ public:
   }
   CardStatus capture(p2_bus &bus, Phase phase,
                      const p2_card_info &info) override {
-    if (info.manufacturer != 0x0274 || info.product != 0x1613)
+    if (native_ ? (info.manufacturer != 0xb || info.product != 0x7300)
+                : (info.manufacturer != 0x0274 || info.product != 0x1613))
       return std::unexpected{P2_E_UNSUPPORTED};
     const std::size_t index = phase == Phase::Before ? 0 : 1;
     // A journal is single-use, with a strict before/after sequence.
@@ -62,9 +84,23 @@ public:
     attempted_[index] = true;
     auto &result = captures_[index];
     const auto started = bus.now_us(bus.ctx);
-    result = backup::capture(bus, *files_[index * 2], *files_[index * 2 + 1]);
+    std::array<char, 17> started_utc{}, ended_utc{};
+    int timestamp_error = 0;
+#ifdef PRISM2_AMIGA
+    if (native_) {
+      auto stamp = session_->stamp(index ? preflight::Checkpoint::AfterStart
+                                         : preflight::Checkpoint::BeforeStart,
+                                   bus);
+      if (stamp)
+        started_utc = *stamp;
+      else
+        timestamp_error = stamp.error();
+    }
+#endif
+    if (!timestamp_error)
+      result = backup::capture(bus, *files_[index * 2], *files_[index * 2 + 1]);
     const auto ended = bus.now_us(bus.ctx);
-    int error = result.error;
+    int error = timestamp_error ? timestamp_error : result.error;
     for (std::size_t i = index * 2; i < index * 2 + 2; ++i)
       if (!files_[i].close() && !error)
         error = P2_E_IO;
@@ -77,18 +113,39 @@ public:
                                     result.sha256[1].data());
       saved = !error;
     }
-    std::array<char, 2048> text;
+#ifdef PRISM2_AMIGA
+    if (native_) {
+      auto stamp = session_->stamp(index ? preflight::Checkpoint::AfterEnd
+                                         : preflight::Checkpoint::BeforeEnd,
+                                   bus);
+      if (stamp)
+        ended_utc = *stamp;
+      else {
+        timestamp_error = stamp.error();
+        if (!error)
+          error = timestamp_error;
+      }
+      if (!index && !error)
+        error = validate_native(info);
+    }
+#endif
+    auto storage = make_owned<std::array<char, 3072>>();
+    if (!storage)
+      return std::unexpected{P2_E_IO};
+    auto &text = *storage;
     const auto count = p2_snprintf(
         text.data(), text.size(),
-        "{\n  \"format\": \"Prism2 model transaction capture 1\",\n"
+        "{\n  \"format\": \"Prism2 transaction capture 2\",\n"
         "  \"tool_version\": \"" P2_VERSION "\",\n"
         "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
-        "  \"simulation_only\": true,\n  \"hardware_authorization\": false,\n"
-        "  \"profile\": \"protocol-model-nv-linear-8m-v1\",\n"
+        "  \"simulation_only\": %s,\n  \"hardware_authorization\": false,\n"
+        "  \"profile\": \"%s\",\n"
         "  \"operation\": \"%s\",\n  \"phase\": \"%s\",\n"
         "  \"utc_supplied\": \"%s\",\n"
-        "  \"timestamp_basis\": \"operator-supplied UTC, unverified; "
-        "start/end are wrapping model microseconds, not UTC\",\n"
+        "  \"started_utc\": \"%s\",\n  \"ended_utc\": \"%s\",\n"
+        "  \"utc_offset_minutes_east\": %d,\n"
+        "  \"timestamp_error\": %d,\n"
+        "  \"timestamp_basis\": \"%s\",\n"
         "  \"started_us\": %lu,\n  \"ended_us\": %lu,\n"
         "  \"cis_manufacturer\": %u,\n  \"cis_product\": %u,\n"
         "  \"selector\": 1,\n  \"range\": [0, 8388608],\n"
@@ -98,7 +155,16 @@ public:
         "  \"capture_error\": %d,\n  \"cleanup_error\": %d,\n"
         "  \"saved_file_error\": %d,\n"
         "  \"files_reopened_and_verified\": %s\n}\n",
-        operation_, index ? "after" : "before", utc_,
+        native_ ? "false" : "true",
+        native_ ? "ma401-aux-nv-8m-ram-probe-v1"
+                : "protocol-model-nv-linear-8m-v1",
+        operation_, index ? "after" : "before", utc_, started_utc.data(),
+        ended_utc.data(), offset_east_, timestamp_error,
+        native_ ? "AmigaDOS DateStamp, explicit east offset; UTC checked at "
+                  "start and wall clock compared with monotonic timer at "
+                  "every capture boundary"
+                : "operator-supplied UTC, unverified; start/end are wrapping "
+                  "model microseconds, not UTC",
         static_cast<unsigned long>(started), static_cast<unsigned long>(ended),
         info.manufacturer, info.product,
         static_cast<unsigned long>(result.bytes[0]),
@@ -143,22 +209,25 @@ public:
       return {};
     if (!files_[6])
       return std::unexpected{P2_E_IO};
-    std::array<char, 2048> text;
+    auto storage = make_owned<std::array<char, 2048>>();
+    if (!storage)
+      return std::unexpected{P2_E_IO};
+    auto &text = *storage;
     const auto count = p2_snprintf(
         text.data(), text.size(),
-        "{\n  \"format\": \"Prism2 model transaction 1\",\n"
+        "{\n  \"format\": \"Prism2 transaction 2\",\n"
         "  \"source_revision\": \"" P2_SOURCE_REVISION "\",\n"
-        "  \"simulation_only\": true,\n  \"hardware_authorization\": false,\n"
+        "  \"simulation_only\": %s,\n  \"hardware_authorization\": false,\n"
         "  \"operation\": \"%s\",\n  \"utc_supplied\": \"%s\",\n"
         "  \"preparation_error\": %d,\n  \"acquisition_error\": %d,\n"
         "  \"operation_started\": %s,\n  \"operation_error\": %d,\n"
         "  \"readback_attempted\": %s,\n  \"readback_error\": %d,\n"
         "  \"comparison_error\": %d,\n  \"cleanup_error\": %d,\n"
         "  \"success\": %s\n}\n",
-        operation_, utc_, result.preparation_error, result.acquisition_error,
-        result.operation_started ? "true" : "false", result.operation_error,
-        result.readback_attempted ? "true" : "false", result.readback_error,
-        result.comparison_error, result.cleanup_error,
+        native_ ? "false" : "true", operation_, utc_, result.preparation_error,
+        result.acquisition_error, result.operation_started ? "true" : "false",
+        result.operation_error, result.readback_attempted ? "true" : "false",
+        result.readback_error, result.comparison_error, result.cleanup_error,
         result.success() ? "true" : "false");
     const int error = save_text(6, text, count);
     return error ? CardStatus{std::unexpected{static_cast<p2_error>(error)}}
@@ -166,6 +235,21 @@ public:
   }
 
 private:
+#ifdef PRISM2_AMIGA
+  int validate_native(const p2_card_info &info) {
+    auto file = File::open(paths_[0].data(), "rb");
+    auto pda = make_owned<std::array<uint8_t, P2_PDA_SIZE>>();
+    if (!file || !pda || fseek(file.get(), 0x7f0000, SEEK_SET) ||
+        fread(pda->data(), 1, pda->size(), file.get()) != pda->size())
+      return P2_E_IO;
+    auto observed = profile::observe(info, *pda);
+    if (!observed || observed->sram_width_inference != 16)
+      return observed ? P2_E_UNSUPPORTED : observed.error();
+    return file.close() ? P2_OK : P2_E_IO;
+  }
+  // Declared before streams: they close before CurrentDir/locks are released.
+  Owned<preflight::NativeSession> session_;
+#endif
   int save_text(std::size_t index, std::span<const char> text, int count) {
     if (count <= 0 || static_cast<std::size_t>(count) >= text.size() ||
         !files_[index])
@@ -184,6 +268,7 @@ private:
   }
   const char *directory_, *utc_, *operation_;
   bool native_ = false, created_ = false;
+  int offset_east_ = 10000;
   std::array<std::array<char, 384>, 7> paths_{};
   std::array<File, 7> files_;
   std::array<backup::CaptureReport, 2> captures_;
@@ -226,18 +311,28 @@ int run_model(const char *directory, const char *utc, const char *operation,
 }
 #else
 int run_native(const char *directory, const char *utc, const char *operation,
-               Work work, void *context) {
+               Work work, void *context, int offset_east) {
   if (!directory || !utc || !operation || !work)
     return 20;
-  auto journal = make_owned<CaptureJournal>(directory, utc, operation, true);
+  auto journal =
+      make_owned<CaptureJournal>(directory, utc, operation, true, offset_east);
   if (!journal)
     return 20;
   const auto result = run(*journal, work, context);
-  p2_fprintf(stderr,
-             "Operation blocked: a verified timestamped full-flash backup is "
-             "required.\n"
-             "Physical profile and native transaction are not approved; "
-             "no card access was attempted.\n");
+  if (result.preparation_error) {
+    p2_fprintf(stderr,
+               "Operation blocked: a verified timestamped full-flash backup is "
+               "required. Native preparation failed (%d); "
+               "no card access was attempted.\n",
+               result.preparation_error);
+    return 20;
+  }
+  p2_printf("Native transaction: before=%d operation=%d after=%d compare=%d "
+            "cleanup=%d journal=%d preparation=%d\n",
+            result.acquisition_error, result.operation_error,
+            result.readback_error, result.comparison_error,
+            result.cleanup_error, result.journal_error,
+            result.preparation_error);
   return result.success() ? 0 : 20;
 }
 #endif

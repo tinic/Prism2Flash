@@ -42,5 +42,5 @@ CardResult<Observation> observe(const p2_card_info &cis,
   result.sram_width_inference = 16;
   return result;
 }
-bool native_approved() { return false; }
+bool programming_approved() { return false; }
 } // namespace p2::profile

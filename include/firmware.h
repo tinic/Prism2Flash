@@ -52,6 +52,7 @@ struct CardSnapshot {
   [[nodiscard]] static Result<CardSnapshot> read(FILE &file);
 };
 class Parser;
+class InitialImage;
 // A successfully parsed image owns its payload and exposes immutable views.
 // Moving transfers ownership; there is no partially initialized public image.
 class Image {
@@ -85,6 +86,7 @@ public:
 
 private:
   friend class Parser;
+  friend class InitialImage;
   Image() = default;
   p2::Identity component_{};
   uint32_t entry_ = 0;
@@ -98,6 +100,27 @@ private:
   std::array<char, 128> name_{};
   std::array<char, 65> source_sha256_{};
   std::optional<uint16_t> sequence_;
+};
+
+// DOS -i images are raw RAM bootstraps: they have no component metadata and
+// can have S7=0. Keep them distinct from PRI/STA images; never classify them
+// as flash or feed them to PDA plugging/signature preparation.
+class InitialImage {
+public:
+  InitialImage(InitialImage &&) = default;
+  InitialImage &operator=(InitialImage &&) = default;
+  InitialImage(const InitialImage &) = delete;
+  InitialImage &operator=(const InitialImage &) = delete;
+  [[nodiscard]] static Result<InitialImage> parse(std::span<const uint8_t>);
+  [[nodiscard]] static Result<InitialImage> read(FILE &);
+  [[nodiscard]] auto segments() const { return image_.segments(); }
+  [[nodiscard]] auto source_sha256() const { return image_.source_sha256(); }
+  [[nodiscard]] auto payload_bytes() const { return image_.payload_bytes(); }
+  [[nodiscard]] auto records() const { return image_.records(); }
+
+private:
+  explicit InitialImage(Image image) noexcept : image_(std::move(image)) {}
+  Image image_;
 };
 
 // The filename plug uses the source basename, not embedded firmware metadata.

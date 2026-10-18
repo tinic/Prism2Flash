@@ -1,5 +1,42 @@
 # Roadmap
 
+## Active execution plan — 2026-10-18
+
+**Finish condition:** the actual A1200 MA401 runs the selected newer firmware;
+full before/after captures and running identities verify it; Claude receives the
+results and can resume the dependent bug tests.
+
+1. **In progress:** reverse engineer original DOS ILHOPFW.EXE 0.5e (2002-04-24),
+   with DeepSeek assigned the entry/detection/bootstrap/write routines. Derive
+   the Amiga sequence from those routines and document platform adaptations.
+2. Finish the native owned transaction: persistent destination locks, checked
+   phase UTC, dual full captures, close/reopen/hash verification and exact card
+   profile binding. The human accepts the full 8 MiB AUX NV layout for the RAM
+   probe; do not reopen the physical-layout debate.
+3. Run one real x16 Genesis probe with fresh before/after captures under the
+   same claim. Require RAM sentinel verification, normal firmware response and
+   unchanged NV. Fix the concrete failure if any; do not blindly try another
+   width, reset, reclaim or restore.
+4. Implement the DOS-derived initial-image loader and programming engine;
+   validate the selected initial/primary/station images against this exact card.
+5. Perform the firmware update with fresh captures, verify intended changes and
+   preserved PDA/CIS, restart through the verified path, read firmware identities
+   and confirm normal driver use. Preserve the live recovery session on failure.
+6. Report hardware results to Claude and return the reserved A1200. Finish the
+   matching committed source/release and remove task staging.
+
+**Evidence already obtained:** original DOS EXE/INI/help/documents downloaded and
+hashed; DOS help executed in DOSBox; idle sentinel routine identified at
+EXE file 0x10423 (load-relative segment 0a22:3803). Fresh A1200 backup at
+20261018T211840Z passed: two 8 MiB raw files, saved-file verification, cleanup and
+CIS recheck; SHA-256 matches the previous untouched backup. No new INIT, Genesis
+or flash programming has yet been performed in this session.
+
+The goal stays open through implementation and failed experiments. CI, emulator
+checks and releases support it; none is the completion condition. Stop card I/O
+on sticky removal, an unverified backup, or a failed recovery state; continue
+analysis and the specific fix, and report the exact failure.
+
 ## Required gate: timestamped full-flash readback
 
 - [x] Refuse native active inspection/probing before slot access while full
