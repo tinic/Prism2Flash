@@ -1,16 +1,17 @@
 # Prism2Flash
 
-## Flash your MA401
+## Flash your Prism2 card
 
-**Supported:** Netgear MA401 V2.5 / PD5LMWP200 (`000b:7300`, SST BF:D5).
-Other cards are refused.
+Prism2 PC Cards documented by Host AP and prism2.device are recognized.
+SRAM width and firmware compatibility are read from the card itself.
+[Card and firmware selection](docs/COMPATIBILITY.md).
 
 1. Extract the latest [Amiga release](https://github.com/tinic/Prism2Flash/releases).
    Install the included `Libs/pccard.library` in `LIBS:` if version 2.2 or newer is absent.
-2. Download [initial code](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX) and your compatible PRI/STA files.
-   Tested pair: [PRI 1.1.1](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex), [STA 1.7.4](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex).
+2. Download the initial, PRI and STA files matching your card.
+   MA401 example: [initial](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX), [PRI 1.1.1](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex), [STA 1.7.4](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex).
 3. Stop WirelessManager and disconnect the card from your network stack.
-4. From the extracted drawer, run (substitute your PRI/STA filenames):
+4. From the extracted drawer, run (substitute your three firmware filenames):
 
 ```text
 Stack 16384
@@ -75,7 +76,7 @@ not authorize a new operation. See the
 ## Native utilities
 
 - `Prism2Genesis --help`: CIS information, full NV backup, preflight and the
-  qualified MA401 x16 Genesis/bootstrap transaction. Standalone legacy `inspect`
+  Prism2 x8/x16 Genesis/bootstrap transaction. Standalone legacy `inspect`
   and unqualified width/card combinations remain blocked.
 - `Prism2Firmware --help`: offline S-record inspection, compatibility checks
   and private-copy preparation. It has no card backend.
@@ -151,14 +152,12 @@ newer**. An unmodified pccard.library 2.2 is provided in
 `third_party/pccard/Libs`, together with its complete original source archive
 and license notices. Do not replace a newer installed library.
 
-The initial configured-card allowlist is deliberately narrow: CIS identifiers
-`0274:1612`, `0274:1613`, `0250:0002`, `028a:0002`, `02aa:0002`,
-`02d2:0001`, followed by a second check of the running NICID. This list comes
-from upstream code; it is **not a hardware-tested compatibility list**.
-The qualified MA401 has a separate exact CIS/PDA profile for NICID `800c`;
-other `800c` cards, early HFA3841 cards, multifunction cards and Prism 3
-SSF cards await dedicated profiles. A 3.3 V-only or CardBus card is not a
-target for the A600/A1200 slot.
+Card recognition uses the documented Host AP and prism2.device PC Card IDs
+and product strings. The card's CRC-checked PDA supplies its NIC identity and
+x8/x16 SRAM configuration. Firmware platform and interface compatibility are
+checked against that identity. The DOS parallel-flash engine selects the
+AMD, ST, SST or Atmel command sequence from the live JEDEC ID.
+See [compatibility and firmware selection](docs/COMPATIBILITY.md).
 
 ## Host verification
 

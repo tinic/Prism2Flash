@@ -97,7 +97,8 @@ card access, repair or voting. It requires identical raw files and 64 identical
 128 KiB windows; walks the CIS chain at window offset 0xfe00 and checks
 MANFID000b:7300; corroborates PK010007.HEX/SF010306.HEX at their observed
 offsets; validates PDA record bounds, 512-byte length limits, duplicates and
-CRC-16/ARC; and checks NIC800c/0/1/0, PDR0400=0003 and absence of PDR0005. It emits hashes and
+CRC-16/ARC; validates a documented PC Card NIC platform, derives x8/x16 from
+PDR0400 (or runtime RAM detection), and retains PDR0005 when present. It emits hashes and
 configuration observations, not MAC/serial/calibration or source paths.
 
 Passing this audit corroborates the candidate observations. It does not prove

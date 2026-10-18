@@ -14,5 +14,6 @@ struct Report {
 };
 // Original DOS mode0: Genesis, raw EXTDS load/verify, then low07 handoff.
 // No INIT, DOWNLOAD or flash command. A load failure retains Genesis and RAM.
-[[nodiscard]] Report load(Card &, p2_bus &, const firmware::InitialImage &);
+[[nodiscard]] Report load(Card &, p2_bus &, const firmware::InitialImage &,
+                          unsigned sram_bits = 16);
 } // namespace p2::bootstrap

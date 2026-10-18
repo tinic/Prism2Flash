@@ -11,7 +11,7 @@ constexpr std::string_view Source =
     "S309007FE000414243448D\nS70500000000FA\n";
 struct Model {
   p2_mock mock{};
-  Model() { assert(!p2_mock_init(&mock, 16)); }
+  Model(unsigned bits = 16) { assert(!p2_mock_init(&mock, bits)); }
   ~Model() { p2_mock_free(&mock); }
 };
 auto initial() {
@@ -23,6 +23,17 @@ auto initial() {
 } // namespace
 int main() {
   const auto image = initial();
+  for (unsigned bits : {8u, 16u}) {
+    for (bool automatic : {false, true}) {
+      Model m{bits};
+      p2::Card card{m.mock.bus};
+      const auto r =
+          p2::bootstrap::load(card, m.mock.bus, image, automatic ? 0 : bits);
+      assert(!r.error && r.initial_started && r.byte_writes_verified);
+      assert(r.genesis.sram_bits == bits && r.bytes_written == 20);
+      assert(!m.mock.flash_commands && !m.mock.command_writes);
+    }
+  }
   {
     Model m;
     p2::Card card{m.mock.bus};

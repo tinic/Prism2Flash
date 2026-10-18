@@ -79,3 +79,10 @@
   Do not gate backup, Genesis, programming or verification on wall-clock
   validity, skew, reference agreement or clock changes. This supersedes older
   timestamp/clock checks while preserving full captures and content checks.
+
+- Human compatibility requirement, 2026-10-18: enable ALL documented compatible
+  Prism2 PC Cards. Do not restrict the utility to MA401 branding, CIS strings,
+  one NIC revision or the one physically tested card. Use the documented
+  prism2.device/Host AP card tables and actual PDA/firmware/JEDEC capabilities.
+  Add supported hardware paths; do not substitute disclaimers for implementation.
+  This supersedes earlier exact-MA401 admission restrictions.

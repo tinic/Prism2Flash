@@ -7,6 +7,12 @@ inline constexpr uint32_t Bytes = 0x20000;
 struct Identity {
   uint8_t manufacturer = 0, device = 0;
 };
+[[nodiscard]] constexpr bool supported(Identity id) {
+  return (id.manufacturer == 1 && id.device == 0x6e) ||
+         (id.manufacturer == 0x20 && id.device == 0x23) ||
+         (id.manufacturer == 0xbf && id.device == 0xd5) ||
+         (id.manufacturer == 0x1f && (id.device == 4 || id.device == 5));
+}
 // JEDEC ID/reset only, never erase/program. Caller still needs fresh captures.
 [[nodiscard]] CardResult<Identity> identify(Card &);
 struct Report {
@@ -19,8 +25,8 @@ struct Report {
 // DOS ILHOPFW -hf algorithm, with no interactive continuation on timeout.
 // Caller owns the live card, saved full before capture, RAM bootstrap and
 // recovery lifetime. Both buffers must be complete canonical 128 KiB images.
-// Initial native profile supports the DOS's SST39VF010 ID only.
-[[nodiscard]] Report program_sst(Card &, p2_bus &,
-                                 std::span<const uint8_t> before,
-                                 std::span<const uint8_t> desired);
+// DOS AMD, ST, SST and Atmel parallel-flash algorithms.
+[[nodiscard]] Report program_parallel(Card &, p2_bus &,
+                                      std::span<const uint8_t> before,
+                                      std::span<const uint8_t> desired);
 } // namespace p2::flash

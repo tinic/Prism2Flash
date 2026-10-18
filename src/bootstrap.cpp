@@ -3,9 +3,13 @@
 #include <algorithm>
 
 namespace p2::bootstrap {
-Report load(Card &card, p2_bus &bus, const firmware::InitialImage &image) {
+Report load(Card &card, p2_bus &bus, const firmware::InitialImage &image,
+            unsigned sram_bits) {
   Report report;
-  report.genesis = card.enter_genesis(16);
+  report.genesis = card.enter_genesis(sram_bits ? sram_bits : 8);
+  // Host AP prism2_download_genesis: try x8, then x16 only on RAM mismatch.
+  if (!sram_bits && report.genesis.error == P2_E_VERIFY)
+    report.genesis = card.enter_genesis(16);
   report.recovery_required = report.genesis.reset_started;
   if (report.genesis.error) {
     report.error = report.genesis.error;

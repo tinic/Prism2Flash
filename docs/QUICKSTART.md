@@ -1,16 +1,17 @@
 # Quick start
 
-## Flash your MA401
+## Flash your Prism2 card
 
-**Supported:** Netgear MA401 V2.5 / PD5LMWP200 (`000b:7300`, SST BF:D5).
-Other cards are refused.
+Prism2 PC Cards documented by Host AP and prism2.device are recognized.
+SRAM width and firmware compatibility are read from the card itself.
+[Card and firmware selection](COMPATIBILITY.md).
 
 1. Extract the latest [Amiga release](https://github.com/tinic/Prism2Flash/releases).
    Install the included `Libs/pccard.library` in `LIBS:` if version 2.2 or newer is absent.
-2. Download [initial code](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX) and your compatible PRI/STA files.
-   Tested pair: [PRI 1.1.1](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex), [STA 1.7.4](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex).
+2. Download the initial, PRI and STA files matching your card.
+   MA401 example: [initial](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX), [PRI 1.1.1](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex), [STA 1.7.4](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex).
 3. Stop WirelessManager and disconnect the card from your network stack.
-4. From the extracted drawer, run (substitute your PRI/STA filenames):
+4. From the extracted drawer, run (substitute your three firmware filenames):
 
 ```text
 Stack 16384

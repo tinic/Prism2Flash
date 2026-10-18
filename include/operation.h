@@ -20,7 +20,7 @@ struct Report {
 };
 // A journal must save, close and reopen-verify both raw captures and the phase
 // manifest before capture() succeeds. No persisted flag authorizes a session.
-// Native RAM-only admission uses the user-accepted MA401 8 MiB NV map;
+// Native admission uses fresh full AUX NV captures and the card's own PDA;
 // model files and stored manifest flags never grant native admission.
 class Journal {
 public:

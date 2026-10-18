@@ -104,6 +104,7 @@ struct Context {
   std::optional<flash::Plan> plan;
   const char *primary_name = nullptr, *station_name = nullptr;
   const char *expected_plan = nullptr;
+  profile::Observation hardware{};
   bool recovery_required = false;
   bool flash_changed = false;
 };
@@ -122,6 +123,11 @@ CardStatus prepare(Context &context) {
       !saved.close())
     return std::unexpected{P2_E_IO};
   const auto pda = before.bytes().subspan(0x10000, P2_PDA_SIZE);
+  const auto hardware = profile::observe(
+      {}, std::span<const uint8_t, P2_PDA_SIZE>{pda.data(), P2_PDA_SIZE});
+  if (!hardware)
+    return std::unexpected{hardware.error()};
+  context.hardware = *hardware;
   const auto snapshot = firmware::CardSnapshot::from_pda(pda);
   if (!snapshot)
     return std::unexpected{P2_E_PDA};
@@ -162,6 +168,15 @@ CardStatus prepare(Context &context) {
           P2_SOURCE_REVISION, context.primary.source_sha256().data(),
           context.station.source_sha256().data(), hash.hex().data()) < 0)
     return std::unexpected{P2_E_IO};
+  if (context.initial &&
+      p2_fprintf(manifest.get(), "initial=%s\n",
+                 context.initial->source_sha256().data()) < 0)
+    return std::unexpected{P2_E_IO};
+  if (p2_fprintf(manifest.get(), "nic=%04x/%u/%u/%u\nsram_bits=%u\n",
+                 context.hardware.nic.id, context.hardware.nic.variant,
+                 context.hardware.nic.major, context.hardware.nic.minor,
+                 context.hardware.sram_width_inference) < 0)
+    return std::unexpected{P2_E_IO};
   for (const auto &fallback : prepared->fallbacks())
     if (p2_fprintf(manifest.get(),
                    "DOS-default PDR=%04lx expected=%lu actual=%lu missing=%u\n",
@@ -178,7 +193,8 @@ CardStatus program(Card &card, void *opaque) {
   auto &context = *static_cast<Context *>(opaque);
   if (auto r = prepare(context); !r)
     return r;
-  const auto loaded = bootstrap::load(card, card.transport(), *context.initial);
+  const auto loaded = bootstrap::load(card, card.transport(), *context.initial,
+                                      context.hardware.sram_width_inference);
   p2_printf("Initial code: error=%d byte-lanes=%u verified=%lu started=%u\n",
             loaded.error, loaded.byte_writes_verified,
             static_cast<unsigned long>(loaded.bytes_verified),
@@ -187,7 +203,7 @@ CardStatus program(Card &card, void *opaque) {
     context.recovery_required = loaded.recovery_required;
     return std::unexpected{loaded.error ? loaded.error : P2_E_VERIFY};
   }
-  const auto result = flash::program_sst(
+  const auto result = flash::program_parallel(
       card, card.transport(), context.plan->before(), context.plan->desired());
   context.recovery_required = result.recovery_required;
   context.flash_changed = result.erase_command_attempted;
@@ -232,7 +248,7 @@ CardStatus verify(Card &card, void *opaque) {
   if (auto r = card.initialize(); !r)
     return r;
   for (const auto &[rid, expected] :
-       std::array{std::pair{P2_RID_NICID, Identity{0x800c, 0, 1, 0}},
+       std::array{std::pair{P2_RID_NICID, context.hardware.nic},
                   std::pair{P2_RID_PRIID, context.primary.component()},
                   std::pair{P2_RID_STAID, context.station.component()}}) {
     auto observed = card.identity(rid);
@@ -324,12 +340,6 @@ int main(int argc, char **argv) {
     }
   }
   p2_printf("Backups: %s\n", options->directory);
-  if (!options->verify && !profile::programming_approved()) {
-    p2_fprintf(
-        stderr,
-        "Native programming admission remains disabled; no card access.\n");
-    return 20;
-  }
   const auto pri = primary->component(), sta = station->component();
   p2_printf("Target PRI %u.%u.%u / STA %u.%u.%u\n", pri.major, pri.minor,
             pri.variant, sta.major, sta.minor, sta.variant);
@@ -347,14 +357,12 @@ int main(int argc, char **argv) {
       puts("SUCCESS: running firmware and full flash contents verified.");
     return result;
   }
-  context->initial = load<firmware::InitialImage>(
-      options->initial,
-      "1d326cee5887005e9b755e74e5578ccfbd74ae5e7ebc19c1af23e61b7a76c018");
+  context->initial = load<firmware::InitialImage>(options->initial, {});
   if (!context->initial)
     return 20;
   const auto result = operation::run_native(
-      options->directory, options->utc, "flash-sst", program, context.get(),
-      options->east, {compare, context.get()},
+      options->directory, options->utc, "flash-parallel", program,
+      context.get(), options->east, {compare, context.get()},
       {[](void *c, const operation::Report &r) {
          const auto &ctx = *static_cast<Context *>(c);
          return ctx.recovery_required ||
