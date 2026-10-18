@@ -52,14 +52,13 @@ in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
   unreadable clock uses `untimed`, duplicates get a suffix. Remove wall-clock
   validity, reference-skew and phase-jump gates entirely. Clock setup is never
   required and cannot block flashing.
-- Bound NV pacing even when the timer counter freezes; fall back to the
-  microsecond timer if no E-clock frequency is available. Check AUX after
-  every accepted page as well as on retries, including idle-bus-value coverage.
-- Replace per-word GetSysTime pacing with a monotonic E-clock wait. Refuse if
-  firmware disables AUX mid-capture, preserving its disabled state. Add timer
-  wrap, AUX-loss and local-clock boundary tests. Physical timing qualification
-  of the pacing change remains pending; the actual upgrade and cold-boot IDs
-  are recorded separately from the failed additional reader transactions.
+- Remove per-word timer pacing: real captures showed unchanged disagreement
+  frequency and a timeout. Restore the hardware-qualified streamed reader,
+  bounded whole-page retries and strict AUX-state checks. Detect AUX loss
+  after an agreeing page, including an idle FF value; never silently re-enable.
+  Final verification around INIT still needs a physical run. The completed
+  upgrade and cold-boot identities remain recorded separately from failed
+  additional reader transactions.
 
 ## [0.7.0-alpha.1] - 2026-10-18
 

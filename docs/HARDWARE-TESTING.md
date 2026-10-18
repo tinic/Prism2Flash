@@ -49,10 +49,10 @@ See [the sanitized report](evidence/ma401-upgrade-2026-10-18.json).
   Cleanup completed and no recovery hold remained. There was no extra erase,
   rewrite or reset in these attempts.
 - Sustained NV capture with the running MAC remains a tool qualification issue.
-  Offline follow-up replaces per-word GetSysTime conversion with an E-clock
-  wait and fails on an unexpected AUX disable. The 240-second deadline,
+  Offline follow-up removes ineffective per-word pacing, restores streamed
+  NV reads and fails on an unexpected AUX disable. The 240-second deadline,
   consecutive-page agreement, all-alias check and intended-image comparison
-  remain enforced. Hardware timing of that follow-up is not yet established.
+  remain enforced. A full native verifier run with these fixes remains pending.
 - At 23:10:49 UTC, Claude was notified that the A1200 was available for dependent
   driver tests, with exact firmware identities, complete earlier readback hash
   and the additional verifier limitation.

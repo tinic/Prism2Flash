@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "backup.h"
-#include "eclock_wait.h"
 #include "mock.h"
 #include "sha256.h"
 #include <stdio.h>
@@ -62,7 +61,6 @@ static void transfer_tests(void) {
   uint8_t b[260];
   unsigned ops;
   init_nv(&m);
-  m.min_nv_gap = 1;
   m.nv_selector_hides_control = true;
   m.regs[P2_CONTROL / 2] = 0xc000;
   CHECK(!code(p2::Card{m.bus}.read_nv(126, b)));
@@ -70,10 +68,6 @@ static void transfer_tests(void) {
   CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()));
   m.aux_space = 1; // Reproduce the retained selector from an older caller.
   CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()) && m.aux_space == 0);
-  m.bus.nv_word_gap = [](void *opaque) {
-    static_cast<p2_mock *>(opaque)->clock += 2;
-    return true;
-  };
   CHECK(!code(p2::Card{m.bus}.read_nv(0x7ffffe, std::span{b}.first(2))));
   CHECK(!memcmp(b, m.nv_memory + 0x7ffffe, 2));
   ops = m.operations;
@@ -87,33 +81,6 @@ static void transfer_tests(void) {
         P2_E_ARGUMENT);
   CHECK(m.operations == ops && !m.payload_writes && !m.command_writes &&
         !m.configuration_writes);
-  p2_mock_free(&m);
-}
-static void eclock_tests() {
-  CHECK(p2::nv_gap_ticks(709379) == 2);
-  CHECK(p2::nv_gap_ticks(715909) == 2);
-  CHECK(p2::nv_gap_ticks(1000000) == 2);
-  CHECK(p2::nv_gap_ticks(2000001) == 4);
-  for (uint32_t start : {0u, 0xfffffffeu, 0xffffffffu}) {
-    uint32_t clock = start, calls = 0;
-    CHECK(p2::wait_nv_gap(2, [&] {
-      ++calls;
-      return clock++;
-    }));
-    CHECK(calls == 3 && uint32_t(clock - start) == 3);
-  }
-  unsigned samples = 0;
-  CHECK(!p2::wait_nv_gap(2, [&] {
-    ++samples;
-    return 7u;
-  }));
-  CHECK(samples == 1025);
-  p2_mock m;
-  init_nv(&m);
-  m.bus.nv_word_gap = [](void *) { return false; };
-  std::array<uint8_t, 128> page{};
-  CHECK(code(p2::Card{m.bus}.read_nv(0, page)) == P2_E_TIMEOUT);
-  CHECK(m.nv_reads == 1 && !m.aux_space && !m.payload_writes);
   p2_mock_free(&m);
 }
 static void capture_tests(int enabled, int mismatch, bool hidden = false) {
@@ -266,7 +233,6 @@ int main(void) {
   hash_tests();
   pda_oracle_test();
   transfer_tests();
-  eclock_tests();
   capture_tests(0, 0);
   capture_tests(1, 0);
   capture_tests(1, 0, true);
