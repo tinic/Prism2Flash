@@ -30,6 +30,27 @@ static int available(struct p2_bus *b)
     if(!b->present(b->ctx))return P2_E_REMOVED;
     return b->cancelled && b->cancelled(b->ctx) ? P2_E_CANCELLED : P2_OK;
 }
+static int stable_chunk(struct p2_bus *b,uint32_t address,uint8_t *out,
+                        uint32_t start,struct p2_capture_result *result)
+{
+    uint8_t next[128];unsigned page,attempt;int rc;
+    for(page=0;page<4096;page+=128){
+        for(attempt=0;attempt<20;++attempt){
+            if((uint32_t)(b->now_us(b->ctx)-start)>=UINT32_C(240000000))return P2_E_TIMEOUT;
+            rc=p2_aux_read_nv(b,address+page,attempt?next:out+page,128);
+            if(rc)return rc;
+            ++result->page_reads;
+            if(attempt){
+                if(!memcmp(out+page,next,128))break;
+                ++result->page_disagreements;
+                memcpy(out+page,next,128);
+            }
+        }
+        /* Require two consecutive whole-page reads, never vote/repair bytes. */
+        if(attempt==20)return P2_E_VERIFY;
+    }
+    return P2_OK;
+}
 int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_result *out)
 {
     static const uint16_t saved_regs[]={P2_PARAM0,P2_PARAM1,P2_PARAM2,P2_AUXPAGE,P2_AUXOFFSET};
@@ -66,7 +87,7 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
         for(address=0;!rc && address<P2_NV_BYTES;address+=4096){
             rc=available(b);if(rc)break;
             if((uint32_t)(b->now_us(b->ctx)-start)>=UINT32_C(240000000)){rc=P2_E_TIMEOUT;break;}
-            rc=p2_aux_read_nv(b,address,buffers,4096);if(rc)break;
+            rc=stable_chunk(b,address,buffers,start,out);if(rc)break;
             if(pass){
                 size_t got=fread(buffers+4096,1,4096,first);
                 out->comparison_read_bytes=(uint32_t)got;
@@ -161,6 +182,8 @@ int p2_backup_command(const char *directory,const char *utc)
           "  \"bytes_read\": [%lu, %lu],\n  \"sha256\": [\"%s\", \"%s\"],\n  \"elapsed_us\": %lu,\n"
           "  \"cleanup_error\": %d,\n  \"error\": %d,\n  \"nv_address_space_complete\": %s,\n"
           "  \"backend_cleanup_error\": %d,\n"
+          "  \"page_verification\": \"two consecutive identical 128-byte reads; maximum twenty reads per page per pass\",\n"
+          "  \"page_reads\": %lu,\n  \"page_disagreements\": %lu,\n"
           "  \"mismatch_bytes\": %lu,\n  \"first_mismatch\": %lu,\n  \"comparison_read_bytes\": %lu,\n"
           "  \"register_order\": [\"CONTROL\",\"PARAM0\",\"PARAM1\",\"PARAM2\",\"AUXPAGE\",\"AUXOFFSET\"],\n"
           "  \"registers_before\": [%u,%u,%u,%u,%u,%u],\n  \"registers_after\": [%u,%u,%u,%u,%u,%u],\n"
@@ -168,6 +191,7 @@ int p2_backup_command(const char *directory,const char *utc)
           "  \"authorizes_impactful_operation\": false\n}\n",utc,card.manufacturer,card.product,
           (unsigned long)result.bytes[0],(unsigned long)result.bytes[1],result.sha256[0],result.sha256[1],
           (unsigned long)result.elapsed_us,result.cleanup_error,rc,rc?"false":"true",result.backend_cleanup_error,
+          (unsigned long)result.page_reads,(unsigned long)result.page_disagreements,
           (unsigned long)result.mismatch_bytes,(unsigned long)result.first_mismatch,(unsigned long)result.comparison_read_bytes,
           result.before[0],result.before[1],result.before[2],result.before[3],result.before[4],result.before[5],
           result.after[0],result.after[1],result.after[2],result.after[3],result.after[4],result.after[5],verify?"true":"false");

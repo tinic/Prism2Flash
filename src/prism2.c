@@ -81,8 +81,6 @@ static int aux_transfer(struct p2_bus *b, uint32_t addr, uint8_t *read_buf,
                 b->write16(b->ctx, P2_AUXDATA, v);
             } else {
                 v = b->read16(b->ctx, P2_AUXDATA);
-                /* PCMCIA memory I/O can outrun older AUX/NV read cycles. */
-                if(space) b->delay_us(b->ctx,2);
                 read_buf[i] = (uint8_t)v;
                 read_buf[i+1] = (uint8_t)(v >> 8);
             }

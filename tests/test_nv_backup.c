@@ -53,11 +53,13 @@ static void capture_tests(int enabled,int mismatch)
     CHECK(a && b);init_nv(&m);
     m.regs[P2_CONTROL/2]=enabled?0xc000:0;
     for(i=0;i<5;++i)m.regs[regids[i]/2]=regs[i];
-    if(mismatch)m.corrupt_nv_after=P2_NV_BYTES/2;
+    if(mismatch)m.corrupt_nv_after=P2_NV_BYTES;
+    else m.corrupt_nv_once_at=5;
     CHECK(p2_capture_nv(&m.bus,a,b,&result)==(mismatch?P2_E_VERIFY:P2_OK));
     CHECK(result.bytes[0]==P2_NV_BYTES);
     CHECK(result.bytes[1]==P2_NV_BYTES);
     CHECK((result.mismatch_bytes!=0)==(mismatch!=0));
+    if(!mismatch)CHECK(result.page_disagreements==1 && result.page_reads==4*(P2_NV_BYTES/128)+1);
     if(!mismatch)CHECK(strlen(result.sha256[0])==64 && !strcmp(result.sha256[0],result.sha256[1]));
     CHECK(!result.cleanup_error && m.regs[P2_CONTROL/2]==(enabled?0xc000:0));
     for(i=0;i<3;++i)CHECK(m.regs[regids[i]/2]==(enabled?regs[i]:0));
@@ -81,6 +83,11 @@ static void failure_tests(void)
     CHECK(!p2_mock_init(&m,0));m.stuck_aux=1;a=tmpfile();b=tmpfile();CHECK(a&&b);
     CHECK(p2_capture_nv(&m.bus,a,b,&result)==P2_E_TIMEOUT);
     CHECK(result.cleanup_error==P2_E_TIMEOUT && m.clock<300000 && !m.command_writes && !m.payload_writes);
+    fclose(a);fclose(b);p2_mock_free(&m);
+    init_nv(&m);m.unstable_nv=1;a=tmpfile();b=tmpfile();CHECK(a&&b);
+    CHECK(p2_capture_nv(&m.bus,a,b,&result)==P2_E_VERIFY);
+    CHECK(result.page_reads==20 && result.page_disagreements==19 && !result.bytes[0]);
+    CHECK(!result.cleanup_error && !m.command_writes && !m.payload_writes);
     fclose(a);fclose(b);p2_mock_free(&m);
 }
 int main(void)

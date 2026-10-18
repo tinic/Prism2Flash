@@ -22,7 +22,12 @@ static uint16_t read16(void *ctx, uint16_t reg)
         if (m->aux_address >= 0x800000 - 1) return 0xffff;
         v = (uint16_t)(source[m->aux_address] | ((uint16_t)source[m->aux_address+1] << 8));
         m->aux_address += 2;
-        if(m->aux_space==1 && ++m->nv_reads>m->corrupt_nv_after && m->corrupt_nv_after)return v^1;
+        if(m->aux_space==1){
+            ++m->nv_reads;
+            if(m->unstable_nv && (((m->nv_reads-1)/64)&1))return v^1;
+            if((m->corrupt_nv_after && m->nv_reads>m->corrupt_nv_after)
+               || m->nv_reads==m->corrupt_nv_once_at)return v^1;
+        }
         if ((m->ccsr == 0x1f || m->ccsr == 0x0f) &&
             (m->cor & 0x80) == 0 &&
             (m->corrupt_readback || (m->sram_bits && m->ccsr != (m->sram_bits == 8 ? 0x1f : 0x0f))))

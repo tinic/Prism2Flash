@@ -9,6 +9,7 @@ struct p2_capture_result {
     int cleanup_error, backend_cleanup_error;
     char sha256[2][65];
     uint32_t mismatch_bytes, first_mismatch, comparison_read_bytes;
+    uint32_t page_reads, page_disagreements;
     uint16_t before[6], after[6];
 };
 int p2_capture_nv(struct p2_bus *, FILE *, FILE *, struct p2_capture_result *);
