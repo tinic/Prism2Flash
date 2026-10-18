@@ -6,7 +6,7 @@
 #define P2_NV_BYTES UINT32_C(0x800000)
 struct p2_capture_result {
     uint32_t bytes[2], elapsed_us;
-    int cleanup_error;
+    int cleanup_error, backend_cleanup_error;
     char sha256[2][65];
     uint32_t mismatch_bytes, first_mismatch, comparison_read_bytes;
     uint16_t before[6], after[6];

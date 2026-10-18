@@ -140,7 +140,7 @@ int p2_backup_command(const char *directory,const char *utc)
     if(!rc)rc=p2_platform_open(&platform,&card,error,sizeof(error));
     if(!rc){rc=p2_platform_configure_backup(platform,&bus,error,sizeof(error));if(!rc)configured=1;}
     if(!rc)rc=p2_capture_nv(&bus,files[0],files[1],&result);
-    if(configured){int cleanup=p2_platform_finish_backup(platform);if(cleanup && !rc)rc=cleanup;}
+    if(configured){result.backend_cleanup_error=p2_platform_finish_backup(platform);if(result.backend_cleanup_error && !rc)rc=result.backend_cleanup_error;}
     p2_platform_close(platform);
     for(i=0;i<2;++i)if(files[i] && fclose(files[i]) && !rc)rc=P2_E_IO;
     if(result.bytes[0]==P2_NV_BYTES && result.bytes[1]==P2_NV_BYTES){
@@ -157,13 +157,14 @@ int p2_backup_command(const char *directory,const char *utc)
           "  \"address_start\": 0,\n  \"address_end_exclusive\": 8388608,\n  \"byte_order\": \"little-endian word bytes\",\n"
           "  \"bytes_read\": [%lu, %lu],\n  \"sha256\": [\"%s\", \"%s\"],\n  \"elapsed_us\": %lu,\n"
           "  \"cleanup_error\": %d,\n  \"error\": %d,\n  \"nv_address_space_complete\": %s,\n"
+          "  \"backend_cleanup_error\": %d,\n"
           "  \"mismatch_bytes\": %lu,\n  \"first_mismatch\": %lu,\n  \"comparison_read_bytes\": %lu,\n"
           "  \"register_order\": [\"CONTROL\",\"PARAM0\",\"PARAM1\",\"PARAM2\",\"AUXPAGE\",\"AUXOFFSET\"],\n"
           "  \"registers_before\": [%u,%u,%u,%u,%u,%u],\n  \"registers_after\": [%u,%u,%u,%u,%u,%u],\n"
           "  \"files_reopened_and_verified\": %s,\n  \"physical_flash_coverage_verified\": false,\n"
           "  \"authorizes_impactful_operation\": false\n}\n",utc,card.manufacturer,card.product,
           (unsigned long)result.bytes[0],(unsigned long)result.bytes[1],result.sha256[0],result.sha256[1],
-          (unsigned long)result.elapsed_us,result.cleanup_error,rc,rc?"false":"true",
+          (unsigned long)result.elapsed_us,result.cleanup_error,rc,rc?"false":"true",result.backend_cleanup_error,
           (unsigned long)result.mismatch_bytes,(unsigned long)result.first_mismatch,(unsigned long)result.comparison_read_bytes,
           result.before[0],result.before[1],result.before[2],result.before[3],result.before[4],result.before[5],
           result.after[0],result.after[1],result.after[2],result.after[3],result.after[4],result.after[5],verify?"true":"false");
