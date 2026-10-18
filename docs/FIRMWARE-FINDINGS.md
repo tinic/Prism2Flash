@@ -131,3 +131,31 @@ using this NIC ID as proof that every MA401 revision has one shared arrangement.
 Exact SRAM vendor is not required by the software; proven width, capacity,
 decode and physical nonvolatile coverage are required. No proposed replacement
 part or footprint is approved by this project.
+
+### Follow-up through playhouse2: primary data sheet and PDA configuration
+
+The FCC exhibits still return HTTP 403 from playhouse2. An alternate archive
+did provide Intersil **FN8019.2, June 2002**, the 42-page ISL3873B data sheet
+([archive entry](https://www.datasheetarchive.com/datasheet/ISL3873B/Intersil?term=ISL3873B&version=1)).
+The retrieved PDF SHA-256 is
+`8d9bf148b7f1b9e4b18b4b8c5d7bcc4fb0b7b88e0ad6aa43e1950dcecdeb27b3`.
+Pages 11–12 explicitly show multiple configurations, including two x8 SRAMs
+or a single x16 SRAM. The text permits different flash/RAM organizations and
+describes 256 KiB organized 128K x16 as typical for station designs. These
+examples disprove a universal one-chip 128K x8 arrangement; they do not identify
+the memory actually fitted to this card.
+
+Offline inspection of both previously verified AUX NV captures found the same
+CRC-valid PDA at AUX `0x7f0000`, stored CRC `0x82a2`. Its NIC configuration PDR
+`0x0400` has bytes `03 00`, value `0x0003`. The retained Host AP 0.4.7
+`plug_pdr_0400` constructs bit 1 from `ram16`, bit 2 from PCI and sets bit 0
+(`prism2_srec.c:1277`). **Inference: this card's saved PDA configuration points
+to x16 SRAM and PCMCIA.** This is stronger evidence than a generic part list,
+but still needs independent profile corroboration. No SRAM-size PDR `0x0005`
+was present. Neither SRAM vendor/capacity nor flash width/capacity/coverage
+follows from this field. See the non-private summary in
+[pda-memory-configuration.json](evidence/pda-memory-configuration.json).
+
+This analysis reads only existing files. It does not change the native allowlist,
+select SRAM automatically, satisfy the fresh full-backup gate or perform a new
+card operation.

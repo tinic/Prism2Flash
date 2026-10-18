@@ -28,5 +28,7 @@
     "NIC800c SST family permits both x8/x16 RAM",
     "prepared payloads are held in memory; CLI reports hashes only",
     "no independent hardware/profile/backup-gate approval"
-  ]
+  ],
+  "primary_datasheet_sha256": "8d9bf148b7f1b9e4b18b4b8c5d7bcc4fb0b7b88e0ad6aa43e1950dcecdeb27b3",
+  "pda_0400": "0x0003; x16 SRAM configuration inference; not independent physical-map approval"
 }

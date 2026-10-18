@@ -1,0 +1,18 @@
+{
+  "source": "two previously verified 8 MiB AUX NV passes; no new hardware access",
+  "source_sha256": "f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f",
+  "aux_address": "0x7f0000",
+  "both_passes_same_pda": true,
+  "pda_crc_valid": true,
+  "stored_crc": "0x82a2",
+  "pdr_0400_bytes": "0300",
+  "pdr_0400_value": "0x0003",
+  "pdr_0005_present": false,
+  "hostap_0400_ram16_bit": 1,
+  "inference": "PDA configuration indicates x16 SRAM; needs independent profile corroboration",
+  "does_not_establish": [
+    "SRAM vendor or capacity",
+    "flash vendor, capacity or complete physical map",
+    "authorization for a hardware operation"
+  ]
+}

@@ -36,6 +36,9 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
   I/O boundary for both initial AUX states.
 - Record the user-supplied MA401 underside label: FCC ID PY3MA401RD, 5 V.
   The generic MA401RA/ISL37300P CIS does not select an exact physical memory map.
+- Retrieve Intersil's original memory-layout data sheet through playhouse2 and
+  record an offline x16 SRAM configuration clue from the existing CRC-valid PDA.
+  Neither finding enables the hardware gate or establishes physical flash coverage.
 
 ### Scope
 

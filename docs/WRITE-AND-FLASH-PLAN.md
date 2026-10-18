@@ -12,6 +12,9 @@ MA401RA, the observed CIS text, as their evidence-directory name. Preserve those
 names/hashes; do not silently reclassify the captures as a complete physical
 flash backup. The two 8 MiB captures establish repeatable AUX NV data, with
 128 KiB aliasing, but their manifests correctly withhold physical coverage.
+The saved CRC-valid PDA's configuration PDR 0x0400=0x0003 points toward x16
+SRAM according to Host AP's bit assignment. Record it as a card-specific clue
+awaiting independent corroboration; it does not identify flash geometry.
 
 ## Gates before a real Genesis probe
 
