@@ -92,7 +92,7 @@ void p2_mock_fix_pda(uint8_t data[P2_PDA_SIZE])
     for (i = 0; i < 10; ++i) {
         unsigned b;
         crc ^= data[i];
-        for (b = 0; b < 8; ++b) crc = (uint16_t)((crc >> 1) ^ ((crc & 1) ? 0x8408 : 0));
+        for (b = 0; b < 8; ++b) crc = (uint16_t)((crc >> 1) ^ ((crc & 1) ? 0xa001 : 0));
     }
     data[10] = (uint8_t)crc; data[11] = (uint8_t)(crc >> 8);
 }

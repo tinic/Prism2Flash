@@ -46,6 +46,7 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
     buffers=malloc(8192);if(!buffers)return P2_E_IO;
     rc=available(b);if(rc){free(buffers);return rc;}
     start=b->now_us(b->ctx);control=b->read16(b->ctx,P2_CONTROL);
+    out->before[0]=control;
     rc=available(b);if(rc){free(buffers);return rc;}
     /* Refuse an absent/stuck bus and any enable/disable transition. */
     if(control==0xffff || ((control&0xc000)!=0 && (control&0xc000)!=0xc000)){
@@ -54,6 +55,7 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
     for(i=0;i<5;++i){
         rc=available(b);if(rc){free(buffers);return rc;}
         saved[i]=b->read16(b->ctx,saved_regs[i]);
+        out->before[i+1]=saved[i];
     }
     rc=available(b);if(rc){free(buffers);return rc;}
     if((control&0xc000)==0){opened=1;rc=p2_aux_enable(b,1);}
@@ -64,7 +66,15 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
             rc=available(b);if(rc)break;
             if((uint32_t)(b->now_us(b->ctx)-start)>=UINT32_C(240000000)){rc=P2_E_TIMEOUT;break;}
             rc=p2_aux_read_nv(b,address,buffers,4096);if(rc)break;
-            if(pass && (fread(buffers+4096,1,4096,first)!=4096 || memcmp(buffers,buffers+4096,4096))){rc=P2_E_VERIFY;break;}
+            if(pass){
+                size_t got=fread(buffers+4096,1,4096,first);
+                out->comparison_read_bytes=(uint32_t)got;
+                if(got!=4096){rc=P2_E_IO;break;}
+                for(i=0;i<4096;++i)if(buffers[i]!=buffers[i+4096]){
+                    if(!out->mismatch_bytes)out->first_mismatch=address+i;
+                    ++out->mismatch_bytes;
+                }
+            }
             if(fwrite(buffers,1,4096,files[pass])!=4096){rc=P2_E_IO;break;}
             for(i=1;i<4096;++i)if(buffers[i]!=buffers[0])changed=1;
             p2_sha256_update(&hash,buffers,4096);out->bytes[pass]+=4096;
@@ -73,16 +83,19 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
         if(!rc && fflush(files[pass]))rc=P2_E_IO;
         if(!rc)p2_sha256_hex(&hash,out->sha256[pass]);
     }
-    if(!rc && (!changed || strcmp(out->sha256[0],out->sha256[1])))rc=P2_E_VERIFY;
+    if(!rc && (!changed || out->mismatch_bytes || strcmp(out->sha256[0],out->sha256[1])))rc=P2_E_VERIFY;
     /* Cleanup cannot be vetoed by Ctrl-C, but must never touch another card. */
     cancel_fn=b->cancelled;b->cancelled=NULL;
     if(opened)cleanup=p2_aux_enable(b,0);
     for(i=0;i<5 && b->present(b->ctx);++i)b->write16(b->ctx,saved_regs[i],saved[i]);
     if(!b->present(b->ctx) && !cleanup)cleanup=P2_E_REMOVED;
     if(b->present(b->ctx)){
-        if((b->read16(b->ctx,P2_CONTROL)&0xc000)!=(control&0xc000) && !cleanup)cleanup=P2_E_VERIFY;
-        for(i=0;i<5 && b->present(b->ctx);++i)
-            if(b->read16(b->ctx,saved_regs[i])!=saved[i] && !cleanup)cleanup=P2_E_VERIFY;
+        out->after[0]=b->read16(b->ctx,P2_CONTROL);
+        if((out->after[0]&0xc000)!=(control&0xc000) && !cleanup)cleanup=P2_E_VERIFY;
+        for(i=0;i<5 && b->present(b->ctx);++i){
+            out->after[i+1]=b->read16(b->ctx,saved_regs[i]);
+            if(out->after[i+1]!=saved[i] && !cleanup)cleanup=P2_E_VERIFY;
+        }
         if(!b->present(b->ctx) && !cleanup)cleanup=P2_E_REMOVED;
     }
     b->cancelled=cancel_fn;
@@ -130,7 +143,11 @@ int p2_backup_command(const char *directory,const char *utc)
     if(configured){int cleanup=p2_platform_finish_backup(platform);if(cleanup && !rc)rc=cleanup;}
     p2_platform_close(platform);
     for(i=0;i<2;++i)if(files[i] && fclose(files[i]) && !rc)rc=P2_E_IO;
-    if(!rc){rc=verify_file(paths[0],result.sha256[0]);if(!rc)rc=verify_file(paths[1],result.sha256[1]);if(!rc)verify=1;}
+    if(result.bytes[0]==P2_NV_BYTES && result.bytes[1]==P2_NV_BYTES){
+        int file_rc=verify_file(paths[0],result.sha256[0]);
+        if(!file_rc)file_rc=verify_file(paths[1],result.sha256[1]);
+        if(!file_rc)verify=1;else if(!rc)rc=file_rc;
+    }
     manifest=fopen(paths[2],"wb");
     if(manifest){
         p2_fprintf(manifest,"{\n  \"format\": \"Prism2 AUX NV capture 1\",\n  \"tool_version\": \"" P2_VERSION "\",\n"
@@ -140,10 +157,16 @@ int p2_backup_command(const char *directory,const char *utc)
           "  \"address_start\": 0,\n  \"address_end_exclusive\": 8388608,\n  \"byte_order\": \"little-endian word bytes\",\n"
           "  \"bytes_read\": [%lu, %lu],\n  \"sha256\": [\"%s\", \"%s\"],\n  \"elapsed_us\": %lu,\n"
           "  \"cleanup_error\": %d,\n  \"error\": %d,\n  \"nv_address_space_complete\": %s,\n"
+          "  \"mismatch_bytes\": %lu,\n  \"first_mismatch\": %lu,\n  \"comparison_read_bytes\": %lu,\n"
+          "  \"register_order\": [\"CONTROL\",\"PARAM0\",\"PARAM1\",\"PARAM2\",\"AUXPAGE\",\"AUXOFFSET\"],\n"
+          "  \"registers_before\": [%u,%u,%u,%u,%u,%u],\n  \"registers_after\": [%u,%u,%u,%u,%u,%u],\n"
           "  \"files_reopened_and_verified\": %s,\n  \"physical_flash_coverage_verified\": false,\n"
           "  \"authorizes_impactful_operation\": false\n}\n",utc,card.manufacturer,card.product,
           (unsigned long)result.bytes[0],(unsigned long)result.bytes[1],result.sha256[0],result.sha256[1],
-          (unsigned long)result.elapsed_us,result.cleanup_error,rc,rc?"false":"true",verify?"true":"false");
+          (unsigned long)result.elapsed_us,result.cleanup_error,rc,rc?"false":"true",
+          (unsigned long)result.mismatch_bytes,(unsigned long)result.first_mismatch,(unsigned long)result.comparison_read_bytes,
+          result.before[0],result.before[1],result.before[2],result.before[3],result.before[4],result.before[5],
+          result.after[0],result.after[1],result.after[2],result.after[3],result.after[4],result.after[5],verify?"true":"false");
         if(ferror(manifest))rc=P2_E_IO;
         if(fclose(manifest))rc=P2_E_IO;
     }else rc=P2_E_IO;

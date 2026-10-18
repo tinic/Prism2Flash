@@ -60,7 +60,7 @@ PDA selection but does not authenticate the capture or certify a memory map.
 ## PDA requirements
 
 `pda.bin` must contain exactly 1024 bytes, with bounded little-endian PDRs, a
-correct end record and a valid reflected CRC-16/0x8408. Duplicate PDRs are
+correct end record and a valid reflected CRC-16/ARC (reflected polynomial 0xa001, initial value 0). Duplicate PDRs are
 rejected. PDR 0x0008 must match the saved NIC's four identity fields; PDR 0x0101
 must match the saved MAC. MF/CF supplier records must have the expected roles,
 interface ids and lengths.

@@ -16,6 +16,14 @@ static void hash_tests(void)
     p2_sha256_init(&s);for(i=0;i<1000000;++i)p2_sha256_update(&s,"a",1);p2_sha256_hex(&s,out);
     CHECK(!strcmp(out,"cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"));
 }
+static void pda_oracle_test(void)
+{
+    /* Original synthetic prefix; 0xe1a3 independently calculated using the
+     * retained Host AP util.c CRC table, not the fixture generator. */
+    uint8_t pda[P2_PDA_SIZE]={2,0,8,0,0x1b,0x80,2,0,0,0,0xa3,0xe1};
+    CHECK(!p2_validate_pda(pda));
+    pda[10]^=1;CHECK(p2_validate_pda(pda)==P2_E_PDA);
+}
 static void init_nv(struct p2_mock *m)
 {
     uint32_t i;
@@ -48,7 +56,8 @@ static void capture_tests(int enabled,int mismatch)
     if(mismatch)m.corrupt_nv_after=P2_NV_BYTES/2;
     CHECK(p2_capture_nv(&m.bus,a,b,&result)==(mismatch?P2_E_VERIFY:P2_OK));
     CHECK(result.bytes[0]==P2_NV_BYTES);
-    CHECK(result.bytes[1]==(mismatch?0:P2_NV_BYTES));
+    CHECK(result.bytes[1]==P2_NV_BYTES);
+    CHECK((result.mismatch_bytes!=0)==(mismatch!=0));
     if(!mismatch)CHECK(strlen(result.sha256[0])==64 && !strcmp(result.sha256[0],result.sha256[1]));
     CHECK(!result.cleanup_error && m.regs[P2_CONTROL/2]==(enabled?0xc000:0));
     for(i=0;i<5;++i)CHECK(m.regs[regids[i]/2]==regs[i]);
@@ -75,7 +84,7 @@ static void failure_tests(void)
 }
 int main(void)
 {
-    hash_tests();transfer_tests();capture_tests(0,0);capture_tests(1,0);capture_tests(0,1);failure_tests();
+    hash_tests();pda_oracle_test();transfer_tests();capture_tests(0,0);capture_tests(1,0);capture_tests(0,1);failure_tests();
     CHECK(p2_backup_valid_utc("20261018T104000Z"));CHECK(p2_backup_valid_utc("20240229T235959Z"));
     CHECK(!p2_backup_valid_utc("20260229T104000Z"));CHECK(!p2_backup_valid_utc("20261018T246000Z"));
     CHECK(!p2_backup_valid_utc("20261018T104000Z\n"));
