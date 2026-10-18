@@ -8,9 +8,13 @@ namespace p2 {
 constexpr uint32_t nv_gap_ticks(uint32_t frequency) {
   return uint32_t((uint64_t(frequency) + 999999) / 1000000) + 1;
 }
-template <typename ReadClock> void wait_nv_gap(uint32_t ticks, ReadClock read) {
+template <typename ReadClock> bool wait_nv_gap(uint32_t ticks, ReadClock read) {
   const auto start = read();
-  while (uint32_t(read() - start) < ticks) {
-  }
+  // This is a fault bound, not a CPU-counted delay. Success always requires
+  // measured time to advance; a broken clock must not trap card ownership.
+  for (unsigned samples = 0; samples < 1024; ++samples)
+    if (uint32_t(read() - start) >= ticks)
+      return true;
+  return false;
 }
 } // namespace p2

@@ -160,11 +160,13 @@ static uint32_t read_eclock(p2_platform *p, EClockVal &value) {
                  : "d1", "a1", "cc", "memory");
   return frequency;
 }
-static void nv_word_gap(void *ctx) {
+static bool nv_word_gap(void *ctx) {
   auto *p = static_cast<p2_platform *>(ctx);
+  if (!p->nv_gap_ticks)
+    return p2::wait_nv_gap(2, [p] { return now_us(p); });
   // ReadEClock samples the monotonic hardware clock directly. Avoid millions
   // of GetSysTime conversions in the hot loop; all other delays stay intact.
-  p2::wait_nv_gap(p->nv_gap_ticks, [p] {
+  return p2::wait_nv_gap(p->nv_gap_ticks, [p] {
     EClockVal value;
     (void)read_eclock(p, value);
     return uint32_t(value.ev_lo);
@@ -361,11 +363,7 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
   {
     EClockVal eclock;
     const auto frequency = read_eclock(p, eclock);
-    if (!frequency) {
-      p2_snprintf(error, size, "timer.device has no E-clock frequency");
-      return P2_E_IO;
-    }
-    p->nv_gap_ticks = p2::nv_gap_ticks(frequency);
+    p->nv_gap_ticks = frequency ? p2::nv_gap_ticks(frequency) : 0;
   }
   p->config = p->map->cmm_AttributeMemory + p->info.config_base;
   p->io = p->map->cmm_IOMemory + p->info.io_base;

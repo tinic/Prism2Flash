@@ -72,6 +72,7 @@ static void transfer_tests(void) {
   CHECK(!code(p2::Card{m.bus}.ensure_aux_enabled()) && m.aux_space == 0);
   m.bus.nv_word_gap = [](void *opaque) {
     static_cast<p2_mock *>(opaque)->clock += 2;
+    return true;
   };
   CHECK(!code(p2::Card{m.bus}.read_nv(0x7ffffe, std::span{b}.first(2))));
   CHECK(!memcmp(b, m.nv_memory + 0x7ffffe, 2));
@@ -95,12 +96,25 @@ static void eclock_tests() {
   CHECK(p2::nv_gap_ticks(2000001) == 4);
   for (uint32_t start : {0u, 0xfffffffeu, 0xffffffffu}) {
     uint32_t clock = start, calls = 0;
-    p2::wait_nv_gap(2, [&] {
+    CHECK(p2::wait_nv_gap(2, [&] {
       ++calls;
       return clock++;
-    });
+    }));
     CHECK(calls == 3 && uint32_t(clock - start) == 3);
   }
+  unsigned samples = 0;
+  CHECK(!p2::wait_nv_gap(2, [&] {
+    ++samples;
+    return 7u;
+  }));
+  CHECK(samples == 1025);
+  p2_mock m;
+  init_nv(&m);
+  m.bus.nv_word_gap = [](void *) { return false; };
+  std::array<uint8_t, 128> page{};
+  CHECK(code(p2::Card{m.bus}.read_nv(0, page)) == P2_E_TIMEOUT);
+  CHECK(m.nv_reads == 1 && !m.aux_space && !m.payload_writes);
+  p2_mock_free(&m);
 }
 static void capture_tests(int enabled, int mismatch, bool hidden = false) {
   struct p2_mock m;
@@ -182,6 +196,20 @@ static void lost_aux_tests() {
     fclose(file);
     p2_mock_free(&m);
   }
+  p2_mock m;
+  init_nv(&m);
+  // Disable at the last word of an agreeing second page read. Its legitimate
+  // FF payload would otherwise hide the loss until the next page.
+  m.nv_memory[126] = m.nv_memory[127] = 0xff;
+  m.drop_aux_at_nv_read = 128;
+  FILE *file = tmpfile();
+  CHECK(file);
+  const auto result = p2::backup::capture_single(m.bus, *file, 0x20000);
+  CHECK(result.error == P2_E_VERIFY && result.aux_losses == 1);
+  CHECK(result.page_reads == 2 && m.nv_reads == 128 && !result.bytes[0]);
+  CHECK(m.aux_enables == 1 && !m.regs[P2_CONTROL / 2]);
+  fclose(file);
+  p2_mock_free(&m);
 }
 static void failure_tests(void) {
   struct p2_mock m;

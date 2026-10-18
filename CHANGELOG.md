@@ -52,6 +52,9 @@ in docs/HARDWARE-TESTING.md; emulator results are not hardware validation.
   unreadable clock uses `untimed`, duplicates get a suffix. Remove wall-clock
   validity, reference-skew and phase-jump gates entirely. Clock setup is never
   required and cannot block flashing.
+- Bound NV pacing even when the timer counter freezes; fall back to the
+  microsecond timer if no E-clock frequency is available. Check AUX after
+  every accepted page as well as on retries, including idle-bus-value coverage.
 - Replace per-word GetSysTime pacing with a monotonic E-clock wait. Refuse if
   firmware disables AUX mid-capture, preserving its disabled state. Add timer
   wrap, AUX-loss and local-clock boundary tests. Physical timing qualification
