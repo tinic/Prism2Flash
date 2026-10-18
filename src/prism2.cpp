@@ -303,8 +303,7 @@ CardStatus Card::reset(uint8_t cor, uint8_t hcr) {
   if (auto result = alive(); !result)
     return result;
   bus_.write_cfg(bus_.ctx, P2_CFG_COR, static_cast<uint8_t>(cor & 0x7f));
-  // Gayle/CIS adaptation: retain the selected COR index and allow a bounded
-  // settling interval after deassertion, rather than DOS PCIC's fixed 0x45.
+  // Allow a bounded Gayle settling interval after deassertion.
   bus_.delay_us(bus_.ctx, 5000);
   return alive();
 }
@@ -351,6 +350,10 @@ ProbeReport Card::probe(unsigned bits) {
       return result;
     if ((report.cor_before & 0x80) || report.ccsr_before == 0xff)
       return std::unexpected{P2_E_IO};
+    // The original DOS routine writes literal C5/45, independent of the
+    // previous COR or the CIS tuple index. The native x16 path follows it.
+    // x8 remains a Host AP model experiment, unavailable on native hardware.
+    report.cor_used = bits == 16 ? 0x45 : report.cor_before;
     aux_acquired = true; // Also restore AUX after a failed enable handshake.
     if (!report.aux_was_enabled) {
       if (auto result = enable_aux(true); !result)
@@ -368,8 +371,7 @@ ProbeReport Card::probe(unsigned bits) {
     if (auto result = read_aux(P2_GENESIS_ADDRESS, discard); !result)
       return result;
     report.reset_started = true;
-    if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
-        !result)
+    if (auto result = reset(report.cor_used, bits == 8 ? 0x1f : 0x0f); !result)
       return result;
     ++report.genesis_latches;
     const auto written = write_verified(P2_GENESIS_ADDRESS, pattern);
@@ -381,8 +383,7 @@ ProbeReport Card::probe(unsigned bits) {
       return std::unexpected{written.error};
     // The DOS routine performs a second HCR latch after the successful idle
     // test. Verification retries above never repeat a payload write.
-    if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
-        !result)
+    if (auto result = reset(report.cor_used, bits == 8 ? 0x1f : 0x0f); !result)
       return result;
     ++report.genesis_latches;
     return {};
@@ -393,7 +394,7 @@ ProbeReport Card::probe(unsigned bits) {
   const IgnoreCancellation cleanup_scope{bus_};
   CardStatus normal;
   if (report.reset_started)
-    normal = reset(report.cor_before, bits == 8 ? 0x17 : 0x07);
+    normal = reset(report.cor_used, bits == 8 ? 0x17 : 0x07);
   CardStatus aux;
   if (aux_acquired)
     aux = restore_aux(report.aux_was_enabled);

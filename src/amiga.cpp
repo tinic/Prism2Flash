@@ -38,7 +38,7 @@ struct p2_platform {
   volatile UBYTE present;
   volatile UBYTE cancelled;
   int owned, configured, timer_open;
-  int backup_only, cor_changed;
+  int backup_only;
   uint8_t original_cor;
   volatile UBYTE *config;
   volatile UBYTE *io;
@@ -339,7 +339,6 @@ static int configure(struct p2_platform *p, struct p2_bus *bus, char *error,
       return P2_E_UNSUPPORTED;
     }
     if ((p->original_cor & 0x3f) == 0) {
-      p->cor_changed = 1;
       write_cfg(p, P2_CFG_COR,
                 (uint8_t)(p->original_cor | p->info.config_index));
     }
@@ -392,8 +391,15 @@ int p2_platform_finish_backup(struct p2_platform *p) {
   if (!p->present)
     return P2_E_REMOVED;
   p->configured = 0;
-  if (p->cor_changed) {
-    p->cor_changed = 0;
+  const auto current_cor = read_cfg(p, P2_CFG_COR);
+  if (!p->present)
+    return P2_E_REMOVED;
+  // A RAM probe uses DOS's literal COR=45. Restore the claim's original I/O
+  // configuration without issuing any additional reset. Never deassert an
+  // unexpected reset or replay a floating register value here.
+  if (current_cor == 0xff || (current_cor & 0x80))
+    return P2_E_VERIFY;
+  if (current_cor != p->original_cor) {
     write_cfg(p, P2_CFG_COR, p->original_cor);
     if (!p->present)
       return P2_E_REMOVED;

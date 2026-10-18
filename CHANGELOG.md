@@ -59,7 +59,9 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
 Fresh non-resetting hardware acquisition and the native filesystem/lock test
 passed. Genesis, bootstrap and flash programming are not yet hardware-tested.
-Native admission is restricted to the accepted MA401 x16 RAM-only transaction;
+The first native transaction was cancelled before work to incorporate the
+independent DOS COR-literal correction; cancellation, cleanup and CIS checks
+passed. Native admission is restricted to the accepted MA401 x16 RAM-only transaction;
 normal inspection, x8 probing and programming remain unavailable.
 
 ## [0.7.0-alpha.1] - 2026-10-18

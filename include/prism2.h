@@ -72,7 +72,7 @@ struct WriteReport {
 };
 struct ProbeReport {
   unsigned sram_bits = 0;
-  uint8_t cor_before = 0, ccsr_before = 0;
+  uint8_t cor_before = 0, ccsr_before = 0, cor_used = 0;
   std::array<uint8_t, 4> readback{};
   p2_error error = P2_OK;
   p2_error cleanup_error = P2_OK;

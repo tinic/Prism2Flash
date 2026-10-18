@@ -26,9 +26,9 @@ MZ load starts at file **0x2a00**. Hardware segment **0a22** has file base
 | `1960:1ba6` | PC Card COR byte writes at attribute offset `0x3e0`. |
 | `1960:1c19` | PC Card HCR byte writes at `0x3e2`; PCI register is `0x5c`. |
 
-Amiga configuration base and I/O window come from CIS. Explain any adaptation
-of the DOS PCIC COR index and socket controls rather than copying them blindly
-into Gayle.
+Amiga configuration base and I/O window come from CIS; these locate the
+registers. They do not alter the DOS literal values written to COR. Socket
+power control remains card.resource/Gayle-specific.
 
 ## Initial image
 
@@ -54,11 +54,20 @@ normal return: COR=C5, delay 5, HCR=07, delay 5, COR=45
 ```
 
 The Amiga probe follows that two-latch sequence, with no preliminary bare COR
-reset or native INIT. COR keeps the already-validated CIS configuration index
-(41/C1 instead of DOS 45/C5). A 5 ms settling interval follows deassertion on
+reset or native INIT. Native x16 uses the literal COR45/C5 pair. The backend restores the
+claim’s prior COR after readback with a non-resetting write. A 5 ms settling interval follows deassertion on
 Gayle. Required idle verification uses two consecutive exact reads, bounded at
 twenty; it never retries payload writes because of a bad read. Cleanup ignores
 Ctrl-C only to return to normal straps and restore the original AUX state;
 sticky removal still prevents further I/O. The model records every COR/HCR write
 and its timing against this DOS-derived sequence. The final normal firmware
 response and unchanged full NV readback remain separate hardware checks.
+
+DeepSeek independently confirmed the dispatcher and original x86 trace. Its
+important correction was to retain the literal COR45/C5 values even when the
+previous COR is41. The first native transaction was cancelled during its
+before-capture phase to incorporate that correction: operation_started=false,
+cleanup_error=0, final CIS check passed. No Genesis/reset/INIT occurred. Partial
+files and the failure journal were preserved. The direct AUX seek path and DOS
+legacy mask/advance workaround address the same windows; the workaround and
+setup diagnostics are separately documented in the private RE report.

@@ -30,13 +30,15 @@ static void success(unsigned bits) {
   CHECK(m.genesis_entries == 2 && m.normal_returns == 1);
   CHECK(result.genesis_latches == 2);
   // Original DOS trace has two Genesis HCR latches, followed by one normal
-  // latch. Adapt COR 0x45/C5 to the CIS-selected 0x41/C1; allow 5 ms settling
-  // after deassertion on Gayle. There must be no preliminary bare COR pulse.
+  // latch. Native x16 uses DOS's literal COR45/C5; x8 is model-only. Allow
+  // 5 ms settling after deassertion; no preliminary bare COR pulse.
   CHECK(m.configuration_writes == 9);
   const uint8_t genesis = bits == 16 ? 0x0f : 0x1f;
   const uint8_t normal = bits == 16 ? 0x07 : 0x17;
-  const uint8_t values[]{0xc1, genesis, 0x41,   0xc1, genesis,
-                         0x41, 0xc1,    normal, 0x41};
+  const uint8_t cor = bits == 16 ? 0x45 : 0x41;
+  const uint8_t reset = cor | 0x80;
+  const uint8_t values[]{reset, genesis, cor,    reset, genesis,
+                         cor,   reset,   normal, cor};
   for (unsigned i = 0; i < 9; ++i) {
     CHECK(m.cfg_registers[i] == (i % 3 == 1 ? P2_CFG_CCSR : P2_CFG_COR));
     CHECK(m.cfg_values[i] == values[i]);
@@ -48,7 +50,7 @@ static void success(unsigned bits) {
   }
   CHECK(m.cfg_times[7] - m.cfg_times[6] == 5000);
   CHECK(m.cfg_times[8] - m.cfg_times[7] == 5000);
-  CHECK(m.cor == 0x41 && m.ccsr == (bits == 8 ? 0x17 : 0x07));
+  CHECK(m.cor == cor && m.ccsr == (bits == 8 ? 0x17 : 0x07));
   CHECK((m.regs[P2_CONTROL / 2] & 0xc000) == 0 && result.cleanup_error == 0);
   CHECK(m.flash_commands == 0);
   p2_mock_free(&m);
