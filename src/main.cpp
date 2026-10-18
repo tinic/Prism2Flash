@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "backup.h"
+#include "operation.h"
 #include "p2_stdio.h"
 #include "platform.h"
 #include "version.h"
@@ -18,12 +19,15 @@ static void usage(void) {
        "  Prism2Genesis info\n"
        "  Prism2Genesis inspect\n"
        "  Prism2Genesis probe --sram 8|16\n"
+       "Host model transaction: append --output NEW_DIRECTORY --utc "
+       "YYYYMMDDTHHMMSSZ\n"
+       "to inspect/probe to save and verify fresh before/after NV captures.\n"
        "info reads CIS only; inspect initializes the card and reads "
        "firmware/PDA.\n"
        "probe resets the card and writes four RAM bytes, then restores normal "
        "mode.\n"
-       "Native inspect/probe are blocked until verified full-flash backup is "
-       "available.\n"
+       "Native inspect/probe are blocked pending physical profile and backup "
+       "gate review.\n"
        "backup reads all AUX NV addresses twice; it never initializes or "
        "resets the card.\n"
        "Select SRAM width from the exact card's hardware documentation.\n"
@@ -34,16 +38,24 @@ namespace {
 struct Options {
   enum class Command { Info, Inspect, Probe } command;
   unsigned bits = 0;
+  const char *directory = nullptr, *utc = nullptr;
   static std::optional<Options> parse(int argc, char **argv) {
+    const char *directory = nullptr, *utc = nullptr;
+    if (argc >= 6 && std::string_view{argv[argc - 4]} == "--output" &&
+        std::string_view{argv[argc - 2]} == "--utc") {
+      directory = argv[argc - 3];
+      utc = argv[argc - 1];
+      argc -= 4;
+    }
     if (argc == 2 && std::string_view{argv[1]} == "info")
-      return Options{Command::Info};
+      return directory ? std::nullopt : std::optional{Options{Command::Info}};
     if (argc == 2 && std::string_view{argv[1]} == "inspect")
-      return Options{Command::Inspect};
+      return Options{Command::Inspect, 0, directory, utc};
     if (argc == 4 && std::string_view{argv[1]} == "probe" &&
         std::string_view{argv[2]} == "--sram") {
       const std::string_view width = argv[3];
       if (width == "8" || width == "16")
-        return Options{Command::Probe, width == "8" ? 8u : 16u};
+        return Options{Command::Probe, width == "8" ? 8u : 16u, directory, utc};
     }
     return std::nullopt;
   }
@@ -111,6 +123,9 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
   puts("Genesis RAM probe passed; normal firmware responded.");
   return {};
 }
+[[maybe_unused]] p2::CardStatus inspect_work(p2::Card &card, void *context) {
+  return inspect(card, *static_cast<const Options *>(context));
+}
 } // namespace
 int main(int argc, char **argv) {
   if (argc == 2) {
@@ -135,13 +150,24 @@ int main(int argc, char **argv) {
   }
 #if defined(PRISM2_AMIGA) || defined(PRISM2_REQUIRE_BACKUP)
   // Refuse before opening the slot. An existing file or force option must
-  // never bypass the unimplemented physical-flash backup approval gate.
+  // never bypass the unverified physical-flash profile/backup approval gate.
   if (options->command != Options::Command::Info) {
     p2_fprintf(stderr, "Operation blocked: a verified timestamped full-flash "
                        "backup is required.\n"
-                       "Full-flash backup is not implemented; no card access "
-                       "was attempted.\n");
+                       "Physical profile and native transaction are not "
+                       "approved; no card access was attempted.\n");
     return 20;
+  }
+#endif
+#if !defined(PRISM2_AMIGA) && !defined(PRISM2_REQUIRE_BACKUP)
+  if (options->directory) {
+    auto work_options = *options;
+    return p2::operation::run_model(
+        options->directory, options->utc,
+        options->command == Options::Command::Inspect ? "inspect"
+        : options->bits == 8                          ? "probe-x8"
+                                                      : "probe-x16",
+        inspect_work, &work_options);
   }
 #endif
   p2_printf("Prism2Genesis " P2_VERSION " - %s\n", p2_platform_description());

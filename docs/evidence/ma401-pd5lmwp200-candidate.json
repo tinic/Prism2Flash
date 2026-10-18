@@ -1,0 +1,38 @@
+{
+  "profile_id": "ma401-pd5lmwp200-candidate-1",
+  "status": "offline candidate; not approved for hardware operations",
+  "hardware_authorization": false,
+  "cis": {"manufacturer": 11, "product": 29440},
+  "label": {"fcc_id": "PD5LMWP200", "printed_version": "V2.5", "voltage": "5 V"},
+  "nic": {"id": 32780, "variant": 0, "major": 1, "minor": 0},
+  "flash_candidate": {
+    "part": "SST39VF010",
+    "capacity_bytes": 131072,
+    "organization": "128K x8",
+    "evidence": "PD5LMWP200-photo-observations.json; matching filing sample, not direct inspection of this unit"
+  },
+  "observed_aux_nv": {
+    "selector": 1,
+    "captured_range": [0, 8388608],
+    "identical_window_bytes": 131072,
+    "identical_windows": 64,
+    "candidate_canonical_range": [8257536, 8388608],
+    "pda_address": 8323072,
+    "byte_order": "little-endian word bytes"
+  },
+  "sram": {
+    "pdr_0400": 3,
+    "configuration_inference": "x16, from Host AP ram16 bit 1",
+    "capacity": "unknown; PDR0005 absent",
+    "part": "unreadable"
+  },
+  "open_gates": [
+    "Independent review of AUX NV physical mapping and absence of hidden banks",
+    "Independent corroboration of exact board/SRAM configuration",
+    "Checked system clock and persistent-volume resolution on Amiga",
+    "Native before/after operation transaction implementation and independent review",
+    "Fresh acquisition under the same exclusive insertion ownership"
+  ],
+  "excluded_reference": "PY3MA401RD / MA401 rev.D photos identify a different filing",
+  "raw_mac_serial_or_calibration_included": false
+}

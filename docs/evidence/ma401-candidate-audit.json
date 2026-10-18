@@ -1,0 +1,29 @@
+{
+  "format": "Prism2 offline candidate audit 1",
+  "profile_id": "ma401-pd5lmwp200-candidate-1",
+  "candidate_observations_match": true,
+  "hardware_authorization": false,
+  "physical_flash_coverage_verified": false,
+  "fresh_operation_backup": false,
+  "raw_sha256": "f818d628d47067b3e111476192988ca85c868e22dc52f9b2a2fa4d87f0398a9f",
+  "candidate_window_sha256": "5f63f69147433e26210a9a91ed2938a6913e1491bae0a4ecf0a8483db4707b8f",
+  "captured_bytes": 8388608,
+  "identical_windows": 64,
+  "window_bytes": 131072,
+  "pda_crc_valid": true,
+  "nic": {
+    "id": 32780,
+    "variant": 0,
+    "major": 1,
+    "minor": 0
+  },
+  "pdr_0400": 3,
+  "pdr_0005_present": false,
+  "sram_width_inference": 16,
+  "sram_capacity_verified": false,
+  "limitations": [
+    "Saved files cannot authorize a new operation",
+    "Aliasing and filing photos do not prove physical decode",
+    "No physical card or internal part identity read"
+  ]
+}

@@ -50,6 +50,8 @@ int p2_platform_configure_backup(struct p2_platform *p, struct p2_bus *bus,
   memset(p->mock.nv_memory, 0xff, 0x800000);
   for (i = 0x7e0000; i < 0x800000; ++i)
     p->mock.nv_memory[i] = (uint8_t)(i * 17 + (i >> 8) * 3);
+  // Host fault injection only; this backend is never linked into Amiga tools.
+  p->mock.change_nv_on_normal = getenv("PRISM2_SIM_NV_CHANGE") != nullptr;
   return P2_OK;
 }
 int p2_platform_backup_directory(const char *path) {

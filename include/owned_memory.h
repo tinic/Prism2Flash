@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 namespace p2 {
 // Amiga's C allocator is already checked by the toolchain/runtime gates. Using
@@ -21,13 +22,14 @@ template <typename T> struct DestroyObject {
   }
 };
 template <typename T> using Owned = std::unique_ptr<T, DestroyObject<T>>;
-template <typename T> [[nodiscard]] Owned<T> make_owned() {
-  static_assert(std::is_nothrow_default_constructible_v<T>);
+template <typename T, typename... Args>
+[[nodiscard]] Owned<T> make_owned(Args &&...args) {
+  static_assert(std::is_nothrow_constructible_v<T, Args...>);
   static_assert(alignof(T) <= alignof(std::max_align_t));
   auto *storage = static_cast<T *>(Heap::allocate(sizeof(T)));
   if (!storage)
     return {};
-  return Owned<T>{std::construct_at(storage)};
+  return Owned<T>{std::construct_at(storage, std::forward<Args>(args)...)};
 }
 template <typename T, typename Allocator = Heap> struct DestroyArray {
   std::size_t size = 0;

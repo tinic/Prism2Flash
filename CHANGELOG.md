@@ -12,6 +12,33 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.7.0-alpha.1] - 2026-10-18
+
+### Added
+
+- Host-only owned operation transaction: preflight new output files, claim once,
+  acquire repeated NV captures, close/reopen and verify raw files and the before
+  manifest, perform the modeled inspect/probe, save a full after capture and
+  compare every byte. Keep ownership through the final record and cleanup.
+- Separate acquisition, operation, readback, comparison, cleanup and journal
+  errors. Attempt post-operation evidence after cancellation or operation
+  failure when the same insertion remains accessible; never reset/reclaim.
+- Model CLI transaction options `--output NEW_DIRECTORY --utc TIMESTAMP` on
+  inspect/probe. Existing protocol-only simulator commands remain available.
+- Phase fault tests, filesystem/hash oracles and a real short-write test proving
+  failed storage blocks work. Native refusal tests cover transaction options.
+- Explicit PD5LMWP200 candidate profile and a read-only saved-capture audit.
+  Recheck the original pair, exact 128 KiB aliasing, PDA CRC, NIC tuple and
+  configuration without exporting identifiers/calibration or touching hardware.
+
+### Scope
+
+The transaction journal models a synthetic linear 8 MiB NV device. It is built
+for host tests only and cannot select a physical card profile. The actual MA401
+profile, physical coverage and native operation transaction remain unapproved;
+native inspect/probe still refuse before slot access. No new hardware operation,
+Genesis hardware validation, bootstrap or programming engine is included.
+
 ## [0.6.0-alpha.1] - 2026-10-18
 
 ### Added
