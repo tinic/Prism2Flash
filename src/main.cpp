@@ -91,32 +91,39 @@ void show_id(const char *label, const p2::Identity &id) {
             static_cast<unsigned>(id.id), static_cast<unsigned>(id.variant),
             static_cast<unsigned>(id.major), static_cast<unsigned>(id.minor));
 }
-p2::CardStatus inspect(p2::Card &card, const Options &options) {
-  if (auto result = card.initialize(); !result)
-    return result;
+p2::CardStatus show_firmware(p2::Card &card, bool ma401,
+                             const char *primary_label) {
   auto nic = card.identity(P2_RID_NICID);
   if (!nic)
     return std::unexpected{nic.error()};
   show_id("NIC", *nic);
-  const bool ma401 = options.native_profile && nic->id == 0x800c &&
-                     nic->variant == 0 && nic->major == 1 && nic->minor == 0;
-  if (!ma401 && !p2::Card::supports(nic->id)) {
-    p2_fprintf(stderr, "NIC is outside the initial HFA3842 profile list.\n");
+  const bool supported = ma401 ? nic->id == 0x800c && nic->variant == 0 &&
+                                     nic->major == 1 && nic->minor == 0
+                               : p2::Card::supports(nic->id);
+  if (!supported)
     return std::unexpected{P2_E_UNSUPPORTED};
-  }
   auto primary = card.identity(P2_RID_PRIID);
   if (!primary)
     return std::unexpected{primary.error()};
-  show_id("PRI", *primary);
+  show_id(primary_label, *primary);
   if (auto station = card.identity(P2_RID_STAID); station)
     show_id("STA", *station);
   else if (station.error() == P2_E_COMMAND)
     puts("STA: unavailable (primary-only firmware may be running)");
   else
     return std::unexpected{station.error()};
+  return {};
+}
+p2::CardStatus inspect(p2::Card &card, const Options &options) {
   if (options.native_profile)
+    // DOS Genesis entry does not require a preliminary INIT. Exact identity
+    // and SRAM checks came from this claim's verified NV backup, not a RID.
     puts("PDA: CRC/NIC/SRAM validated from the fresh, owned NV backup.");
   else {
+    if (auto result = card.initialize(); !result)
+      return result;
+    if (auto result = show_firmware(card, false, "PRI"); !result)
+      return result;
     std::array<uint8_t, P2_PDA_SIZE> pda;
     auto address = card.read_pda(pda);
     if (!address)
@@ -137,6 +144,8 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
             static_cast<unsigned long>(report.verification_reads),
             static_cast<unsigned long>(report.disagreements),
             report.aux_was_enabled ? "enabled" : "disabled");
+  p2_printf("DOS Genesis HCR=0x%02x; completed latch cycles=%u\n",
+            options.bits == 16 ? 0x0f : 0x1f, report.genesis_latches);
   if (report.aux_cleanup_error)
     p2_fprintf(stderr, "Restoring AUX state: %s\n",
                p2_error_string(report.aux_cleanup_error));
@@ -148,10 +157,10 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
   // Readback alone does not prove the original firmware restarted.
   if (auto result = card.initialize(); !result)
     return result;
-  primary = card.identity(P2_RID_PRIID);
-  if (!primary)
-    return std::unexpected{primary.error()};
-  show_id("PRI after reset", *primary);
+  if (auto result =
+          show_firmware(card, options.native_profile, "PRI after reset");
+      !result)
+    return result;
   puts("Genesis RAM probe passed; normal firmware responded.");
   return {};
 }

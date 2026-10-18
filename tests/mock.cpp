@@ -109,6 +109,11 @@ static void write_cfg(void *ctx, uint8_t reg, uint8_t value) {
   auto *m = static_cast<p2_mock *>(ctx);
   if (!touch(m))
     return;
+  if (m->configuration_writes < 32) {
+    m->cfg_registers[m->configuration_writes] = reg;
+    m->cfg_values[m->configuration_writes] = value;
+    m->cfg_times[m->configuration_writes] = m->clock;
+  }
   ++m->configuration_writes;
   if (reg == P2_CFG_COR)
     m->cor = value;

@@ -292,15 +292,20 @@ CardStatus Card::reset(uint8_t cor, uint8_t hcr) {
   if (auto result = alive(); !result)
     return result;
   bus_.write_cfg(bus_.ctx, P2_CFG_COR, static_cast<uint8_t>(cor | 0x80));
-  bus_.delay_us(bus_.ctx, 10000);
+  // Original ILHOPFW 0a22:0ad5: Genesis latches HCR immediately while reset
+  // is asserted; normal return waits 5 ms before changing HCR.
+  if (!(hcr & 8))
+    bus_.delay_us(bus_.ctx, 5000);
   if (auto result = alive(); !result)
     return result;
   bus_.write_cfg(bus_.ctx, P2_CFG_CCSR, hcr);
-  bus_.delay_us(bus_.ctx, 10000);
+  bus_.delay_us(bus_.ctx, 5000);
   if (auto result = alive(); !result)
     return result;
   bus_.write_cfg(bus_.ctx, P2_CFG_COR, static_cast<uint8_t>(cor & 0x7f));
-  bus_.delay_us(bus_.ctx, 10000);
+  // Gayle/CIS adaptation: retain the selected COR index and allow a bounded
+  // settling interval after deassertion, rather than DOS PCIC's fixed 0x45.
+  bus_.delay_us(bus_.ctx, 5000);
   return alive();
 }
 CardStatus Card::restore_aux(bool was_enabled) {
@@ -353,25 +358,20 @@ ProbeReport Card::probe(unsigned bits) {
     }
     if (auto result = interrupted(); !result)
       return result;
-    report.reset_started = true;
-    bus_.write_cfg(bus_.ctx, P2_CFG_COR,
-                   static_cast<uint8_t>(report.cor_before | 0x80));
-    bus_.delay_us(bus_.ctx, 2000);
-    if (auto result = interrupted(); !result)
-      return result;
-    bus_.write_cfg(bus_.ctx, P2_CFG_COR,
-                   static_cast<uint8_t>(report.cor_before & 0x7f));
-    bus_.delay_us(bus_.ctx, 2000);
-    // Host AP seeds this sentinel before Genesis latches. Readback becomes
-    // meaningful after the Genesis reset and initial priming read.
+    // DOS ILHOPFW reset dispatcher (0a22:0ad5) seeds/checks the idle words
+    // before the first HCR latch; there is no preliminary bare COR pulse.
+    // Its first idle result is advisory; the check after the first latch is
+    // required. AUX has already been acquired explicitly here.
     if (auto result = write_aux(P2_GENESIS_ADDRESS, pattern); !result)
-      return result;
-    if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
-        !result)
       return result;
     std::array<uint8_t, 4> discard;
     if (auto result = read_aux(P2_GENESIS_ADDRESS, discard); !result)
       return result;
+    report.reset_started = true;
+    if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
+        !result)
+      return result;
+    ++report.genesis_latches;
     const auto written = write_verified(P2_GENESIS_ADDRESS, pattern);
     std::copy_n(written.last_readback.begin(), report.readback.size(),
                 report.readback.begin());
@@ -379,6 +379,12 @@ ProbeReport Card::probe(unsigned bits) {
     report.disagreements = written.disagreements;
     if (written.error)
       return std::unexpected{written.error};
+    // The DOS routine performs a second HCR latch after the successful idle
+    // test. Verification retries above never repeat a payload write.
+    if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
+        !result)
+      return result;
+    ++report.genesis_latches;
     return {};
   };
   const auto result = exercise();

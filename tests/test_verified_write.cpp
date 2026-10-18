@@ -112,7 +112,7 @@ void genesis_aux_state() {
     assert(!result.error && !result.cleanup_error && !result.aux_cleanup_error);
     assert(result.aux_was_enabled == enabled && result.reset_started);
     assert(result.verification_reads == 3 && result.disagreements == 1);
-    assert(m.normal_returns == 1 && m.genesis_entries == 1);
+    assert(m.normal_returns == 1 && m.genesis_entries == 2);
     assert(m.regs[P2_CONTROL / 2] == (enabled ? 0xc000 : 0));
     assert(m.regs[P2_AUXOFFSET / 2] == 0 && !m.scratch_writes_after_disable);
     assert(m.regs[P2_PARAM0 / 2] == (enabled ? 0x1234 : 0));

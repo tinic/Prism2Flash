@@ -78,6 +78,7 @@ struct ProbeReport {
   p2_error cleanup_error = P2_OK;
   p2_error aux_cleanup_error = P2_OK;
   uint32_t verification_reads = 0, disagreements = 0;
+  unsigned genesis_latches = 0;
   bool aux_was_enabled = false, reset_started = false;
 };
 class Card {

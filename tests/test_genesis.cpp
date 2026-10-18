@@ -27,7 +27,27 @@ static void success(unsigned bits) {
   CHECK((result = p2::Card{m.bus}.probe(bits)).error == 0);
   CHECK(result.readback[0] == 0 && result.readback[1] == 0xe1 &&
         result.readback[2] == 0xa1 && result.readback[3] == 0xff);
-  CHECK(m.genesis_entries == 1 && m.normal_returns == 1);
+  CHECK(m.genesis_entries == 2 && m.normal_returns == 1);
+  CHECK(result.genesis_latches == 2);
+  // Original DOS trace has two Genesis HCR latches, followed by one normal
+  // latch. Adapt COR 0x45/C5 to the CIS-selected 0x41/C1; allow 5 ms settling
+  // after deassertion on Gayle. There must be no preliminary bare COR pulse.
+  CHECK(m.configuration_writes == 9);
+  const uint8_t genesis = bits == 16 ? 0x0f : 0x1f;
+  const uint8_t normal = bits == 16 ? 0x07 : 0x17;
+  const uint8_t values[]{0xc1, genesis, 0x41,   0xc1, genesis,
+                         0x41, 0xc1,    normal, 0x41};
+  for (unsigned i = 0; i < 9; ++i) {
+    CHECK(m.cfg_registers[i] == (i % 3 == 1 ? P2_CFG_CCSR : P2_CFG_COR));
+    CHECK(m.cfg_values[i] == values[i]);
+  }
+  for (unsigned start : {0u, 3u}) {
+    CHECK(m.cfg_times[start + 1] == m.cfg_times[start]);
+    CHECK(m.cfg_times[start + 2] - m.cfg_times[start + 1] == 5000);
+    CHECK(m.cfg_times[start + 3] - m.cfg_times[start + 2] >= 5000);
+  }
+  CHECK(m.cfg_times[7] - m.cfg_times[6] == 5000);
+  CHECK(m.cfg_times[8] - m.cfg_times[7] == 5000);
   CHECK(m.cor == 0x41 && m.ccsr == (bits == 8 ? 0x17 : 0x07));
   CHECK((m.regs[P2_CONTROL / 2] & 0xc000) == 0 && result.cleanup_error == 0);
   CHECK(m.flash_commands == 0);

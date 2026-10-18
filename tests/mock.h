@@ -13,6 +13,8 @@ struct p2_mock {
   unsigned data_index, operations, remove_at, cancel_at;
   unsigned flash_commands, command_writes, genesis_entries, normal_returns;
   unsigned configuration_writes, payload_writes;
+  uint8_t cfg_registers[32], cfg_values[32];
+  uint32_t cfg_times[32];
   unsigned aux_space, nv_reads, corrupt_nv_after;
   unsigned ram_reads, corrupt_ram_once_at;
   unsigned access_delay_us;

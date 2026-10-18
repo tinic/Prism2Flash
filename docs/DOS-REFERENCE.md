@@ -22,7 +22,7 @@ MZ load starts at file **0x2a00**. Hardware segment **0a22** has file base
 | Help `-on` | Keeps card power/configuration after exit, retaining RAM recovery state across DOS invocations. |
 | Help `-hf` | Host flash algorithm instead of firmware algorithm. |
 | `0a22:3803`, file `0x10423` | AUX seek to `0x7e0038`, write words `E100`, `FFA1`, seek/read/compare. AUX enable and one repeat on initial failure. |
-| `0a22:0ad5` | Reset dispatcher uses COR `C5`/`45`, configured Genesis/normal HCR bytes, idle routine and 5 ms delays. Full branch interpretation is being independently traced. |
+| `0a22:0ad5` | Reset dispatcher uses two Genesis HCR latches with idle seeding/verification between them; normal return uses one latch. Original x86 routine was executed with relocated pointers and stubbed I/O to confirm the sequence. |
 | `1960:1ba6` | PC Card COR byte writes at attribute offset `0x3e0`. |
 | `1960:1c19` | PC Card HCR byte writes at `0x3e2`; PCI register is `0x5c`. |
 
@@ -39,3 +39,26 @@ and a zero S7 marker. `Prism2Firmware inspect-initial` handles this separate raw
 RAM dialect without weakening regular image validation. Zero S7 here is not
 flash classification or a generic execution address. Loading still requires
 the DOS-derived initial-image start sequence and exact card binding.
+
+## Original x86 reset trace and Amiga adaptation
+
+Executing the unmodified relocated DOS dispatcher with an emulated card-I/O
+interface produced this x16 trace (all delays milliseconds):
+
+```text
+idle words at 7e0038
+COR=C5, HCR=0F, delay 5, COR=45
+idle words and exact readback
+COR=C5, HCR=0F, delay 5, COR=45
+normal return: COR=C5, delay 5, HCR=07, delay 5, COR=45
+```
+
+The Amiga probe follows that two-latch sequence, with no preliminary bare COR
+reset or native INIT. COR keeps the already-validated CIS configuration index
+(41/C1 instead of DOS 45/C5). A 5 ms settling interval follows deassertion on
+Gayle. Required idle verification uses two consecutive exact reads, bounded at
+twenty; it never retries payload writes because of a bad read. Cleanup ignores
+Ctrl-C only to return to normal straps and restore the original AUX state;
+sticky removal still prevents further I/O. The model records every COR/HCR write
+and its timing against this DOS-derived sequence. The final normal firmware
+response and unchanged full NV readback remain separate hardware checks.
