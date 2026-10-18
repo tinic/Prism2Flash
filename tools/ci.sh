@@ -19,7 +19,7 @@ case "${1:-}" in
     ;;
   sanitize)
     cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=Debug \
-      '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
+      "-DCMAKE_CXX_FLAGS=${CXXFLAGS:-} -fsanitize=address,undefined -fno-omit-frame-pointer" \
       '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined'
     cmake --build build-sanitize --parallel
     ctest --test-dir build-sanitize --output-on-failure
