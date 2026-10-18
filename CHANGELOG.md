@@ -26,6 +26,8 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
   Return probe/capture reports that preserve acquisition and cleanup failures.
 - Scope file, slot, payload and backend ownership. Keep explicit checked closes
   and hardware restoration where delayed failures must be reported.
+- Keep typed heap ownership on the checked C allocator and guard against
+  linking the throwing C++ runtime into Kickstart 2.x binaries.
 - Add bounded move-aware storage with nonthrowing allocation, ownership/failure
   tests, and native runtime storage checks. Keep C++23/RC17/LLVM formatting.
 

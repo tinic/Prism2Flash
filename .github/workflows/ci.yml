@@ -44,6 +44,12 @@ jobs:
       - name: Install independent LHA reader (macOS)
         if: runner.os == 'macOS'
         run: brew install lhasa
+      - name: Select C++23 standard library for Linux Clang
+        if: runner.os == 'Linux' && matrix.cxx == 'clang++'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libc++-18-dev libc++abi-18-dev
+          echo 'CXXFLAGS=-stdlib=libc++' >> "$GITHUB_ENV"
       - run: tools/ci.sh host
       - name: Address and undefined-behavior sanitizers
         if: runner.os == 'Linux' && matrix.cxx == 'clang++'

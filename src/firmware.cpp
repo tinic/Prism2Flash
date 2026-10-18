@@ -34,10 +34,11 @@ int hex(uint8_t c) {
 
 class Parser {
 public:
+  Parser() = default;
   // State lives on the heap: the information record alone exceeds the normal
   // 4 KiB Amiga shell stack. The input cursor itself needs no allocation.
   template <typename Next> static Result<Image> run(Next next) {
-    auto parser = std::unique_ptr<Parser>{new (std::nothrow) Parser};
+    auto parser = make_owned<Parser>();
     if (!parser)
       return std::unexpected{
           Error{Errc::Memory, 0, "Out of memory for parser"}};

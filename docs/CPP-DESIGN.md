@@ -13,8 +13,9 @@ GCC v16.2-rc17 compiler. Exceptions and RTTI are disabled.
   File and memory input use typed cursors. Parser state is allocated on the heap
   because its 4096-byte metadata buffer exceeds the usual Amiga Shell stack.
 - `BoundedVector<T, Limit>` provides bounded, move-aware storage with explicit
-  allocation failure. It uses nothrow array allocation and normal construction/
-  destruction. This small container avoids using throwing STL allocation with
+  allocation failure. It uses the checked C heap underneath typed ownership, with
+  construct_at/destroy_n and normal move semantics. This avoids the throwing
+  libstdc++ new/exception startup on Kickstart 2.x. This small container avoids using throwing STL allocation with
   exceptions disabled. Failed growth preserves the old elements. Metadata and
   payload limits are independent of current capacity.
 - `PdaView` can only be created after PDA structure/CRC validation. Its record

@@ -13,10 +13,8 @@ static const uint8_t input[] = "S307007E0002030471\n"
                                "S307007E0000010277\n";
 static_assert(!std::is_copy_constructible_v<Image>);
 static_assert(std::is_nothrow_move_constructible_v<Image>);
-// Class-specific allocation failure avoids replacing the global allocator or
-// weakening the sanitizer's allocation/deallocation checks.
+// Inject failures at the storage allocator; keep sanitizer allocation checks.
 struct Tracked {
-  static inline bool fail_allocation = false;
   static inline unsigned owned = 0;
   unsigned value = 0;
   Tracked() noexcept = default;
@@ -32,27 +30,29 @@ struct Tracked {
     if (value)
       --owned;
   }
-  static void *operator new[](std::size_t bytes,
-                              const std::nothrow_t &) noexcept {
-    return fail_allocation ? nullptr : ::operator new[](bytes, std::nothrow);
+};
+struct FaultHeap {
+  static inline bool fail_allocation = false;
+  static void *allocate(std::size_t bytes) noexcept {
+    return fail_allocation ? nullptr : p2::Heap::allocate(bytes);
   }
-  static void operator delete[](void *p) noexcept { ::operator delete[](p); }
+  static void deallocate(void *p) noexcept { p2::Heap::deallocate(p); }
 };
 static void storage_failures() {
   {
-    p2::BoundedVector<Tracked, 32> items;
-    Tracked::fail_allocation = true;
+    p2::BoundedVector<Tracked, 32, FaultHeap> items;
+    FaultHeap::fail_allocation = true;
     assert(!items.push_back(Tracked{1}));
     assert(items.empty() && !Tracked::owned);
-    Tracked::fail_allocation = false;
+    FaultHeap::fail_allocation = false;
     for (unsigned i = 1; i <= 16; ++i)
       assert(items.push_back(Tracked{i}));
-    Tracked::fail_allocation = true;
+    FaultHeap::fail_allocation = true;
     assert(!items.push_back(Tracked{17}));
     assert(items.size() == 16 && Tracked::owned == 16);
     for (unsigned i = 0; i < items.size(); ++i)
       assert(items[i].value == i + 1);
-    Tracked::fail_allocation = false;
+    FaultHeap::fail_allocation = false;
     assert(items.push_back(Tracked{17}));
     auto moved = std::move(items);
     assert(items.empty() && moved.size() == 17 && Tracked::owned == 17);

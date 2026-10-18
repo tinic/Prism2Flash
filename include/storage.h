@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #pragma once
+#include "owned_memory.h"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -11,7 +12,8 @@
 namespace p2 {
 // Explicit allocation failure for the exception-free Amiga runtime. Elements
 // retain normal C++ construction, destruction and move semantics.
-template <typename T, std::size_t Limit> class BoundedVector {
+template <typename T, std::size_t Limit, typename Allocator = Heap>
+class BoundedVector {
   static_assert(Limit > 0);
   static_assert(std::is_nothrow_default_constructible_v<T>);
   static_assert(std::is_nothrow_move_assignable_v<T>);
@@ -36,7 +38,7 @@ public:
       return false;
     if (size_ == capacity_) {
       const auto capacity = std::min(Limit, capacity_ ? capacity_ * 2 : 16);
-      auto next = std::unique_ptr<T[]>{new (std::nothrow) T[capacity]{}};
+      auto next = allocate_array<T, Allocator>(capacity);
       if (!next)
         return false;
       if (size_)
@@ -62,7 +64,7 @@ public:
   [[nodiscard]] std::span<const T> view() const { return {data_.get(), size_}; }
 
 private:
-  std::unique_ptr<T[]> data_;
+  OwnedArray<T, Allocator> data_;
   std::size_t size_ = 0;
   std::size_t capacity_ = 0;
 };
@@ -83,7 +85,7 @@ public:
   }
   [[nodiscard]] static ByteBuffer allocate(std::size_t size) {
     ByteBuffer buffer;
-    buffer.data_.reset(new (std::nothrow) std::uint8_t[size]);
+    buffer.data_ = allocate_array<std::uint8_t>(size);
     if (buffer.data_)
       buffer.size_ = size;
     return buffer;
@@ -96,7 +98,7 @@ public:
   [[nodiscard]] std::size_t size() const { return size_; }
 
 private:
-  std::unique_ptr<std::uint8_t[]> data_;
+  OwnedArray<std::uint8_t> data_;
   std::size_t size_ = 0;
 };
 } // namespace p2

@@ -4,6 +4,7 @@
  * netdev_pcmcia.c (MIT), copyright AmiNetXDuo contributors. See
  * third_party/NOTICES and docs/SOURCES.md.
  */
+#include "owned_memory.h"
 #include "p2_stdio.h"
 #include "platform.h"
 #include <bit>
@@ -190,8 +191,7 @@ static int supported_cis(uint16_t man, uint16_t card) {
 }
 int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
                      char *error, size_t size) {
-  auto platform =
-      std::unique_ptr<p2_platform>{new (std::nothrow) p2_platform{}};
+  auto platform = p2::make_owned<p2_platform>();
   auto *p = platform.get();
   struct CardHandle *owner;
   UBYTE tuple[263];
@@ -427,7 +427,10 @@ p2_platform::~p2_platform() {
     UtilityBase = nullptr;
   }
 }
-void p2_platform_close(p2_platform *platform) { delete platform; }
+void p2_platform_close(p2_platform *platform) {
+  if (platform)
+    p2::DestroyObject<p2_platform>{}(platform);
+}
 const char *p2_platform_description(void) {
   return "NATIVE AMIGA - hardware untested";
 }

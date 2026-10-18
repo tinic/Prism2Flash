@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include "mock.h"
+#include "owned_memory.h"
 #include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +12,7 @@ struct p2_platform {
 };
 int p2_platform_open(struct p2_platform **out, struct p2_card_info *info,
                      char *error, size_t size) {
-  *out = new (std::nothrow) p2_platform{};
+  *out = p2::make_owned<p2_platform>().release();
   if (!*out) {
     snprintf(error, size, "Out of memory");
     return P2_E_IO;
