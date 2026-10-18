@@ -10,7 +10,8 @@ Download all listed assets before checking the complete manifest.
 Extract the LHA into a drawer. The archive uses standard stored LHA entries;
 no new decompressor format is needed. It contains:
 
-- `C/Prism2Genesis`: native 68000 executable.
+- `C/Prism2Genesis`: native 68000 Genesis probe.
+- `C/Prism2Firmware`: native offline image inspector/validator; see OFFLINE-FIRMWARE.md.
 - `Libs/pccard.library`: unmodified pccard.library 2.2.
 - Documentation, GPL/LGPL notices and the original complete pccard source
   archive in `third_party/pccard/pccard.lha`.
@@ -47,3 +48,7 @@ hardware revision's documentation.
 
 No Intersil firmware, Kickstart ROM or DOS utility is included. The normal
 firmware flasher and dead-card Genesis bootstrap are future milestones.
+
+The offline utility needs no pccard.library or network driver. Start with
+`C/Prism2Firmware --help`; validation uses existing saved files and performs no
+card operation. Both executables have independent `$VER` identifiers.

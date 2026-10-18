@@ -42,13 +42,19 @@ def main():
         subprocess.run(['lha', 'xfq', str(dist / native)], cwd=temp, check=True)
         bundle = temp / prefix
         bundled = check_manifest(bundle, bundle / 'SHA256SUMS')
-        required = {'C/Prism2Genesis', 'Libs/pccard.library', 'COPYING', 'SOURCE.txt',
+        required = {'C/Prism2Genesis', 'C/Prism2Firmware', 'Libs/pccard.library', 'COPYING', 'SOURCE.txt',
                     'third_party/pccard/pccard.lha', 'third_party/pccard/GPL',
                     'third_party/pccard/LGPL', 'third_party/NOTICES', 'docs/INSTALL.md'}
         if not required <= bundled:
             raise ValueError('binary package lacks required executable, source archive or notices')
         if hashlib.sha256((bundle / 'C/Prism2Genesis').read_bytes()).hexdigest() != info['binary_sha256']:
             raise ValueError('binary differs from build-info.json')
+        if set(info.get('binaries', {})) != {'Prism2Genesis', 'Prism2Firmware'}:
+            raise ValueError('metadata must describe both native executables')
+        for name, record in info['binaries'].items():
+            data = (bundle / 'C' / name).read_bytes()
+            if hashlib.sha256(data).hexdigest() != record['sha256'] or len(data) != record['bytes']:
+                raise ValueError(f'{name} differs from build metadata')
         if (bundle / 'build-info.json').read_bytes() != (dist / 'build-info.json').read_bytes():
             raise ValueError('bundled metadata differs')
         if hashlib.sha256((dist / source).read_bytes()).hexdigest() != info['source_archive_sha256']:
@@ -56,6 +62,7 @@ def main():
         with tarfile.open(dist / source) as archive:
             names = set(archive.getnames())
             for name in ('COPYING', 'VERSION', 'src/main.c', 'src/prism2.c', 'src/amiga.c',
+                         'src/firmware.c', 'src/fw_validate.c', 'src/firmware_main.c', 'src/pda.c', 'include/firmware.h',
                          'CMakeLists.txt', 'tools/ci.sh', 'tools/toolchain.json',
                          'third_party/pccard/pccard.lha', 'third_party/hostap/hostap-utils-0.4.7.tar.gz'):
                 if f'{prefix}/{name}' not in names:

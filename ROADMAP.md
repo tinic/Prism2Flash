@@ -17,12 +17,24 @@
 Implementation is experimental until the hardware gate passes. A successful
 four-byte RAM probe does not establish that bootstrap firmware will execute.
 
-## 2. Genesis RAM bootstrap
+## 2. Offline images and Genesis RAM bootstrap
 
-Port the image-processing core of prism2_srec behind a transport-independent
-API. Keep S-record parsing, component/interface checks, PDA plugging, primary/
-station merging and signature stamping. Audit old parser errors and all
-native-word/unaligned accesses rather than merely recompiling the Linux code.
+- [x] Bounded, byte-oriented S-record and Prism metadata parser.
+- [x] Offline inspection and mode/platform/interface/PDA requirement validation.
+- [x] Saved card NIC/MAC binding and strict missing-calibration rejection.
+- [x] Replacement PRI/STA metadata/payload-overlap validation.
+- [x] Synthetic malformed-input tests and valid-image comparison with Host AP.
+- [ ] Apply PDA plugs and special filename records to a private prepared copy.
+- [ ] Implement signature stamping and transactional merge with upstream comparisons.
+- [ ] Export binary/text PDA, CIS and card snapshots when hardware is available.
+- [ ] Validate card-specific memory maps before enabling any image loading.
+
+
+The parser/validator is implemented behind a transport-independent API; see
+include/firmware.h and docs/OFFLINE-FIRMWARE.md. Continue with PDA plugging,
+primary/station merging and signature stamping on private copies. Keep bounds
+and endian handling explicit. Host AP stamps C0DE rather than calculating the
+image CRC; preserve that distinction in later preparation.
 
 Add binary/text PDA and CIS backups, offline prepare/inspect commands, and
 comparison fixtures against upstream prepared images. Backups of PDA/CIS are

@@ -1,5 +1,36 @@
 # Native emulator smoke results — 2026-10-18
 
+## Offline parser milestone 0.2.0-alpha.1
+
+All **78 native guest checks passed**, each using a 4096-byte Shell stack.
+
+| Utility | Emulator | Machine / CPU | Kickstart | Passed |
+| --- | --- | --- | --- | --- |
+| Prism2Firmware | Amiberry 8.4.1 | A600 / 68000 | 2.05 | 13/13 |
+| Prism2Firmware | Amiberry 8.4.1 | A1200 / 68020 | 3.1 | 13/13 |
+| Prism2Firmware | Copperline 1.0.0 | A600 / 68000 | 2.05 | 13/13 |
+| Prism2Firmware | Copperline 1.0.0 | A1200 / 68020 | 3.1 | 13/13 |
+| Prism2Genesis | Amiberry 8.4.1 | A600 / 68000 | 2.05 | 13/13 |
+| Prism2Genesis | Copperline 1.0.0 | A1200 / 68020 | 3.1 | 13/13 |
+
+The offline suite checks help/version, flash- and RAM-image inspection,
+individual and PRI/STA-pair validation against synthetic saved card/PDA data,
+wrong-mode rejection, bad checksums, missing files/arguments, unsupported flash
+commands and help after errors. It uses original synthetic payloads and
+calibration; no proprietary firmware or actual card is used in a guest.
+Genesis retains its startup/argument/empty-slot regression cases.
+
+Binary sizes and SHA-256 values:
+
+- `Prism2Genesis`: 59,028 bytes, `196365eada7c96937dce1795868a354003accc561f8347bf043c129c32643e13`.
+- `Prism2Firmware`: 69,176 bytes, `834eb11e5a3e9706b6e558bbc7a922e3408f788bf9201fba02f1b34cee65ac53`.
+
+[Detailed evidence](evidence/emulator-smoke-0.2.0-alpha.1.json) records every
+output and exit code against these exact binary hashes. Use
+`tests/emulator_smoke.py --suite firmware` for the offline suite and
+`--suite genesis` for the existing probe suite. ROM/emulator options below
+remain the same. No FS-UAE or physical hardware was used.
+
 ## Release candidate 0.1.0-alpha.1
 
 All **52 checks passed** for the versioned native release candidate, using a

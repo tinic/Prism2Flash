@@ -2,6 +2,36 @@
 
 Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
+## [0.2.0-alpha.1] - 2026-10-18
+
+### Added
+
+- Native and host `Prism2Firmware` for offline image inspection and metadata/PDA
+  validation, with an independent portable parser library and no card backend.
+- Bounded S-record decoding, fragmented little-endian firmware metadata,
+  component/platform/interface checks, RAM/flash class enforcement, and plug
+  and signature descriptor validation.
+- Saved card snapshots and CRC-checked binary PDA validation, binding both NIC
+  identity and MAC address and refusing missing/mismatched calibration plugs.
+- Optional PRI/STA pair compatibility checks using the replacement primary's
+  supplier range, with no variant bypass or overlapping payloads.
+- Original synthetic fixtures, malformed-input stress checks and native emulator
+  coverage for the offline utility. Both tools are included in release packages.
+- Flash's corrected firmware findings and their source/provenance limits.
+
+### Fixed
+
+- Accept the Intersil RAM-image dialect's S7 entry record before payload records;
+  S3 load addresses remain independent from the entry point.
+- Reject a malformed PDA terminator before a later valid end record.
+
+### Scope
+
+Validation reads files only and leaves firmware bytes unchanged. Image plugging,
+signature stamping, prepared output, merging, hardware address-map approval,
+bootstrap execution and flash programming remain later milestones. No physical
+Amiga or card testing was performed.
+
 ## [0.1.0-alpha.1] - 2026-10-18
 
 ### Added

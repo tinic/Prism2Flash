@@ -8,7 +8,7 @@ Native Amiga utilities for Intersil Prism II/2.5/3 PCMCIA cards, developed
 alongside AmiNetXDuo. The project starts with Genesis recovery and will then
 add a regular firmware flasher using the same programming engine.
 
-**Status: first Genesis probe implemented; host checks and native executable
+**Status: Genesis probe plus offline firmware parser/validator implemented; host checks and native executable
 smoke tests pass in Amiberry and Copperline. No real card or physical Amiga
 has been tested.** The A1200 is currently in use by another project; hardware
 testing is deferred.
@@ -51,6 +51,20 @@ backups, or program flash. Those steps are explicit milestones in
 [ROADMAP.md](ROADMAP.md). No command `0x22` programming path is compiled into
 the executable.
 
+## Offline tool: Prism2Firmware
+
+`Prism2Firmware inspect IMAGE` decodes a Prism S-record image and reports its
+component, RAM/flash class, platforms, interface ranges, PDA plugs and signature
+descriptors. `validate` checks it against a saved NIC/MAC/supplier snapshot and
+a CRC-checked binary PDA, with optional replacement-primary compatibility.
+It reads files only and leaves the firmware unchanged. No card backend is linked.
+
+See [offline commands and data formats](docs/OFFLINE-FIRMWARE.md) and
+[Flash's incorporated findings](docs/FIRMWARE-FINDINGS.md). The parser was
+compared byte-for-byte with Host AP on seven privately supplied image variants;
+normal CI uses original synthetic fixtures and includes no proprietary firmware.
+Preparation, bootstrap loading and actual flashing remain later milestones.
+
 ## Native build
 
 Requires CMake 3.24+ and a `m68k-amigaos-gcc` cross toolchain with Amiga NDK headers.
@@ -63,7 +77,8 @@ cmake -S . -B build-amiga -DCMAKE_TOOLCHAIN_FILE=cmake/amiga.cmake
 cmake --build build-amiga
 ```
 
-The Amiga executable is `build-amiga/Prism2Genesis`.
+The Amiga executables are `build-amiga/Prism2Genesis` and
+`build-amiga/Prism2Firmware`. The host offline executable is `build-host/Prism2Firmware`.
 For a pinned compiler with its startup/ABI checks applied automatically, run
 `tools/ci.sh native` on Linux x86_64 or macOS arm64. This does not require an
 AmiNetXDuo checkout. Host checks use `tools/ci.sh host`.
@@ -101,11 +116,10 @@ and [docs/SOURCES.md](docs/SOURCES.md) for provenance and research.
 
 ## Emulator smoke tests
 
-The versioned native executable passed 13 command-line/startup checks on each of
-Amiberry 8.4.1 and Copperline 1.0.0 with A600/68000/Kickstart 2.05 and
-A1200/68020/Kickstart 3.1 profiles. Each command used a 4096-byte Shell stack.
-These checks cover help, invalid arguments, no-card exits and subsequent
-commands. No Prism hardware is emulated or validated by these results.
+Version 0.2.0-alpha.1 passed 78 native checks using a 4096-byte Shell stack:
+52 offline file-processing checks on Amiberry/Copperline with A600/68000 and
+A1200/68020 profiles, plus 26 Genesis startup/no-card regression checks on
+Amiberry A600 and Copperline A1200. No physical card or Amiga was used.
 
 The smoke test caught an unnecessary Newlib double-math library dependency
 that prevented startup on a bare system. The native CLI now uses integer-only
@@ -117,7 +131,7 @@ launch interface, or a bare boot drive in Amiberry. Supply your existing ROM
 assets; none are copied into the repository. FS-UAE is not used by this runner.
 
 ```sh
-python3 tests/emulator_smoke.py --emulator copperline \
+python3 tests/emulator_smoke.py --suite firmware --emulator copperline \
   --emulator-path /path/to/copperline --model A600 --cpu 68000 \
   --rom /path/to/matching-a600-kickstart.rom
 python3 tests/emulator_smoke.py --emulator amiberry \

@@ -1,0 +1,48 @@
+{
+  "reference": "Host AP utilities 0.4.7 parser prefix; no device code",
+  "comparisons": [
+    {
+      "name": "af010104.hex",
+      "image_sha256": "200da7afea4c13a90b9231be69aa8e400f71e3420f36716f9a03ecba36f4767a",
+      "canonical_sha256": "65ea243ecfaf5f78ba9856f867dbf4bf7890e34f8fd0b76aefe7586e656df2f9",
+      "metadata_and_payload_equal": true
+    },
+    {
+      "name": "ak010104.hex",
+      "image_sha256": "ff788ae7b257716f042f6ce5df032b7a00bc8258d8c302805a3d491feadbdd4a",
+      "canonical_sha256": "8b2e974b517a6112167024aa70bc6dfdda596594270cd9c94921c96ecf7c1e79",
+      "metadata_and_payload_equal": true
+    },
+    {
+      "name": "pk010101.hex",
+      "image_sha256": "20638ee6180583488f769d95ed0b240b115bb8b8f6a72e2597dd72d58b4b7791",
+      "canonical_sha256": "1ef6c5f3b96c27484b080c6c917cb0a96aab0464892d99226038c9bcdabb1d01",
+      "metadata_and_payload_equal": true
+    },
+    {
+      "name": "pm010102.hex",
+      "image_sha256": "eb1354a3b13be4f88f9f5f3020893886531a1f022ade1ce84b0e985594c0891e",
+      "canonical_sha256": "4cf85894c017a6573c82066057152845e1550e67a6f4632311d67fc3c275a329",
+      "metadata_and_payload_equal": true
+    },
+    {
+      "name": "rf010704.hex",
+      "image_sha256": "e4a74e443da5a7dd8919722c901f2a80007191ceb8cc721b0c390119664a1ca6",
+      "canonical_sha256": "83af5304c0d71b0335dfe2f645ca47fa1198c62ea591f4145fc0f64149c2435c",
+      "metadata_and_payload_equal": true
+    },
+    {
+      "name": "ru010704.hex",
+      "image_sha256": "10c622b8f6a8dec41806a9bc5a4b563d60a412fad83cfebde92155cd44aee17c",
+      "canonical_sha256": "75d88143f17b09a471b484c95ac11b0e96ed437973791b6dcba2950acda5c825",
+      "metadata_and_payload_equal": true
+    },
+    {
+      "name": "sf010704.hex",
+      "image_sha256": "92e3101220003bed0caeebe42d0817e96db67b1541c62c7601e7772f1c6aa3e5",
+      "canonical_sha256": "9f3fa2cb8fe1832b2ae40d9fa5b7e3c110a680713617b80d8dc298e3d1415eac",
+      "metadata_and_payload_equal": true
+    }
+  ],
+  "hardware_tested": false
+}

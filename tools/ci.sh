@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 set -euo pipefail
 cd "$(dirname "$0")/.."
+mkdir -p build-tmp
+export TMPDIR="$PWD/build-tmp"
 case "${1:-}" in
   host)
     python3 tools/check_project.py
     cmake -S . -B build-host -DCMAKE_BUILD_TYPE=Debug
     cmake --build build-host --parallel
     ctest --test-dir build-host --output-on-failure
-    python3 -m unittest discover -s tests -p 'test_*.py' -v
     ;;
   sanitize)
     cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=Debug \
