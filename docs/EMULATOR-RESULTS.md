@@ -71,8 +71,9 @@ The tested executable is 57,536 bytes, built with m68k-amigaos GCC 16.2.0 for
 ```
 
 The [recorded evidence](evidence/emulator-smoke-2026-10-18.json) retains the
-per-case results, ROM hashes, binary hash and unique run identifiers. Full
-local logs remain under the ignored `build-emulator/` directory. ROMs are
+per-case results, ROM hashes, binary hash and unique run identifiers. The runner
+writes detailed logs under the ignored `build-emulator/` directory; compact
+result evidence is retained after build cleanup. ROMs are
 external local assets and are not included in the repository.
 
 ## Reproduce

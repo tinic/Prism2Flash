@@ -21,7 +21,8 @@ Every push to main or a codex branch, pull request, and manual CI run performs:
 - AddressSanitizer/UndefinedBehaviorSanitizer checks on Linux Clang.
 - Native 68000 cross compilation on Linux with the SHA-256 pinned compiler.
 - Native startup dependency guard, third-party checksum verification, packaging
-  and independent Lhasa extraction/CRC verification.
+  and independent Lhasa extraction/CRC verification. The uploaded artifact is
+  downloaded and verified again so artifact-action changes are covered by CI.
 - Upload of binary/source packages as the `prism2flash-release` CI artifact.
 
 CodeQL separately analyzes the portable C implementation on pushes, pull
