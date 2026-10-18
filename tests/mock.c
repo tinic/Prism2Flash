@@ -44,6 +44,10 @@ static void write16(void *ctx, uint16_t reg, uint16_t value)
 {
     struct p2_mock *m = ctx;
     if (!touch(m) || reg >= 0x40) return;
+    if(m->aux_disabled_by_host && (reg==P2_PARAM0 || reg==P2_PARAM1 ||
+       reg==P2_PARAM2 || reg==P2_AUXPAGE || reg==P2_AUXOFFSET))
+        ++m->scratch_writes_after_disable;
+    if(reg==P2_CONTROL)m->aux_disabled_by_host=(value&0xc000)==0x4000;
     if (reg == P2_CMD) {
         ++m->command_writes;
         if ((value & 0x3f) == 0x22) ++m->flash_commands;

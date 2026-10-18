@@ -53,6 +53,12 @@ static void capture_tests(int enabled,int mismatch)
     CHECK(a && b);init_nv(&m);
     m.regs[P2_CONTROL/2]=enabled?0xc000:0;
     for(i=0;i<5;++i)m.regs[regids[i]/2]=regs[i];
+    if(enabled){
+        CHECK(p2_capture_nv(&m.bus,a,b,&result)==P2_E_UNSUPPORTED);
+        CHECK(!m.nv_reads && m.regs[P2_CONTROL/2]==0xc000);
+        for(i=0;i<5;++i)CHECK(m.regs[regids[i]/2]==regs[i]);
+        fclose(a);fclose(b);p2_mock_free(&m);return;
+    }
     if(mismatch)m.corrupt_nv_after=P2_NV_BYTES/2;
     CHECK(p2_capture_nv(&m.bus,a,b,&result)==(mismatch?P2_E_VERIFY:P2_OK));
     CHECK(result.bytes[0]==P2_NV_BYTES);
@@ -60,7 +66,8 @@ static void capture_tests(int enabled,int mismatch)
     CHECK((result.mismatch_bytes!=0)==(mismatch!=0));
     if(!mismatch)CHECK(strlen(result.sha256[0])==64 && !strcmp(result.sha256[0],result.sha256[1]));
     CHECK(!result.cleanup_error && m.regs[P2_CONTROL/2]==(enabled?0xc000:0));
-    for(i=0;i<5;++i)CHECK(m.regs[regids[i]/2]==regs[i]);
+    for(i=0;i<3;++i)CHECK(m.regs[regids[i]/2]==0);
+    CHECK(m.regs[P2_AUXOFFSET/2]==0 && !m.scratch_writes_after_disable);
     CHECK(!m.command_writes && !m.payload_writes && !m.configuration_writes && !m.flash_commands);
     fclose(a);fclose(b);p2_mock_free(&m);
 }
@@ -88,6 +95,6 @@ int main(void)
     CHECK(p2_backup_valid_utc("20261018T104000Z"));CHECK(p2_backup_valid_utc("20240229T235959Z"));
     CHECK(!p2_backup_valid_utc("20260229T104000Z"));CHECK(!p2_backup_valid_utc("20261018T246000Z"));
     CHECK(!p2_backup_valid_utc("20261018T104000Z\n"));
-    puts("SHA-256 vectors, NV selection/bounds, independent full reads, mismatch/removal/cancel/timeout and state restoration passed");
+    puts("SHA-256 vectors, NV bounds, full reads, mismatch/removal/cancel/timeout, canonical AUX cleanup and existing-session refusal passed");
     return 0;
 }

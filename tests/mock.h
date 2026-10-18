@@ -14,6 +14,8 @@ struct p2_mock {
     unsigned flash_commands, command_writes, genesis_entries, normal_returns;
     unsigned configuration_writes, payload_writes;
     unsigned aux_space, nv_reads, corrupt_nv_after;
+    unsigned scratch_writes_after_disable;
+    int aux_disabled_by_host;
     int present, cancel, stuck_command, stuck_aux, corrupt_readback;
     int bad_rid_length, command_failure;
     struct p2_bus bus;

@@ -33,7 +33,7 @@ static int available(struct p2_bus *b)
 int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_result *out)
 {
     static const uint16_t saved_regs[]={P2_PARAM0,P2_PARAM1,P2_PARAM2,P2_AUXPAGE,P2_AUXOFFSET};
-    uint16_t saved[5],control;
+    uint16_t control;
     uint8_t *buffers;
     uint32_t address,start;
     unsigned pass,i;
@@ -54,11 +54,12 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
     }
     for(i=0;i<5;++i){
         rc=available(b);if(rc){free(buffers);return rc;}
-        saved[i]=b->read16(b->ctx,saved_regs[i]);
-        out->before[i+1]=saved[i];
+        out->before[i+1]=b->read16(b->ctx,saved_regs[i]);
     }
     rc=available(b);if(rc){free(buffers);return rc;}
-    if((control&0xc000)==0){opened=1;rc=p2_aux_enable(b,1);}
+    /* An existing AUX session has unknown ownership and must be left alone. */
+    if(control&0xc000){free(buffers);return P2_E_UNSUPPORTED;}
+    opened=1;rc=p2_aux_enable(b,1);
     for(pass=0;!rc && pass<2;++pass){
         if(pass && (fflush(first)||fseek(first,0,SEEK_SET))) {rc=P2_E_IO;break;}
         p2_sha256_init(&hash);
@@ -86,15 +87,19 @@ int p2_capture_nv(struct p2_bus *b,FILE *first,FILE *second,struct p2_capture_re
     if(!rc && (!changed || out->mismatch_bytes || strcmp(out->sha256[0],out->sha256[1])))rc=P2_E_VERIFY;
     /* Cleanup cannot be vetoed by Ctrl-C, but must never touch another card. */
     cancel_fn=b->cancelled;b->cancelled=NULL;
-    if(opened)cleanup=p2_aux_enable(b,0);
-    for(i=0;i<5 && b->present(b->ctx);++i)b->write16(b->ctx,saved_regs[i],saved[i]);
+    /* linux-wlan-ng clears AUXOFFSET's selector while AUX is enabled;
+     * Host AP disables AUX with PARAM0/1/2 zero. These are scratch registers,
+     * not persistent settings. Never replay old values after disabling AUX. */
+    if(opened){
+        if(b->present(b->ctx))b->write16(b->ctx,P2_AUXOFFSET,0);
+        cleanup=p2_aux_enable(b,0);
+    }
     if(!b->present(b->ctx) && !cleanup)cleanup=P2_E_REMOVED;
     if(b->present(b->ctx)){
         out->after[0]=b->read16(b->ctx,P2_CONTROL);
         if((out->after[0]&0xc000)!=(control&0xc000) && !cleanup)cleanup=P2_E_VERIFY;
         for(i=0;i<5 && b->present(b->ctx);++i){
             out->after[i+1]=b->read16(b->ctx,saved_regs[i]);
-            if(out->after[i+1]!=saved[i] && !cleanup)cleanup=P2_E_VERIFY;
         }
         if(!b->present(b->ctx) && !cleanup)cleanup=P2_E_REMOVED;
     }
