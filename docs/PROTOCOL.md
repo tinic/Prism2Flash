@@ -35,17 +35,32 @@ write. It stops further software access once notified.
    delays and write Host AP's sentinel `00 E1 A1 FF` at AUX address 7E0038.
 5. Assert COR reset, wait 10 ms, write CCSR=1F (x8) or 0F (x16), wait 10 ms,
    release COR reset, and wait 10 ms.
-6. Read the sentinel, write it again and read back. Compare all four bytes.
+6. Prime with one sentinel read, write it once, then require two consecutive
+   readbacks matching all four expected bytes. Retry reads only (at most 20).
    This intentionally follows Host AP's limited RAM-access test; it is not a
    full SRAM test or proof that a recovery firmware image will execute.
 7. Return through the same reset sequence with CCSR=17 (x8) or 07 (x16).
-   Disable AUX. Cancellation does not suppress this cleanup, but removal does.
+   Restore the original AUX enabled state. Clear OFFSET while AUX is enabled,
+   before disabling a session opened here. Never replay opaque pointer/PARAM
+   snapshots. Cancellation does not suppress cleanup, but removal does. A failed
+   pre-reset AUX handshake does not initiate a normal-mode reset. Report AUX
+   restoration errors separately, retaining the original operation failure.
 8. Initialize and read PRIID again. On process exit, the native backend resets
    the configured card and releases its handle, then closes timer/dependencies.
 
 AUX uses PAGE=address>>7 and OFFSET=address&7F. Transfers require even addresses
 and lengths, stay inside the 23-bit AUX space, and explicitly reselect the
 page at every 128-byte boundary.
+
+`write_verified` is a RAM transfer helper for future image loading. It splits
+at page boundaries, writes each chunk once, then requires two consecutive whole
+readbacks equal to the expected payload. Stable wrong data cannot pass. It
+allows at most 20 reads per chunk and enforces a total 30-second wrap-safe
+deadline between transferred words. Any timeout, cancellation, removal or
+persistent mismatch stops the transfer without rewriting. The report retains
+whole-chunk written/verified counts, last attempted address and partial readback.
+An interrupted chunk may have changed a prefix even if bytes_written is zero.
+This helper neither selects a physical RAM map nor enables flash programming.
 
 The probe requires existing primary firmware. Recovery without functioning
 firmware is a later backend/profile path, not an implied feature of this code.

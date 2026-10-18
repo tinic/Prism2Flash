@@ -3,6 +3,7 @@
  * Jouni Malinen's GPL-2.0 Host AP utilities 0.4.7 prism2_srec.c.
  */
 #include "firmware.h"
+#include "sha256.h"
 #include <algorithm>
 #include <cstring>
 
@@ -298,6 +299,8 @@ private:
       if (++bytes > MaxInputBytes)
         return fail(Errc::Limit, "Input byte limit exceeded");
       if (c == '\n') {
+        source_hash_.update(std::span{line}.first(length));
+        source_hash_.update("\n");
         if (++line_ > MaxLines)
           return fail(Errc::Limit, "Input line limit exceeded");
         if (length && line[length - 1] == '\r')
@@ -314,6 +317,7 @@ private:
       }
     }
     if (length) {
+      source_hash_.update(std::span{line}.first(length));
       ++line_;
       if (line[length - 1] == '\r')
         --length;
@@ -328,9 +332,11 @@ private:
                   "Missing S7, component, payload or complete metadata");
     if (auto result = combine(); !result)
       return std::unexpected{result.error()};
+    image_.source_sha256_ = source_hash_.hex();
     return std::move(image_);
   }
   Image image_;
+  Sha256 source_hash_;
   std::array<uint8_t, InfoLimit> info_{};
   std::size_t info_used_ = 0, info_expected_ = 0;
   unsigned long line_ = 0;

@@ -58,7 +58,10 @@ CardStatus Card::wait_mask(uint16_t reg, uint16_t mask, uint16_t expected,
   for (;;) {
     if (auto result = interrupted(); !result)
       return result;
-    if ((bus_.read16(bus_.ctx, reg) & mask) == expected)
+    const auto value = bus_.read16(bus_.ctx, reg);
+    if (auto result = interrupted(); !result)
+      return result;
+    if ((value & mask) == expected)
       return {};
     if (static_cast<uint32_t>(bus_.now_us(bus_.ctx) - start) >= timeout)
       return std::unexpected{P2_E_TIMEOUT};
@@ -69,9 +72,17 @@ CardStatus Card::enable_aux(bool enable) {
   if (auto result = wait_mask(P2_CMD, 0x8000, 0, 5000); !result)
     return result;
   const auto control = bus_.read16(bus_.ctx, P2_CONTROL);
+  if (auto result = interrupted(); !result)
+    return result;
   bus_.write16(bus_.ctx, P2_PARAM0, enable ? 0xfe01 : 0);
+  if (auto result = interrupted(); !result)
+    return result;
   bus_.write16(bus_.ctx, P2_PARAM1, enable ? 0xdc23 : 0);
+  if (auto result = interrupted(); !result)
+    return result;
   bus_.write16(bus_.ctx, P2_PARAM2, enable ? 0xba45 : 0);
+  if (auto result = interrupted(); !result)
+    return result;
   bus_.write16(
       bus_.ctx, P2_CONTROL,
       static_cast<uint16_t>((control & 0x3fff) | (enable ? 0x8000 : 0x4000)));
@@ -79,7 +90,8 @@ CardStatus Card::enable_aux(bool enable) {
   return wait_mask(P2_CONTROL, 0xc000, enable ? 0xc000 : 0, 100000);
 }
 CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
-                          std::span<const uint8_t> write, uint16_t space) {
+                          std::span<const uint8_t> write, uint16_t space,
+                          std::optional<uint32_t> started) {
   auto length = write.empty() ? read.size() : write.size();
   // AUXPAGE is 16 bits and its offset 7 bits. Never silently truncate.
   if ((address & 1) || (length & 1) || address >= 0x800000 ||
@@ -88,14 +100,22 @@ CardStatus Card::transfer(uint32_t address, std::span<uint8_t> read,
   while (length) {
     if (auto result = interrupted(); !result)
       return result;
+    if (started &&
+        static_cast<uint32_t>(bus_.now_us(bus_.ctx) - *started) >= 30000000)
+      return std::unexpected{P2_E_TIMEOUT};
     const auto count = std::min<std::size_t>(length, 128 - (address & 127));
     bus_.write16(bus_.ctx, P2_AUXPAGE, static_cast<uint16_t>(address >> 7));
+    if (auto result = interrupted(); !result)
+      return result;
     bus_.write16(bus_.ctx, P2_AUXOFFSET,
                  static_cast<uint16_t>((address & 127) | space));
     bus_.delay_us(bus_.ctx, 5);
     for (std::size_t i = 0; i < count; i += 2) {
       if (auto result = interrupted(); !result)
         return result;
+      if (started &&
+          static_cast<uint32_t>(bus_.now_us(bus_.ctx) - *started) >= 30000000)
+        return std::unexpected{P2_E_TIMEOUT};
       if (!write.empty()) {
         const auto value = static_cast<uint16_t>(
             write[i] | (static_cast<uint16_t>(write[i + 1]) << 8));
@@ -124,6 +144,74 @@ CardStatus Card::read_nv(uint32_t address, std::span<uint8_t> data) {
 CardStatus Card::write_aux(uint32_t address, std::span<const uint8_t> data) {
   return transfer(address, {}, data, 0);
 }
+WriteReport Card::write_verified(uint32_t address,
+                                 std::span<const uint8_t> data) {
+  WriteReport report;
+  report.address = report.last_attempted_address = address;
+  report.bytes_requested = data.size();
+  if (data.empty() || (address & 1) || (data.size() & 1) ||
+      address >= 0x800000 || data.size() > 0x800000 - address) {
+    report.error = P2_E_ARGUMENT;
+    return report;
+  }
+  const auto start = bus_.now_us(bus_.ctx);
+  const auto deadline = [&]() -> CardStatus {
+    if (static_cast<uint32_t>(bus_.now_us(bus_.ctx) - start) >= 30000000)
+      return std::unexpected{P2_E_TIMEOUT};
+    return interrupted();
+  };
+  const auto perform = [&]() -> CardStatus {
+    std::array<uint8_t, 128> previous{};
+    while (!data.empty()) {
+      if (auto result = deadline(); !result)
+        return result;
+      const auto count =
+          std::min<std::size_t>(data.size(), 128 - (address & 127));
+      const auto expected = data.first(count);
+      report.last_attempted_address = address;
+      report.write_started = true;
+      if (auto result = transfer(address, {}, expected, 0, start); !result)
+        return result;
+      // Whole successful transfers only; a failed transfer can have changed a
+      // prefix. Never automatically rewrite a partially transferred chunk.
+      report.bytes_written += count;
+      bool verified = false;
+      for (unsigned attempt = 0; attempt < 20; ++attempt) {
+        if (auto result = deadline(); !result)
+          return result;
+        auto readback = std::span{report.last_readback}.first(count);
+        if (auto result = transfer(address, readback, {}, 0, start); !result)
+          return result;
+        ++report.verification_reads;
+        if (auto result = deadline(); !result)
+          return result;
+        if (attempt) {
+          const auto stable =
+              std::equal(readback.begin(), readback.end(), previous.begin());
+          if (!stable)
+            ++report.disagreements;
+          if (stable &&
+              std::equal(readback.begin(), readback.end(), expected.begin())) {
+            verified = true;
+            break;
+          }
+        }
+        std::copy(readback.begin(), readback.end(), previous.begin());
+      }
+      if (!verified)
+        return std::unexpected{P2_E_VERIFY};
+      report.bytes_verified += count;
+      address += static_cast<uint32_t>(count);
+      data = data.subspan(count);
+    }
+    return {};
+  };
+  const auto result = perform();
+  report.error = result ? P2_OK : result.error();
+  report.elapsed_us = bus_.now_us(bus_.ctx) - start;
+  return report;
+}
+
 CardStatus Card::command(uint16_t cmd, uint16_t param) {
   // Deliberately no DOWNLOAD/PROGRAM (0x22) path in this milestone.
   if (cmd != 0 && cmd != 0x21)
@@ -215,58 +303,101 @@ CardStatus Card::reset(uint8_t cor, uint8_t hcr) {
   bus_.delay_us(bus_.ctx, 10000);
   return alive();
 }
+CardStatus Card::restore_aux(bool was_enabled) {
+  // Scratch pointers are diagnostic only. Clear OFFSET while AUX is enabled,
+  // before any disable request; never replay PARAM/PAGE/OFFSET snapshots.
+  if (auto result = alive(); !result)
+    return result;
+  const auto control = bus_.read16(bus_.ctx, P2_CONTROL);
+  if (auto result = alive(); !result)
+    return result;
+  if (control == 0xffff)
+    return std::unexpected{P2_E_IO};
+  if ((control & 0xc000) == 0xc000)
+    bus_.write16(bus_.ctx, P2_AUXOFFSET, 0);
+  if ((control & 0xc000) == (was_enabled ? 0xc000 : 0))
+    return alive();
+  return enable_aux(was_enabled);
+}
 ProbeReport Card::probe(unsigned bits) {
   constexpr std::array<uint8_t, 4> pattern{0x00, 0xe1, 0xa1, 0xff};
   ProbeReport report;
   report.sram_bits = bits;
-  const auto perform = [&]() -> CardStatus {
-    if (bits != 8 && bits != 16)
-      return std::unexpected{P2_E_ARGUMENT};
+  if (bits != 8 && bits != 16) {
+    report.error = P2_E_ARGUMENT;
+    return report;
+  }
+  bool aux_acquired = false;
+  const auto exercise = [&]() -> CardStatus {
     if (auto result = interrupted(); !result)
       return result;
-    report.cor_before = bus_.read_cfg(bus_.ctx, P2_CFG_COR);
-    report.ccsr_before = bus_.read_cfg(bus_.ctx, P2_CFG_CCSR);
-    if (auto result = enable_aux(true); !result)
+    const auto control = bus_.read16(bus_.ctx, P2_CONTROL);
+    if (auto result = interrupted(); !result)
       return result;
-    // Once AUX opened, every exit below must restore normal mode.
-    auto exercise = [&]() -> CardStatus {
-      bus_.write_cfg(bus_.ctx, P2_CFG_COR,
-                     static_cast<uint8_t>(report.cor_before | 0x80));
-      bus_.delay_us(bus_.ctx, 2000);
-      if (auto result = interrupted(); !result)
+    if (control == 0xffff ||
+        ((control & 0xc000) != 0 && (control & 0xc000) != 0xc000))
+      return std::unexpected{P2_E_IO};
+    report.aux_was_enabled = (control & 0xc000) == 0xc000;
+    report.cor_before = bus_.read_cfg(bus_.ctx, P2_CFG_COR);
+    if (auto result = interrupted(); !result)
+      return result;
+    report.ccsr_before = bus_.read_cfg(bus_.ctx, P2_CFG_CCSR);
+    if (auto result = interrupted(); !result)
+      return result;
+    if ((report.cor_before & 0x80) || report.ccsr_before == 0xff)
+      return std::unexpected{P2_E_IO};
+    aux_acquired = true; // Also restore AUX after a failed enable handshake.
+    if (!report.aux_was_enabled) {
+      if (auto result = enable_aux(true); !result)
         return result;
-      bus_.write_cfg(bus_.ctx, P2_CFG_COR,
-                     static_cast<uint8_t>(report.cor_before & 0x7f));
-      bus_.delay_us(bus_.ctx, 2000);
-      if (auto result = write_aux(P2_GENESIS_ADDRESS, pattern); !result)
-        return result;
-      if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
-          !result)
-        return result;
-      std::array<uint8_t, 4> discard;
-      if (auto result = read_aux(P2_GENESIS_ADDRESS, discard); !result)
-        return result;
-      if (auto result = write_aux(P2_GENESIS_ADDRESS, pattern); !result)
-        return result;
-      if (auto result = read_aux(P2_GENESIS_ADDRESS, report.readback); !result)
-        return result;
-      if (pattern != report.readback)
-        return std::unexpected{P2_E_VERIFY};
-      return {};
-    };
-    auto result = exercise();
-    const bool cancelled = bus_.cancelled && bus_.cancelled(bus_.ctx);
-    const IgnoreCancellation cleanup_scope{bus_};
-    auto cleanup = reset(report.cor_before, bits == 8 ? 0x17 : 0x07);
-    if (cleanup)
-      cleanup = enable_aux(false);
-    report.cleanup_error = cleanup ? P2_OK : cleanup.error();
-    if (result && cancelled)
-      return std::unexpected{P2_E_CANCELLED};
-    return result ? cleanup : result;
+    }
+    if (auto result = interrupted(); !result)
+      return result;
+    report.reset_started = true;
+    bus_.write_cfg(bus_.ctx, P2_CFG_COR,
+                   static_cast<uint8_t>(report.cor_before | 0x80));
+    bus_.delay_us(bus_.ctx, 2000);
+    if (auto result = interrupted(); !result)
+      return result;
+    bus_.write_cfg(bus_.ctx, P2_CFG_COR,
+                   static_cast<uint8_t>(report.cor_before & 0x7f));
+    bus_.delay_us(bus_.ctx, 2000);
+    // Host AP seeds this sentinel before Genesis latches. Readback becomes
+    // meaningful after the Genesis reset and initial priming read.
+    if (auto result = write_aux(P2_GENESIS_ADDRESS, pattern); !result)
+      return result;
+    if (auto result = reset(report.cor_before, bits == 8 ? 0x1f : 0x0f);
+        !result)
+      return result;
+    std::array<uint8_t, 4> discard;
+    if (auto result = read_aux(P2_GENESIS_ADDRESS, discard); !result)
+      return result;
+    const auto written = write_verified(P2_GENESIS_ADDRESS, pattern);
+    std::copy_n(written.last_readback.begin(), report.readback.size(),
+                report.readback.begin());
+    report.verification_reads = written.verification_reads;
+    report.disagreements = written.disagreements;
+    if (written.error)
+      return std::unexpected{written.error};
+    return {};
   };
-  const auto result = perform();
-  report.error = result ? P2_OK : result.error();
+  const auto result = exercise();
+  const auto cancellation = bus_.cancelled;
+  // Cleanup cannot be vetoed by Ctrl-C; sticky removal still forbids I/O.
+  const IgnoreCancellation cleanup_scope{bus_};
+  CardStatus normal;
+  if (report.reset_started)
+    normal = reset(report.cor_before, bits == 8 ? 0x17 : 0x07);
+  CardStatus aux;
+  if (aux_acquired)
+    aux = restore_aux(report.aux_was_enabled);
+  report.aux_cleanup_error = aux ? P2_OK : aux.error();
+  report.cleanup_error = normal ? report.aux_cleanup_error : normal.error();
+  const bool cancelled = cancellation && cancellation(bus_.ctx);
+  report.error = result ? (report.cleanup_error ? report.cleanup_error
+                           : cancelled          ? P2_E_CANCELLED
+                                                : P2_OK)
+                        : result.error();
   return report;
 }
 } // namespace p2

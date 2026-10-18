@@ -75,6 +75,9 @@ public:
   [[nodiscard]] auto plugs() const { return plugs_.view(); }
   [[nodiscard]] auto signatures() const { return signatures_.view(); }
   [[nodiscard]] std::string_view name() const { return name_.data(); }
+  [[nodiscard]] std::string_view source_sha256() const {
+    return source_sha256_.data();
+  }
   [[nodiscard]] std::optional<uint16_t> build_sequence() const {
     return sequence_;
   }
@@ -93,6 +96,35 @@ private:
   BoundedVector<Plug, MaxItems> plugs_;
   BoundedVector<Signature, MaxSignatures> signatures_;
   std::array<char, 128> name_{};
+  std::array<char, 65> source_sha256_{};
   std::optional<uint16_t> sequence_;
+};
+
+// The filename plug uses the source basename, not embedded firmware metadata.
+struct ImageSource {
+  const Image &image;
+  std::string_view basename;
+};
+// Preparation is transactional and has no card access. A prepared value owns
+// private payload copies; it is not approval of a physical memory map or
+// backup.
+class PreparedImage {
+public:
+  PreparedImage(PreparedImage &&) = default;
+  PreparedImage &operator=(PreparedImage &&) = default;
+  PreparedImage(const PreparedImage &) = delete;
+  PreparedImage &operator=(const PreparedImage &) = delete;
+  [[nodiscard]] static Result<PreparedImage>
+  create(ImageSource target, Mode mode, const CardSnapshot &card,
+         std::span<const uint8_t> pda, std::optional<ImageSource> primary = {});
+  [[nodiscard]] auto segments() const { return segments_.view(); }
+  [[nodiscard]] uint32_t entry() const { return entry_; }
+  [[nodiscard]] std::size_t payload_bytes() const { return payload_bytes_; }
+
+private:
+  PreparedImage() = default;
+  BoundedVector<Segment, MaxSegments * 2> segments_;
+  uint32_t entry_ = 0;
+  std::size_t payload_bytes_ = 0;
 };
 } // namespace p2::firmware

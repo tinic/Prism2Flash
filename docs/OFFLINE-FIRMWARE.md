@@ -1,9 +1,10 @@
-# Offline firmware inspection and validation
+# Offline firmware inspection, validation and preparation
 
 `Prism2Firmware` is a native 68000 and host utility. It links the portable
 image/PDA code only; it has no card backend. All commands read files and print
-results. No command opens card.resource, accesses PCMCIA, changes firmware
-bytes or writes an output image.
+results. No command opens card.resource or accesses PCMCIA. Preparation changes
+private in-memory copies only; source/PDA files are unchanged and no output image
+is written.
 
 ## Commands
 
@@ -12,6 +13,7 @@ Prism2Firmware --version
 Prism2Firmware inspect image.hex
 Prism2Firmware validate station.hex --mode flash --card card.txt --pda pda.bin
 Prism2Firmware validate station.hex --mode flash --card card.txt --pda pda.bin --primary primary.hex
+Prism2Firmware prepare station.hex --mode flash --card card.txt --pda pda.bin --primary primary.hex
 ```
 
 Use `--mode ram` for RAM/Genesis image compatibility checks. An image with a
@@ -69,13 +71,15 @@ Every image plug must point to a fully covered, contiguous payload range.
 Plug destinations cannot overlap. Each ordinary PDR must exist in the backup
 with the exact requested length. No default calibration or short-PDR extension
 is accepted. The special 0xffffffff filename field needs only a bounded
-destination; filling it is part of future preparation.
+destination. Preparation zero-fills it and copies the actual source basename,
+truncated to length minus one, with a terminating NUL. Embedded name metadata
+is not the source filename. Both Unix and Amiga path separators are handled.
 
 PDA checksums establish structural integrity; they do not authenticate a backup
 or establish that RF calibration values are physically correct for a card.
 
-This phase validates requirements; it does not apply PDA patches. A successful
-check must not be mistaken for a prepared, card-specific firmware image.
+`validate` checks requirements without applying patches. `prepare` first applies
+the same checks, then builds a private prepared value as described below.
 
 ## Validation and bounds
 
@@ -95,6 +99,36 @@ check must not be mistaken for a prepared, card-specific firmware image.
 - Optional PRI/STA pair checks require both images in the selected mode and
   reject overlapping payload regions. This does not merge them or resolve the
   later signature-stamp overlap at a primary/station boundary.
+
+## Preparation
+
+`prepare` works entirely offline and reports exact raw source/PDA SHA-256,
+prepared region addresses, lengths, hashes and the separate execution entry.
+The source digest is collected from the same input stream used by the parser,
+including original line endings. It is not calculated by reopening the path.
+The report does not export a payload or authorize card access.
+
+The `PreparedImage::create` C++ factory validates all sources before copying
+them, applies exact-length PDA plugs, fills source filename fields, and prepends
+`DE C0` at each programmed descriptor's `start - 2`. This is Host AP's fixed
+signature stamp, not a calculated image CRC. Duplicate stamps and resulting
+overlaps fail. Descriptors with program=0 do not generate a stamp. Gaps remain
+gaps; only adjacent bytes are coalesced.
+
+With `--primary`, it merges the prepared PRI and STA copies transactionally.
+The only overlap exception follows Host AP: a two-byte STA stamp may replace
+the final two PRI bytes when PRI ends exactly at the original STA region start.
+This exception is refused if those bytes contain a PRI plug or signature.
+All other overlap is rejected. Combined RAM images retain the PRI entry point.
+Primary-only flash preparation is prohibited; standalone RAM PRI preparation
+remains available for future Genesis bootstrap work.
+
+Preparation exposes immutable segments of a move-only owning value. On any
+error the private copies are destroyed; input images and PDA are unchanged.
+Both inputs retain their individual parser limits, so a pair can use at most
+2 MiB payload plus 256 signature bytes and 16,384 prepared segments before
+coalescing. Out-of-memory errors fail explicitly. No implicit flash geometry,
+SRAM width or physical-card approval is inferred from successful preparation.
 
 The parser permits optional S0 and S5/S6 count records, S3 data/metadata and one
 S7 entry record anywhere in the Intersil stream. It rejects invalid hex/counts/
@@ -120,6 +154,11 @@ inspection/validation, entry/load-address distinction, fragmented metadata,
 NIC/MAC binding, modes, interface ranges, missing calibration, signature bounds,
 malformed lines, input limits and 120 deterministic mutated inputs. A C++ API
 check verifies exact payload bytes, sorting/coalescing and failure ownership.
+Preparation tests compare every resulting byte/address/entry with the retained
+Host AP parser/plug/stamp/merge routines on original, valid synthetic data. The
+legacy adapter excludes Linux device access and never processes malformed input.
+It omits synthetic S0 headers, which the legacy parser does not support.
+Separate tests cover malformed input, conflicts and preservation of originals.
 
 With separately obtained, checksum-matching private images, compare parsed
 metadata and payload bytes against the retained upstream parser:
@@ -134,7 +173,6 @@ No firmware is bundled, downloaded by CI, or needed for normal tests. See
 provenance. Use `tests/emulator_smoke.py --suite firmware` with Amiberry or
 Copperline and a locally supplied ROM for native file-processing smoke tests.
 
-Prepared-image output, PDA plugging, signature stamping, transactional image
-merging, binary/text backup export, card-profile address maps, Genesis RAM
-bootstrap and permanent flashing are still separate milestones. Hardware
-validation remains deferred by the user.
+Prepared-payload export, binary/text backup export, card-profile address maps,
+Genesis RAM bootstrap and permanent flashing remain separate milestones.
+Hardware validation remains blocked by the mandatory full-backup gate.

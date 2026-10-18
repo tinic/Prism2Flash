@@ -64,7 +64,8 @@ records; it does not copy Host AP's permissive default-data fallback.
 explicitly says CRC support is unimplemented and prepends bytes `DE C0` at
 `start - 2` for programmed signature records (`prism2_srec.c:1378`). The region
 length may span gaps. A valid descriptor is not evidence of payload integrity.
-The new tool checks descriptor bounds but does not stamp or modify the image.
+Validation checks descriptor bounds without modifying the image. The offline
+prepare factory now stamps private copies; source files remain unchanged.
 PDA CRC validation is a separate, real checksum check over the PDA end record.
 
 ## Driver capability and remaining limits
@@ -91,4 +92,42 @@ match Host AP's parser for all seven checksum-pinned private images. See
 [upstream-parser-comparison.json](evidence/upstream-parser-comparison.json).
 The comparison harness excludes device routines and accepts only pinned valid
 images. The legacy parser is not used as an oracle for malformed input.
-This comparison covers parsed images; prepared-image output is not implemented.
+This private-image comparison covers parsing only. The separate preparation
+tests compare every prepared byte against the retained upstream plug/stamp/merge
+routines on synthetic fixtures. No proprietary prepared image is redistributed.
+
+## MA401 revision evidence from the supplied label
+
+The user's 2026-10-18 underside photo reads **FCC ID PY3MA401RD**, **5 Volt**,
+and **16-bit PCMCIA**. The FCC filing identifies model MA401RD, granted
+2003-02-09. This is stronger physical-revision evidence than the generic
+MA401RA/ISL37300P/Eval-RevA CIS strings observed on the inserted card. The
+PCMCIA bus width on the label does not identify the internal SRAM width.
+The user's MAC/serial and photograph are not included in the public repository.
+
+The filing lists internal-photo exhibits 301850 (two pages) and 301854 (five
+pages), but PDF retrieval failed during this investigation. The photographs
+have therefore **not** been inspected and no chip marking, flash size or SRAM
+configuration is claimed. Schematics/block diagram/technical description are
+listed as confidential metadata. Sources:
+[FCC filing](https://fccid.io/PY3MA401RD),
+[internal photos 301850](https://fccid.io/PY3MA401RD/Internal-Photos/Internal-Photos-301850),
+[SAR photos 301854](https://fccid.io/PY3MA401RD/Internal-Photos/EUT-Photo-for-SAR-report-301854).
+
+The Intersil ISL37300P reference-evaluation data sheet describes a 3.3 V board;
+its electrical assumptions must not be substituted for this retail card's 5 V
+label ([manufacturer data sheet transcription](https://dtsheet.com/doc/160214/intersil-isl37300p-cd)).
+Neither the FCC ID alone nor 128 KiB AUX aliasing closes the full physical
+flash coverage requirement. The native allowlist/Genesis gate stays unchanged.
+See [the next hardware/flash plan](WRITE-AND-FLASH-PLAN.md).
+
+Claude's relayed suggestion of one 128K x8 SRAM plus SST39VF010-type flash is a
+research lead, not an established profile. The reproduced Intersil platform
+table explicitly lists both **x8 and x16 RAM** for the 800C/8013/8017/801B group
+under SST NVRAM ([platform table](https://junsun.net/linux/intersil-prism/IDtable.html)).
+That table reports a platform/release family, not a JEDEC chip identification
+read or an exact installed-memory part number. Its x8/x16 alternatives prevent
+using this NIC ID as proof that every MA401 revision has one shared arrangement.
+Exact SRAM vendor is not required by the software; proven width, capacity,
+decode and physical nonvolatile coverage are required. No proposed replacement
+part or footprint is approved by this project.

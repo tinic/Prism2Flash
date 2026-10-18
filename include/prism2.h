@@ -3,6 +3,7 @@
 #define PRISM2_H
 #include <array>
 #include <expected>
+#include <optional>
 #include <span>
 #include <stddef.h>
 #include <stdint.h>
@@ -61,12 +62,23 @@ struct Identity {
 };
 template <typename T> using CardResult = std::expected<T, p2_error>;
 using CardStatus = CardResult<void>;
+struct WriteReport {
+  p2_error error = P2_OK;
+  uint32_t address = 0, last_attempted_address = 0, elapsed_us = 0;
+  std::size_t bytes_requested = 0, bytes_written = 0, bytes_verified = 0;
+  uint32_t verification_reads = 0, disagreements = 0;
+  bool write_started = false;
+  std::array<uint8_t, 128> last_readback{};
+};
 struct ProbeReport {
   unsigned sram_bits = 0;
   uint8_t cor_before = 0, ccsr_before = 0;
   std::array<uint8_t, 4> readback{};
   p2_error error = P2_OK;
   p2_error cleanup_error = P2_OK;
+  p2_error aux_cleanup_error = P2_OK;
+  uint32_t verification_reads = 0, disagreements = 0;
+  bool aux_was_enabled = false, reset_started = false;
 };
 class Card {
 public:
@@ -78,6 +90,10 @@ public:
   [[nodiscard]] CardStatus read_nv(uint32_t address, std::span<uint8_t> data);
   [[nodiscard]] CardStatus write_aux(uint32_t address,
                                      std::span<const uint8_t> data);
+  // Writes each bounded RAM chunk once, then requires two consecutive exact
+  // readbacks. Verification retries never repeat a write. Not a flash engine.
+  [[nodiscard]] WriteReport write_verified(uint32_t address,
+                                           std::span<const uint8_t> data);
   [[nodiscard]] CardStatus initialize();
   [[nodiscard]] CardResult<Identity> identity(uint16_t rid);
   [[nodiscard]] CardResult<uint32_t>
@@ -93,8 +109,10 @@ private:
   [[nodiscard]] CardStatus command(uint16_t cmd, uint16_t param);
   [[nodiscard]] CardStatus transfer(uint32_t address, std::span<uint8_t> read,
                                     std::span<const uint8_t> write,
-                                    uint16_t space);
+                                    uint16_t space,
+                                    std::optional<uint32_t> started = {});
   [[nodiscard]] CardStatus reset(uint8_t cor, uint8_t hcr);
+  [[nodiscard]] CardStatus restore_aux(bool was_enabled);
   p2_bus &bus_;
 };
 } // namespace p2

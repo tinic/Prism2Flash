@@ -89,6 +89,13 @@ p2::CardStatus inspect(p2::Card &card, const Options &options) {
       "COR before=0x%02x CCSR before=0x%02x readback=%02x %02x %02x %02x\n",
       report.cor_before, report.ccsr_before, report.readback[0],
       report.readback[1], report.readback[2], report.readback[3]);
+  p2_printf("Verification reads=%lu disagreements=%lu; AUX originally %s\n",
+            static_cast<unsigned long>(report.verification_reads),
+            static_cast<unsigned long>(report.disagreements),
+            report.aux_was_enabled ? "enabled" : "disabled");
+  if (report.aux_cleanup_error)
+    p2_fprintf(stderr, "Restoring AUX state: %s\n",
+               p2_error_string(report.aux_cleanup_error));
   if (report.cleanup_error)
     p2_fprintf(stderr, "Returning to normal mode: %s\n",
                p2_error_string(report.cleanup_error));

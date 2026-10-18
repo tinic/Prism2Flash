@@ -12,6 +12,38 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.6.0-alpha.1] - 2026-10-18
+
+### Added
+
+- Transactional offline preparation on private payload copies: exact PDA plugs,
+  source-basename fields, DE C0 signature stamps and PRI/STA merging. Reject
+  primary-only flash preparation and overlaps that would lose calibration.
+- `Prism2Firmware prepare` reports source/PDA and prepared-segment SHA-256,
+  byte counts and entry point. It reads files only; payload export is deferred.
+- Byte-exact comparisons with retained Host AP preparation routines on original
+  synthetic data, including signature boundary merging and RAM entry selection.
+- Verified RAM transfers write each bounded chunk once, then require two
+  consecutive readbacks matching the expected bytes. Read retries never rewrite.
+  Preserve partial progress and enforce a wrap-safe deadline during transfers.
+
+### Changed
+
+- Genesis probing uses verified RAM readback, preserves an existing AUX session,
+  clears OFFSET before disabling AUX, avoids resets before entry begins and
+  preserves separate operation/cleanup errors. Check cancellation/removal at
+  transfer boundaries, including cleanup. Add fault injection at every modeled
+  I/O boundary for both initial AUX states.
+- Record the user-supplied MA401 underside label: FCC ID PY3MA401RD, 5 V.
+  The generic MA401RA/ISL37300P CIS does not select an exact physical memory map.
+
+### Scope
+
+Host/model and native emulator validation; no new physical-card operation.
+Physical flash coverage, SRAM width and the fresh before/after backup operation
+gate remain unresolved. Native active commands remain blocked. No flash
+programming engine, bootstrap execution or prepared-payload export is added.
+
 ## [0.5.0-alpha.1] - 2026-10-18
 
 ### Changed

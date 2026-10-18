@@ -323,6 +323,153 @@ Status Image::validate(Mode mode, const CardSnapshot &input,
   }
   return check_image(*this, mode, *card, *pda);
 }
+
+Result<PreparedImage>
+PreparedImage::create(ImageSource target, Mode mode, const CardSnapshot &card,
+                      std::span<const uint8_t> bytes,
+                      std::optional<ImageSource> primary) {
+  if (auto checked = target.image.validate(mode, card, bytes,
+                                           primary ? &primary->image : nullptr);
+      !checked)
+    return std::unexpected{checked.error()};
+  if (mode == Mode::Flash && target.image.component().id == 0x15)
+    return fail(Errc::Incompatible,
+                "Primary-only flash preparation is prohibited");
+  auto pda = PdaView::checked(bytes);
+  if (!pda)
+    return std::unexpected{pda.error()};
+  PreparedImage prepared;
+  prepared.entry_ = primary ? primary->image.entry() : target.image.entry();
+  const auto copy_source = [&](ImageSource source) -> Status {
+    if (source.basename.empty() || source.basename.size() > 255 ||
+        source.basename.find_first_of("/\\:") != source.basename.npos ||
+        std::any_of(source.basename.begin(), source.basename.end(),
+                    [](unsigned char c) { return c < 32 || c > 126; }))
+      return fail(Errc::Format, "A bounded ASCII source basename is required");
+    for (const auto &segment : source.image.segments()) {
+      const auto stamps =
+          std::count_if(source.image.signatures().begin(),
+                        source.image.signatures().end(), [&](const auto &s) {
+                          return s.program && s.start == segment.address;
+                        });
+      if (stamps > 1)
+        return fail(Errc::Incompatible, "Duplicate signature stamps");
+      const std::size_t prefix = stamps ? 2 : 0;
+      auto data = ByteBuffer::allocate(segment.data.size() + prefix);
+      if (!data)
+        return fail(Errc::Memory, "Out of memory preparing payload");
+      auto payload = data.bytes().subspan(prefix);
+      std::copy(segment.data.bytes().begin(), segment.data.bytes().end(),
+                payload.begin());
+      for (const auto &plug : source.image.plugs()) {
+        if (!segment.contains(plug.address, plug.length))
+          continue;
+        auto destination =
+            payload.subspan(plug.address - segment.address, plug.length);
+        if (plug.pdr == UINT32_MAX) {
+          std::fill(destination.begin(), destination.end(), 0);
+          const auto count =
+              std::min(source.basename.size(), destination.size() - 1);
+          std::copy_n(source.basename.begin(), count, destination.begin());
+        } else {
+          // validate() has already required this exact PDR and length.
+          const auto value = pda->find(static_cast<uint16_t>(plug.pdr));
+          if (!value || value->size() != destination.size())
+            return fail(Errc::Pda, "PDA changed during preparation");
+          std::copy(value->begin(), value->end(), destination.begin());
+        }
+      }
+      if (prefix) {
+        data.bytes()[0] = 0xde;
+        data.bytes()[1] = 0xc0;
+      }
+      if (!prepared.segments_.push_back(
+              Segment{segment.address - static_cast<uint32_t>(prefix),
+                      std::move(data)}))
+        return fail(Errc::Memory, "Out of memory retaining prepared segments");
+    }
+    return {};
+  };
+  if (primary) {
+    if (auto copied = copy_source(*primary); !copied)
+      return std::unexpected{copied.error()};
+  }
+  const auto primary_count = prepared.segments_.size();
+  if (auto copied = copy_source(target); !copied)
+    return std::unexpected{copied.error()};
+
+  // Host AP's sole merge exception: a STA C0DE prefix can replace the final
+  // two PRI bytes immediately before the original STA start. Never trim a
+  // calibration plug or another signature to make an overlap fit.
+  for (std::size_t i = 0; i < primary_count; ++i) {
+    auto &a = prepared.segments_[i];
+    for (std::size_t j = primary_count; j < prepared.segments_.size(); ++j) {
+      const auto &b = prepared.segments_[j];
+      const auto end = a.address + a.data.size();
+      if (a.address >= b.address + b.data.size() || b.address >= end)
+        continue;
+      const auto stamp = std::find_if(
+          target.image.signatures().begin(), target.image.signatures().end(),
+          [&](const auto &s) {
+            return s.program && s.start == b.address + 2 && s.start == end;
+          });
+      if (stamp == target.image.signatures().end() || a.data.size() <= 2 ||
+          b.address < a.address)
+        return fail(Errc::Incompatible,
+                    "Prepared primary/station ranges overlap");
+      for (const auto &plug : primary->image.plugs())
+        if (plug.address < end && plug.address + plug.length > end - 2)
+          return fail(Errc::Incompatible,
+                      "STA signature would overwrite a PRI PDA plug");
+      for (const auto &signature : primary->image.signatures())
+        if (signature.program && signature.start - 2 < end &&
+            signature.start > end - 2)
+          return fail(Errc::Incompatible,
+                      "STA signature would overwrite a PRI signature");
+      auto shortened = ByteBuffer::allocate(a.data.size() - 2);
+      if (!shortened)
+        return fail(Errc::Memory, "Out of memory merging signature boundary");
+      std::copy_n(a.data.bytes().begin(), shortened.size(),
+                  shortened.bytes().begin());
+      a.data = std::move(shortened);
+    }
+  }
+  auto &segments = prepared.segments_;
+  std::sort(segments.begin(), segments.end(),
+            [](const auto &a, const auto &b) { return a.address < b.address; });
+  for (std::size_t i = 1; i < segments.size(); ++i)
+    if (segments[i - 1].address + segments[i - 1].data.size() >
+        segments[i].address)
+      return fail(Errc::Incompatible,
+                  "Prepared payload/signature ranges overlap");
+  // Coalesce adjacent bytes only. Gaps are never filled or programmed.
+  std::size_t used = 0;
+  for (std::size_t i = 0; i < segments.size();) {
+    std::size_t j = i + 1, length = segments[i].data.size();
+    while (j < segments.size() &&
+           segments[i].address + length == segments[j].address)
+      length += segments[j++].data.size();
+    prepared.payload_bytes_ += length;
+    if (j == i + 1) {
+      if (used != i)
+        segments[used] = std::move(segments[i]);
+      ++used;
+    } else {
+      auto joined = ByteBuffer::allocate(length);
+      if (!joined)
+        return fail(Errc::Memory, "Out of memory coalescing prepared segments");
+      auto destination = joined.bytes().begin();
+      for (auto k = i; k < j; ++k)
+        destination = std::copy(segments[k].data.bytes().begin(),
+                                segments[k].data.bytes().end(), destination);
+      const auto address = segments[i].address;
+      segments[used++] = Segment{address, std::move(joined)};
+    }
+    i = j;
+  }
+  segments.truncate(used);
+  return prepared;
+}
 Result<CardSnapshot> CardSnapshot::read(FILE &file) {
   return SnapshotParser{}.read(file);
 }
