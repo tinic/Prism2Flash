@@ -39,7 +39,10 @@ CardResult<Evidence> destination(const char *directory) {
           (*p >= '0' && *p <= '9') || *p == '-' || *p == '_'))
       return std::unexpected{P2_E_ARGUMENT};
   std::array<char, 384> parent{};
-  std::memcpy(parent.data(), directory, size_t(leaf - directory));
+  // A separator belongs between components, not at the end of the parent
+  // passed to Lock (AmigaDOS also gives empty components parent semantics).
+  const auto parent_bytes = size_t((slash ? slash : leaf) - directory);
+  std::memcpy(parent.data(), directory, parent_bytes);
   LockHandle parent_lock{parent.data()}, ram{"RAM:"};
   if (!parent_lock.get() || !ram.get())
     return std::unexpected{P2_E_IO};
