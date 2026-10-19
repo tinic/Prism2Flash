@@ -1,5 +1,22 @@
 # Current hardware status — 2026-10-18
 
+**The actual MA401 runs PRI 1.1.1 / STA 1.8.4 after reboot.**
+The 0.9.4 DOS/Genesis transaction programmed 59,682 bytes and verified the
+complete 128 KiB image. Saved/reopened full 8 MiB before/after captures passed;
+every after byte matched the intended image across all 64 aliases. PRI and
+CIS/PDA were preserved. Post-reboot native verification returned all expected
+NIC/PRI/STA identities and verified the complete contents again.
+
+The reader now requires three consecutive identical whole-page reads. Its
+full capture and post-INIT verification passed on the real card. The earlier
+normal DOWNLOAD attempt refused a pre-write NV comparison before programming;
+that path's live NV read stability remains open. The successful command is
+first in the [quick start](QUICKSTART.md).
+
+[Sanitized 1.8.4 result](evidence/ma401-sta184-2026-10-18.json).
+
+# Earlier 1.7.4 hardware milestone — 2026-10-18
+
 **The actual MA401 runs PRI 1.1.1 / STA 1.7.4 after a cold power cycle.**
 Native SST programming verified all 128 KiB. Two complete saved/reopened 8 MiB
 post-program readbacks matched the intended image, preserving CIS/PDA.

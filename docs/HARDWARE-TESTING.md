@@ -265,9 +265,11 @@ and 1,011,712 bytes of pass two before the 240-second deadline. There were 723
 comparison differences. Both cleanup checks passed and subsequent CIS remained
 readable. The new raw pass reconstructs to exactly the same analysis-only
 128 KiB consensus as before the restart. Two-microsecond inter-word pacing did
-not reduce errors and was removed. The current reader instead requires two
+not reduce errors and was removed. At this historical stage the reader required two
 consecutive identical whole-page reads, at most twenty reads per 128-byte page,
-and still compares both complete files. It counts disagreement/retry evidence
+and compared both complete files. Version 0.9.4 now requires three consecutive
+identical pages and one native full capture per transaction phase, checking
+all 64 aliases and the saved file. It counts disagreement/retry evidence
 and refuses persistent instability rather than voting on bytes. All attempts remain timestamped
 and retain their partial files. The A1200 remains reserved for this project.
 
@@ -296,3 +298,23 @@ Physical geometry/map coverage is still inferred. It does not satisfy the
 remaining independent physical-map/operation-gate requirements and does not
 authorize INIT, reset, Genesis, bootstrap, flashing or restore. No further
 reset was used after the approved recovery exception.
+
+## STA 1.8.4 upgrade — 2026-10-18
+
+The MA401 V2.5 completed the DOS/Genesis programming transaction with
+0.9.4-alpha.1 source d6b78c4. All phase errors were zero: 59,682 non-FF bytes
+programmed and all 131,072 physical bytes verified. One saved/reopened full
+8 MiB capture before programming matched the original 1.7.4 image; the full
+after-capture matched the intended 1.8.4 image across all 64 aliases.
+The primary, CIS/PDA and unmodified gaps were preserved.
+
+The three-read qualification fixed the preceding capture refusal: that earlier
+run stopped before Genesis after one bad alias byte. The original normal
+DOWNLOAD attempt also stopped before programming when its live pre-write NV
+comparison disagreed; its complete before/after captures were identical.
+Normal DOWNLOAD pre-write read stability remains open; the successful update
+used the already-qualified Genesis host path.
+
+After the reboot, native verification returned NIC 800c/0/1/0,
+PRI 0015/1/1/1 and STA 001f/4/1/8, all expected identities, and verified the
+complete flash contents again. See the [sanitized result](evidence/ma401-sta184-2026-10-18.json).

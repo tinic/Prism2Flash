@@ -57,6 +57,7 @@ metadata, platform, interface, PDA and address checks; hashes are saved automati
 |---|---|---|
 | ID010001.HEX | Original DOS initial RAM code | `1d326cee5887005e9b755e74e5578ccfbd74ae5e7ebc19c1af23e61b7a76c018` |
 | pk010101.hex | PRI 1.1.1 | `20638ee6180583488f769d95ed0b240b115bb8b8f6a72e2597dd72d58b4b7791` |
+| sf010804.hex | STA 1.8.4 | `9b2161583291ebde062a70015288d2b3f3cd7dfdcd9eb9f05d2fd18c418a66bb` |
 | sf010704.hex | STA 1.7.4 | `92e3101220003bed0caeebe42d0817e96db67b1541c62c7601e7772f1c6aa3e5` |
 
 ## What programming does
