@@ -2,6 +2,15 @@
 
 Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
+## [0.9.1-alpha.1] - 2026-10-18
+
+- Close AUX after successful resident-firmware DOWNLOAD, without forcing it
+  back on after command 0022. The after-capture owns its own AUX session.
+- Match firmware platform records by NIC ID, as the original DOS tool does.
+  Preserve full fresh-card/PDA identity and RF/MAC/PRI interface checks.
+- Cover retained/disabled AUX, failed cleanup, large advertised buffers and
+  partial final chunks in the firmware programming tests.
+
 ## [0.9.0-alpha.1] - 2026-10-18
 
 - Implement the DOS normal DOWNLOAD path using resident firmware, RID FD01/FD00,

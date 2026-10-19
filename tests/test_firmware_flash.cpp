@@ -15,7 +15,8 @@ struct Model {
   uint32_t destination = 0;
   uint16_t count = 0;
   bool bad_record = false, bad_program = false, drop_commit_event = false,
-       cancel_after_commit = false;
+       cancel_after_commit = false, keep_aux_on_finish = false,
+       stick_aux_after_finish = false;
   Model() : before(p2::flash::Bytes), desired(p2::flash::Bytes) {
     assert(!p2_mock_init(&mock, 16));
     original = mock.bus;
@@ -53,7 +54,8 @@ struct Model {
                         (uint32_t(m.mock.regs[P2_PARAM1 / 2]) << 16);
         m.count = m.mock.regs[P2_PARAM2 / 2];
         ++m.enables;
-        assert(m.count && m.count <= m.size && !(m.count & 1));
+        assert(m.count && m.count <= m.size && m.count <= 4096 &&
+               !(m.count & 1));
       }
       m.original.write16(&m.mock, reg, value);
       if (reg == P2_CMD && value == 0x322) {
@@ -75,7 +77,10 @@ struct Model {
       }
       if (reg == P2_CMD && value == 0x22) {
         ++m.finishes;
-        m.mock.regs[P2_CONTROL / 2] = 0;
+        if (!m.keep_aux_on_finish)
+          m.mock.regs[P2_CONTROL / 2] = 0;
+        if (m.stick_aux_after_finish)
+          m.mock.stuck_aux = 1;
       }
     };
   }
@@ -88,21 +93,50 @@ struct Model {
 } // namespace
 int main() {
   for (auto base : {0x7e0000u, 0x3e0000u})
-    for (uint16_t size : {uint16_t(4096), uint16_t(1024)}) {
+    for (uint16_t size : {uint16_t(1024), uint16_t(1536), uint16_t(4096),
+                          uint16_t(0x1800), uint16_t(0x2000)}) {
       Model m;
       m.size = size;
       const auto r = m.run(base);
       assert(!r.error && !r.recovery_required && r.program_command_attempted);
       assert(r.verified_bytes == p2::flash::Bytes &&
-             m.commits == p2::flash::Bytes / size && m.finishes == 1);
+             m.commits ==
+                 (p2::flash::Bytes + std::min<unsigned>(size, 4096) - 1) /
+                     std::min<unsigned>(size, 4096) &&
+             m.finishes == 1);
+      assert(m.mock.regs[P2_CONTROL / 2] == 0 && m.mock.aux_enables == 1);
       assert(!m.mock.configuration_writes && !m.mock.genesis_entries);
       assert(std::equal(m.desired.begin(), m.desired.end(), m.mock.nv_memory));
     }
+  for (bool keep_aux : {false, true}) {
+    Model m;
+    m.keep_aux_on_finish = keep_aux;
+    const auto r = m.run();
+    assert(!r.error && !r.recovery_required && m.finishes == 1);
+    assert(m.mock.regs[P2_CONTROL / 2] == 0 && m.mock.aux_enables == 1);
+  }
+  {
+    Model m;
+    // A firmware restart may refuse AUX enable. There is no reason to
+    // enable it here: the flash is verified and the after-capture opens it.
+    m.stick_aux_after_finish = true;
+    const auto r = m.run();
+    assert(!r.error && !r.recovery_required && m.finishes == 1);
+    assert(m.mock.regs[P2_CONTROL / 2] == 0 && m.mock.aux_enables == 1);
+  }
+  {
+    Model m;
+    m.keep_aux_on_finish = m.stick_aux_after_finish = true;
+    const auto r = m.run();
+    assert(r.error == P2_E_TIMEOUT && r.recovery_required);
+    assert(r.verified_bytes == p2::flash::Bytes && m.finishes == 1);
+  }
   {
     Model m;
     m.desired = m.before;
     auto r = m.run();
     assert(!r.error && !m.enables && !m.commits && !m.finishes);
+    assert(m.mock.regs[P2_CONTROL / 2] == 0);
   }
   {
     Model m;
@@ -137,7 +171,7 @@ int main() {
     Model m;
     m.mock.nv_memory[0x7e0020] ^= 1;
     assert(m.run().error == P2_E_VERIFY);
-    assert(!m.enables);
+    assert(!m.enables && m.mock.regs[P2_CONTROL / 2] == 0);
   }
   {
     Model m;

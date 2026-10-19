@@ -7,6 +7,10 @@
    to select compatible files automatically. The utility reads this card's
    PDA and validates PRI/STA platform, interface, calibration and address records.
 
+Firmware platform matching follows DOS ILHOPFW: the NIC ID word must occur in
+an image platform record; revision fields do not restrict that match. RF/MAC/PRI
+interface ranges and the full live-card/PDA identity are checked separately.
+
 ## Card detection
 
 All manufacturer/product IDs in prism2.device 2.9's `product_codes` table and
