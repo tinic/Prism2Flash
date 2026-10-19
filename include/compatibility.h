@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only
  * PC Card IDs: prism2.device 2.9 (Neil Cafferkey) and Linux v4.4 Host AP.
- * Platform IDs: Intersil platform release-ID table; see docs/COMPATIBILITY.md.
+ * Platform IDs: Intersil release-ID table and S1010701 platform records; see
+ * docs/COMPATIBILITY.md.
  */
 #pragma once
 #include <algorithm>
@@ -23,10 +24,10 @@ inline constexpr std::array<uint32_t, 48> PcCards{
                    (uint32_t(manufacturer) << 16) | product) != PcCards.end();
 }
 // USB-only platforms are intentionally absent: this backend is a PC Card slot.
-inline constexpr std::array<uint16_t, 24> Platforms{
-    0x8000, 0x8002, 0x8003, 0x8008, 0x8009, 0x800a, 0x800b, 0x800c,
-    0x800d, 0x800e, 0x8012, 0x8013, 0x8014, 0x8015, 0x8016, 0x8017,
-    0x8018, 0x8019, 0x801a, 0x801b, 0x801c, 0x801d, 0x8022, 0x8023};
+inline constexpr std::array<uint16_t, 25> Platforms{
+    0x8000, 0x8002, 0x8003, 0x8004, 0x8008, 0x8009, 0x800a, 0x800b, 0x800c,
+    0x800d, 0x800e, 0x8012, 0x8013, 0x8014, 0x8015, 0x8016, 0x8017, 0x8018,
+    0x8019, 0x801a, 0x801b, 0x801c, 0x801d, 0x8022, 0x8023};
 [[nodiscard]] constexpr bool platform(uint16_t id) {
   return std::find(Platforms.begin(), Platforms.end(), id) != Platforms.end();
 }

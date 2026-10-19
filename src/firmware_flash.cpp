@@ -19,7 +19,7 @@ Report program_firmware(Card &card, p2_bus &bus,
     report.error = P2_E_VERIFY;
     return report;
   }
-  bool aux_acquired = false;
+  bool aux_opened = false;
   const auto perform = [&]() -> CardStatus {
     std::array<uint16_t, 3> buffer{};
     std::array<uint16_t, 1> maximum{};
@@ -33,9 +33,14 @@ Report program_firmware(Card &card, p2_bus &bus,
         address >= 0x800000 || size > 0x800000 - address)
       return std::unexpected{P2_E_UNSUPPORTED};
     const uint32_t timeout = std::max<uint32_t>(maximum[0], 5000) * 1000;
-    if (auto r = card.ensure_aux_enabled(); !r)
-      return r;
-    aux_acquired = true;
+    const auto control = card.aux_control();
+    if (!control)
+      return std::unexpected{control.error()};
+    if ((*control & 0xc000) != 0xc000) {
+      if (auto r = card.enable_aux(true); !r)
+        return r;
+      aux_opened = true;
+    }
     std::array<uint8_t, 128> readback{};
     for (uint32_t offset = 0; offset < Bytes; offset += readback.size()) {
       if (auto r = card.read_nv(base + offset, readback); !r)
@@ -84,15 +89,15 @@ Report program_firmware(Card &card, p2_bus &bus,
     // DOS final 0x22 ends DOWNLOAD and lets the firmware restart. No retry.
     if (auto r = card.download(0, 0, 0, timeout); !r)
       return r;
-    bus.delay_us(bus.ctx, 50000);
+    bus.delay_us(bus.ctx, 100000);
     report.recovery_required = false;
     return {};
   };
   auto result = perform();
-  // DOS closes AUX after DOWNLOAD. Never re-enable it after 0022: the
-  // mandatory after-capture owns its own AUX session. Keep uncertain
-  // DOWNLOAD/programming sessions untouched for recovery.
-  if (aux_acquired && !report.recovery_required) {
+  // DOS waits 100 ms after DOWNLOAD and closes only AUX it enabled.
+  // Never force AUX back on after 0022; the after-capture owns its session.
+  // Keep uncertain DOWNLOAD/programming sessions untouched for recovery.
+  if (aux_opened && !report.recovery_required) {
     auto cleanup_bus = bus;
     cleanup_bus.cancelled = nullptr;
     Card cleanup_card{cleanup_bus};

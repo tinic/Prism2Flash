@@ -2,6 +2,17 @@
 
 Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
+## [0.9.2-alpha.1] - 2026-10-18
+
+- Match the DOS 100 ms DOWNLOAD settling delay and close only AUX access
+  opened by the operation. Preserve pre-enabled AUX without forcing it on
+  after a firmware restart.
+- Test transient post-restart CONTROL and pre-enabled AUX states.
+- Replace ambiguous early-card firmware assignments with metadata selection.
+  Keep direct recipes for the tested MA401 V2.5 and documented WPC11 v3.
+  Record actual common-image NIC coverage in the compatibility reference.
+- Admit NIC 8004 from the S1010701 flash image's platform records.
+
 ## [0.9.1-alpha.1] - 2026-10-18
 
 - Close AUX after successful resident-firmware DOWNLOAD, without forcing it

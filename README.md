@@ -16,7 +16,7 @@ MakeDir Work:P2Backups
 
 Keep 20 MiB free. Backups and checksums are automatic. No clock setup is needed.
 
-## Netgear MA401 V2.5 / MA401RA
+## Netgear MA401 V2.5
 
 Download [pk010101.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex)
 and [sf010704.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex)
@@ -36,24 +36,14 @@ into the extracted drawer, then run:
 C/Prism2Flash program --primary pf010100.hex --station sf010704.hex --backup-dir Work:P2Backups
 ```
 
-## Earlier Prism2 cards
-
-For early MA401, DWL-650, SMC2632W, Compaq WL100 and U.S. Robotics 2410
-versions using the original Prism2 chipset: download
-[s1010701.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.1/s1010701.hex)
-into the extracted drawer. Keep the installed primary firmware:
-
-```text
-C/Prism2Flash program --station s1010701.hex --backup-dir Work:P2Backups
-```
-
 ## Other models or an unknown hardware revision
 
-For Linksys WCF12, Buffalo, Pretec, Canon, Allied Telesyn, Addtron, ZoomAir,
-Corega, Level-One, Belkin, ASUS, Airvast, EMTAC, Fulbond and Intersil cards,
-let the tool select files using the card's actual identity.
+For other MA401/MA401RA revisions, D-Link DWL-650, SMC2632W,
+Compaq WL100, U.S. Robotics 2410,
+Buffalo, Pretec, Canon and other Prism2 cards, let the tool choose from
+firmware files using the card's actual identity.
 
-Create a `Firmware` drawer and download these four files into it:
+Create a `Firmware` drawer and download these common flash images into it:
 
 - [pk010101.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex)
 - [pf010100.hex](https://junsun.net/linux/intersil-prism/firmware/1.4.9/pf010100.hex)
@@ -64,7 +54,7 @@ Create a `Firmware` drawer and download these four files into it:
 C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
 ```
 
-You can also put your own compatible firmware files in that drawer.
+For your own firmware, put its flash `.hex` files in `Firmware` and use the same command.
 
 ## When it finishes
 

@@ -50,3 +50,23 @@ The utility saves a full before backup, preserves CIS/PDA, programs the prepared
 image, verifies every byte and saves a full after readback. Firmware files are
 supplied by the user. The MA401 hardware run used initial `ID010001.HEX`, primary
 `pk010101.hex` and station `sf010704.hex`.
+
+## Firmware download recipes
+
+The linked common images contain these NIC IDs in their platform records:
+
+- `s1010701.hex`: 8002, 8003, 8004, 8008; station only, retaining the installed primary.
+- `pf010100.hex`: 800A, 800B, 8012, 8016, 801A, 8021; primary.
+- `pk010101.hex`: 800C, 8013, 8017, 801B, 8022; primary.
+- `sf010704.hex`: 800A–800D, 8012–8014, 8016–8018, 801A–801C, 8021–8023; station.
+
+8023 therefore uses station-only `sf010704.hex` with its running primary.
+For 800E/8015/8019/801D, the four common downloads provide no flash image;
+matching firmware must be supplied separately. M-family RAM images have a
+nonzero S7 entry and are not interchangeable with flash images.
+
+Model names span revisions. The quick start uses a specific firmware pair for
+the tested MA401 V2.5 and the documented WPC11 v3/BroMax versions. Other models
+and revisions use automatic selection. NIC 8004 is admitted from the S1010701
+platform records, alongside the IDs in the release-ID table. The [Intersil ID table](https://junsun.net/linux/intersil-prism/IDtable.html)
+provides the platform-to-memory mapping; the files' own platform records decide selection.
