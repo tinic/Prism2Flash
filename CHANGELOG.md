@@ -2,6 +2,14 @@
 
 Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
+## [0.9.4-alpha.1] - 2026-10-18
+
+- Require three consecutive identical whole-page reads during full NV captures,
+  preventing two repeated transient bad reads from establishing a page.
+- Preserve the bounded settling limit, strict full alias comparison, saved-file
+  verification and one before/after capture contract. No voting or byte repair.
+- Add a regression for identical corruption on two consecutive page reads.
+
 ## [0.9.3-alpha.1] - 2026-10-18
 
 - Handle later station-image plug descriptors absent from both PDA and payload,

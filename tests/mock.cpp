@@ -41,7 +41,8 @@ static uint16_t read16(void *ctx, uint16_t reg) {
           (((m->nv_reads - 1) / 64) & 1))
         return v ^ 1;
       if ((m->corrupt_nv_after && m->nv_reads > m->corrupt_nv_after) ||
-          m->nv_reads == m->corrupt_nv_once_at)
+          m->nv_reads == m->corrupt_nv_once_at ||
+          m->nv_reads == m->corrupt_nv_again_at)
         return v ^ 1;
     }
     if (m->aux_space == 0) {

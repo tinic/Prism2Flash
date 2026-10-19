@@ -109,7 +109,7 @@ static void capture_tests(int enabled, int mismatch, bool hidden = false) {
   CHECK((result.mismatch_bytes != 0) == (mismatch != 0));
   if (!mismatch)
     CHECK(result.page_disagreements == 1 &&
-          result.page_reads == 4 * (p2::backup::NvBytes / 128) + 1);
+          result.page_reads == 6 * (p2::backup::NvBytes / 128) + 1);
   if (!mismatch)
     CHECK(strlen(result.sha256[0].data()) == 64 &&
           !strcmp(result.sha256[0].data(), result.sha256[1].data()));
@@ -145,6 +145,26 @@ static void single_capture_tests() {
     fclose(file);
     p2_mock_free(&m);
   }
+}
+static void repeated_transient_read_test() {
+  p2_mock m;
+  init_nv(&m);
+  // The same bad word in two consecutive page reads must not become the
+  // canonical image. The third read differs; require three fresh equal pages.
+  m.corrupt_nv_once_at = 5;
+  m.corrupt_nv_again_at = 69;
+  FILE *file = tmpfile();
+  CHECK(file);
+  const auto result = p2::backup::capture_single(m.bus, *file, 0x20000);
+  CHECK(result.error == P2_OK && !result.mismatch_bytes);
+  CHECK(result.page_disagreements == 1);
+  CHECK(result.page_reads == 3 * (p2::backup::NvBytes / 128) + 2);
+  p2::Sha256 expected;
+  expected.update(std::span<const uint8_t>{m.nv_memory, p2::backup::NvBytes});
+  CHECK(result.sha256[0] == expected.hex());
+  CHECK(!m.command_writes && !m.payload_writes && !m.configuration_writes);
+  fclose(file);
+  p2_mock_free(&m);
 }
 static void lost_aux_tests() {
   for (bool enabled : {false, true}) {
@@ -238,6 +258,7 @@ int main(void) {
   capture_tests(1, 0, true);
   capture_tests(0, 1);
   single_capture_tests();
+  repeated_transient_read_test();
   lost_aux_tests();
   failure_tests();
   CHECK(p2::backup::valid_utc("20261018T104000Z"));
