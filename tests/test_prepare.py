@@ -207,6 +207,39 @@ class PreparationTests(unittest.TestCase):
         (self.directory / 'station.hex').write_text(firmware(extra=plug))
         self.prepare(dos=True, error='Required plug PDR')
 
+    def test_dos_absent_plug_without_payload_is_ignored(self):
+        # Later STA releases carry a 0413 descriptor into a region absent
+        # from the flash payload. No PDA value means there is no write.
+        plug = srec(3, 0xff000000, struct.pack('<III', 0x413, 0x118a, 2))
+        (self.directory / 'station.hex').write_text(firmware(extra=plug))
+        self.prepare(error='outside image payload')
+        output = self.prepare(dos=True)
+        self.assertIn('DOS plug ignored: PDR=0x0413 absent from PDA and payload', output)
+        # The ignored descriptor cannot invent a region or change any byte.
+        with_plug = subprocess.check_output(
+            [str(DUMP), 'station.hex', 'pda.bin', 'card.txt', 'primary.hex', '--dos'],
+            cwd=self.directory).split(b'CANONICAL\n')[1]
+        (self.directory / 'station.hex').write_text(firmware())
+        without_plug = subprocess.check_output(
+            [str(DUMP), 'station.hex', 'pda.bin', 'card.txt', 'primary.hex', '--dos'],
+            cwd=self.directory).split(b'CANONICAL\n')[1]
+        self.assertEqual(with_plug, without_plug)
+        # A present source PDR still requires a real destination.
+        present = srec(3, 0xff000000, struct.pack('<III', 3, 0x118a, 4))
+        (self.directory / 'station.hex').write_text(firmware(extra=present))
+        self.prepare(dos=True, error='outside image payload')
+        # Filename plugs must always have a destination.
+        filename = srec(3, 0xff000000, struct.pack('<III', 0xffffffff, 0x118a, 2))
+        (self.directory / 'station.hex').write_text(firmware(extra=filename))
+        self.prepare(dos=True, error='outside image payload')
+
+    def test_dos_later_station_configuration_default(self):
+        plug = srec(3, 0xff000000, struct.pack('<III', 0x414, 0x7e1818, 4))
+        (self.directory / 'station.hex').write_text(firmware(extra=plug))
+        self.prepare(error='Required plug PDR')
+        output = self.prepare(dos=True)
+        self.assertIn('PDR=0x0414 expected=4 actual=0 missing', output)
+
 
 if __name__ == '__main__':
     unittest.main()

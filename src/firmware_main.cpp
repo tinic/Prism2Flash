@@ -211,13 +211,19 @@ int validate(const Options &options, const Image &image) {
                 static_cast<unsigned long>(segment.data.size()),
                 hash.hex().data());
     }
-    for (const auto &fallback : prepared->fallbacks())
+    for (const auto &fallback : prepared->fallbacks()) {
+      if (fallback.target_absent) {
+        p2_printf("DOS plug ignored: PDR=0x%04lx absent from PDA and payload\n",
+                  static_cast<unsigned long>(fallback.pdr));
+        continue;
+      }
       p2_printf("DOS image default retained: PDR=0x%04lx expected=%lu "
                 "actual=%lu %s\n",
                 static_cast<unsigned long>(fallback.pdr),
                 static_cast<unsigned long>(fallback.expected_bytes),
                 static_cast<unsigned long>(fallback.actual_bytes),
                 fallback.missing ? "missing" : "length mismatch");
+    }
     puts("Offline preparation passed. PDA plugs, filename fields and C0DE "
          "stamps\n"
          "were applied to private copies. Source/PDA files are unchanged.\n"

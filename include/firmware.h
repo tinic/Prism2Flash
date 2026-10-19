@@ -21,6 +21,7 @@ enum class PlugPolicy { RequireAll, DosOptionalDefaults };
 struct PlugFallback {
   uint32_t pdr = 0, expected_bytes = 0, actual_bytes = 0;
   bool missing = false;
+  bool target_absent = false;
 };
 enum class Errc { Format, Limit, Memory, Io, Incompatible, Pda };
 struct Error {

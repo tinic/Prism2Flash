@@ -184,3 +184,12 @@ Copperline and a locally supplied ROM for native file-processing smoke tests.
 Prepared-payload export, binary/text backup export, card-profile address maps,
 Genesis RAM bootstrap and permanent flashing remain separate milestones.
 Hardware validation remains blocked by the mandatory full-backup gate.
+
+## Later station images
+
+The native flasher uses the DOS plug policy. If a PDR is absent from both
+the saved PDA and the image payload, ignore that descriptor as DOS and Host AP
+do; no region or data is invented. A present PDR or filename still requires
+a real payload destination. Optional configuration PDRs 0413/0414 use image
+defaults when absent. Required identity, regulatory and RF calibration checks
+remain in place. Strict offline mode continues to require every plug.
