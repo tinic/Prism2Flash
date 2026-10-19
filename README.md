@@ -18,12 +18,13 @@ Keep 20 MiB free. Backups and checksums are automatic. No clock setup is needed.
 
 ## Netgear MA401 V2.5
 
-Download [pk010101.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex)
-and [sf010704.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex)
+Download [ID010001.HEX](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX),
+[pk010101.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex)
+and [sf010804.hex](https://junsun.net/linux/intersil-prism/firmware/1.8.4/sf010804.hex)
 into the extracted drawer, then run:
 
 ```text
-C/Prism2Flash program --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups
+C/Prism2Flash program --initial ID010001.HEX --primary pk010101.hex --station sf010804.hex --backup-dir Work:P2Backups
 ```
 
 ## Linksys WPC11 v3 / BroMax WL300

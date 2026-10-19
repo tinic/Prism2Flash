@@ -103,6 +103,7 @@ private:
     std::array<uint8_t, 128> next;
     for (std::size_t page = 0; page < out.size(); page += next.size()) {
       unsigned attempt = 0;
+      unsigned consecutive = 1;
       for (; attempt < 20; ++attempt) {
         if (auto result = within_deadline(); !result)
           return result;
@@ -122,9 +123,12 @@ private:
             // remain enabled through the accepted read; never re-enable it.
             if (auto result = require_aux(); !result)
               return result;
-            break;
+            if (++consecutive == 3)
+              break;
+            continue;
           }
           ++report_.page_disagreements;
+          consecutive = 1;
           std::copy(next.begin(), next.end(), out.begin() + page);
           // Allow AUX data to settle after firmware commands. Only disagreeing
           // whole-page reads wait; no payload write, voting or byte repair.
@@ -134,7 +138,7 @@ private:
           bus_.delay_us(bus_.ctx, delay);
         }
       }
-      // Two consecutive whole pages; never vote or repair individual bytes.
+      // Three consecutive whole pages; never vote or repair individual bytes.
       if (attempt == 20) {
         p2_fprintf(stderr,
                    "NV page unstable at 0x%06lx after 20 reads; CONTROL=%04x\n",

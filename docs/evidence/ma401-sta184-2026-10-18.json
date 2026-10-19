@@ -1,0 +1,42 @@
+{
+  "hardware": "A1200, MA401 V2.5 / NIC800c",
+  "source_commit": "d6b78c4cce4421b286b009abe3e241d31078a2ef",
+  "native_binary_sha256": "ada9f9df90d7afbfa956a9c81476e5a0b3171b6485ccd0f203694c9d69bcf703",
+  "path": "DOS Genesis parallel",
+  "transaction_success": true,
+  "all_phase_errors_zero": true,
+  "programmed_non_ff_bytes": 59682,
+  "verified_physical_bytes": 131072,
+  "before_8m_sha256": "043064358631045a04efecd6d13a05722ac9eaeb24902b7e88c9616116819598",
+  "after_8m_sha256": "7d3064e01e0e2494cdc7981cf321530bfdae3e105d7275266aebdad5e57f7656",
+  "intended_physical_sha256": "b59c9a47bff0e8679bc7661c025dac0224804db44a09e83a137cc1bb487b9e69",
+  "all_64_aliases_equal_intended": true,
+  "pri_and_cis_pda_preserved": true,
+  "saved_files_reopened_verified": true,
+  "before_page_disagreements": 11902,
+  "after_page_disagreements": 0,
+  "date": "2026-10-18",
+  "post_reboot_verification": {
+    "post_reboot_native_verify_exit_code": 0,
+    "nic": [
+      32780,
+      0,
+      1,
+      0
+    ],
+    "primary": [
+      21,
+      1,
+      1,
+      1
+    ],
+    "station": [
+      31,
+      4,
+      1,
+      8
+    ],
+    "all_identity_matches": true,
+    "full_contents_verified": true
+  }
+}
