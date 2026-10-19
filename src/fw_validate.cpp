@@ -106,11 +106,11 @@ Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
       (mode == Mode::Ram && !image.entry()))
     return fail(Errc::Incompatible,
                 "Image RAM/flash class differs from selected mode");
+  // ILHOPFW 0.5e 1651:12B7 compares the NIC ID word. Revision fields are
+  // descriptive; RF/MAC/PRI actor ranges below establish interface fit.
   if (std::none_of(image.platforms().begin(), image.platforms().end(),
-                   [&](const auto &id) { return id == card.nic; }))
-    return fail(
-        Errc::Incompatible,
-        "Exact NIC id/variant/major/minor is absent from image platforms");
+                   [&](const auto &id) { return id.id == card.nic.id; }))
+    return fail(Errc::Incompatible, "NIC ID is absent from image platforms");
   for (const auto &segment : image.segments())
     if ((segment.address & 1) || (segment.data.size() & 1) ||
         segment.address >= 0x800000 ||

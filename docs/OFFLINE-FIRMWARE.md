@@ -91,7 +91,7 @@ the same checks, then builds a private prepared value as described below.
 
 ## Validation and bounds
 
-- Require an exact platform id/variant/major/minor match. Marketing names,
+- Require a platform NIC ID match, following DOS ILHOPFW. Marketing names,
   image filenames and historical RAM-mode compatibility exceptions do not
   override it.
 - Require matching actor/supplier variants and overlapping version intervals,

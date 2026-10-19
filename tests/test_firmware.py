@@ -148,8 +148,16 @@ class FirmwareTests(unittest.TestCase):
         oversized = ''.join(srec(3, i * 250, bytes(250)) for i in range(4195))
         self.reject(oversized, 'Payload or segment limit')
 
-    def test_exact_platform_and_pda_identity(self):
-        self.validate(self.image(firmware(nic_variant=2)), expected=20, contains='Exact NIC')
+    def test_dos_platform_id_and_exact_pda_identity(self):
+        for mode, entry in [('flash', 0), ('ram', 0x3f0c01)]:
+            image = firmware(entry=entry).replace(
+                info(4, words(0x8013, 1, 1, 0)),
+                info(4, words(0x8013, 9, 7, 5)))
+            self.validate(self.image(image), mode=mode)
+            self.validate(self.image(firmware(entry=entry, nic=0x8014)),
+                          mode=mode, expected=20, contains='NIC ID')
+        (self.directory / 'pda.bin').write_bytes(pda(variant=9))
+        self.validate(expected=20, contains='PDA NIC identity differs')
         (self.directory / 'pda.bin').write_bytes(pda(nic=0x8014))
         self.validate(expected=20, contains='PDA NIC identity differs')
         (self.directory / 'pda.bin').write_bytes(pda(mac=b'\x02\x00\x00\x00\x00\x02'))
