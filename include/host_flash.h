@@ -20,6 +20,7 @@ struct Report {
   uint8_t manufacturer = 0, device = 0;
   uint32_t last_address = 0, programmed_bytes = 0, verified_bytes = 0;
   bool erase_command_attempted = false, erase_started = false;
+  bool program_command_attempted = false;
   bool recovery_required = false;
 };
 // DOS ILHOPFW -hf algorithm, with no interactive continuation on timeout.
@@ -29,4 +30,9 @@ struct Report {
 [[nodiscard]] Report program_parallel(Card &, p2_bus &,
                                       std::span<const uint8_t> before,
                                       std::span<const uint8_t> desired);
+// DOS mode-2 firmware-mediated DOWNLOAD path. No host JEDEC or Genesis.
+[[nodiscard]] Report program_firmware(Card &, p2_bus &,
+                                      std::span<const uint8_t> before,
+                                      std::span<const uint8_t> desired,
+                                      uint32_t base_address = 0x7e0000);
 } // namespace p2::flash

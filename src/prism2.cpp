@@ -324,16 +324,19 @@ WriteReport Card::write_verified(uint32_t address,
   return report;
 }
 
-CardStatus Card::command(uint16_t cmd, uint16_t param) {
-  // Deliberately no DOWNLOAD/PROGRAM (0x22) path in this milestone.
-  if (cmd != 0 && cmd != 0x21)
+CardStatus Card::command(uint16_t cmd, uint16_t param, uint16_t param1,
+                         uint16_t param2, uint32_t timeout) {
+  if (cmd != 0 && cmd != 0x21 && cmd != 0x22 && cmd != 0x222 && cmd != 0x322)
     return std::unexpected{P2_E_ARGUMENT};
   if (auto result = wait_mask(P2_CMD, 0x8000, 0, 5000); !result)
     return result;
   bus_.write16(bus_.ctx, P2_EVACK, P2_EV_CMD);
+  bus_.write16(bus_.ctx, P2_PARAM1, param1);
+  bus_.write16(bus_.ctx, P2_PARAM2, param2);
   bus_.write16(bus_.ctx, P2_PARAM0, param);
   bus_.write16(bus_.ctx, P2_CMD, cmd);
-  if (auto result = wait_mask(P2_EVSTAT, P2_EV_CMD, P2_EV_CMD, 500000); !result)
+  if (auto result = wait_mask(P2_EVSTAT, P2_EV_CMD, P2_EV_CMD, timeout);
+      !result)
     return result;
   const auto failed = bus_.read16(bus_.ctx, P2_STATUS) & 0x7f00;
   bus_.write16(bus_.ctx, P2_EVACK, P2_EV_CMD);
@@ -348,29 +351,47 @@ CardStatus Card::initialize() {
   bus_.write16(bus_.ctx, P2_EVACK, 0xffff);
   return command(0, 0);
 }
-CardResult<Identity> Card::identity(uint16_t rid) {
-  if (rid != P2_RID_NICID && rid != P2_RID_PRIID && rid != P2_RID_STAID)
+CardStatus Card::record(uint16_t rid, std::span<uint16_t> payload) {
+  if (rid != P2_RID_NICID && rid != P2_RID_PRIID && rid != P2_RID_STAID &&
+      rid != 0xfd00 && rid != 0xfd01 && rid != 0xfd03)
     return std::unexpected{P2_E_ARGUMENT};
-  if (auto result = command(0x21, rid); !result)
-    return std::unexpected{result.error()};
+  if (payload.empty() || payload.size() > 8)
+    return std::unexpected{P2_E_ARGUMENT};
+  if (auto r = command(0x21, rid); !r)
+    return r;
   bus_.write16(bus_.ctx, P2_SELECT0, rid);
   bus_.write16(bus_.ctx, P2_OFFSET0, 0);
-  if (auto result = wait_mask(P2_OFFSET0, 0x8000, 0, 50000); !result)
-    return std::unexpected{result.error()};
+  if (auto r = wait_mask(P2_OFFSET0, 0x8000, 0, 50000); !r)
+    return r;
   if (bus_.read16(bus_.ctx, P2_OFFSET0) & 0x4000)
     return std::unexpected{P2_E_IO};
   const auto words = bus_.read16(bus_.ctx, P2_DATA0);
   const auto type = bus_.read16(bus_.ctx, P2_DATA0);
-  if (words != 5 || type != rid)
+  if (words != payload.size() + 1 || type != rid)
     return std::unexpected{P2_E_IO};
-  if (auto result = interrupted(); !result)
-    return std::unexpected{result.error()};
-  const Identity id{
-      bus_.read16(bus_.ctx, P2_DATA0), bus_.read16(bus_.ctx, P2_DATA0),
-      bus_.read16(bus_.ctx, P2_DATA0), bus_.read16(bus_.ctx, P2_DATA0)};
-  if (auto result = alive(); !result)
-    return std::unexpected{result.error()};
-  return id;
+  for (auto &word : payload) {
+    if (auto r = interrupted(); !r)
+      return r;
+    word = bus_.read16(bus_.ctx, P2_DATA0);
+  }
+  return interrupted();
+}
+CardResult<Identity> Card::identity(uint16_t rid) {
+  if (rid != P2_RID_NICID && rid != P2_RID_PRIID && rid != P2_RID_STAID)
+    return std::unexpected{P2_E_ARGUMENT};
+  std::array<uint16_t, 4> words{};
+  if (auto r = record(rid, words); !r)
+    return std::unexpected{r.error()};
+  return Identity{words[0], words[1], words[2], words[3]};
+}
+CardStatus Card::download(unsigned mode, uint32_t address, uint16_t bytes,
+                          uint32_t timeout_us) {
+  if ((mode != 0 && mode != 2 && mode != 3) || address >= 0x800000 ||
+      bytes > 8192 || (bytes & 1) || (address & 1) || !timeout_us ||
+      timeout_us > 60000000 || (mode == 2 ? !bytes : (bytes || address)))
+    return std::unexpected{P2_E_ARGUMENT};
+  return command(uint16_t(0x22 | (mode << 8)), uint16_t(address),
+                 uint16_t(address >> 16), bytes, timeout_us);
 }
 bool Card::supports(uint16_t id) { return compatibility::platform(id); }
 CardResult<uint32_t> Card::read_pda(std::span<uint8_t, P2_PDA_SIZE> data) {

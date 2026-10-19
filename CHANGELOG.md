@@ -12,6 +12,18 @@ Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 - Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
   outstanding card-profile/backup work and legacy Version date-display issue.
 
+## [0.9.0-alpha.1] - 2026-10-18
+
+- Implement the DOS normal DOWNLOAD path using resident firmware, RID FD01/FD00,
+  commands 0222/0322/0022, verified RAM staging and complete flash readback.
+  Normal updates do not require an initial image or Genesis mode.
+- Support station-only updates using the running primary's supplier interface.
+  Preserve primary contents; allow automatic selection when no replacement
+  primary file is supplied.
+- Accept the older 3E0000 flash image bank as well as 7E0000.
+- Replace duplicated card-command placeholders with download links and complete
+  MA401, WPC11v3/BroMax, early-Prism2 and automatic-selection recipes.
+
 ## [0.8.1-alpha.1] - 2026-10-18
 
 - Add `--firmware-dir Firmware`: select the compatible PRI/STA pair from the

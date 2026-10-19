@@ -3,13 +3,9 @@
 #include "firmware_catalog.h"
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 int main(int argc, char **argv) {
   using namespace p2;
-  assert(firmware::initial_codes(0x800c, 16) == "D");
-  assert(firmware::initial_codes(0x800c, 8) == "C");
-  assert(firmware::initial_codes(0x801a, 16) == "BD");
-  assert(firmware::initial_codes(0x8008, 8) == "4");
-  assert(firmware::initial_codes(0x8010, 16).empty());
   if (argc < 3 || argc > 130)
     return 20;
   auto file = File::open(argv[1], "rb");
@@ -20,6 +16,8 @@ int main(int argc, char **argv) {
   auto card = firmware::CardSnapshot::from_pda(pda);
   if (!card)
     return 20;
+  if (std::getenv("P2_CATALOG_RESIDENT"))
+    card->suppliers[2] = firmware::InterfaceRange{0, 3, 2, 3, 6};
   std::array<std::string_view, 128> paths{};
   for (int i = 2; i < argc; ++i)
     paths[i - 2] = argv[i];

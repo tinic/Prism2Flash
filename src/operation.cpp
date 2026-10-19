@@ -33,7 +33,8 @@ public:
     if (native_) {
 #ifdef PRISM2_AMIGA
       // Fresh same-claim captures and runtime bootstrap/JEDEC checks.
-      const bool flash = !std::strcmp(operation_, "flash-parallel");
+      const bool flash = !std::strcmp(operation_, "flash-parallel") ||
+                         !std::strcmp(operation_, "flash-firmware");
       if ((std::strcmp(operation_, "probe-x16") &&
            std::strcmp(operation_, "probe-x8") &&
            std::strcmp(operation_, "bootstrap") &&
