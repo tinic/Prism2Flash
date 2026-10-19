@@ -157,14 +157,14 @@ else()
   target_compile_options(test_verified_write PRIVATE -Wall -Wextra -Werror)
   add_test(NAME verified_ram_write COMMAND test_verified_write)
   # Exercise the native refusal path with a backend that aborts on any call.
-  add_executable(test_backup_gate src/main.cpp tests/blocked_platform.cpp)
+  add_executable(test_backup_gate src/main.cpp src/card_profile.cpp tests/blocked_platform.cpp)
   target_compile_definitions(test_backup_gate PRIVATE PRISM2_REQUIRE_BACKUP=1)
   target_link_libraries(test_backup_gate PRIVATE prism2_backup prism2_bootstrap)
   target_compile_options(test_backup_gate PRIVATE -Wall -Wextra -Werror)
   add_test(NAME backup_required COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_backup_gate.py" "$<TARGET_FILE:test_backup_gate>")
   add_executable(test_native_transaction_gate src/main.cpp src/operation.cpp
-    src/operation_runner.cpp tests/blocked_platform.cpp)
+    src/operation_runner.cpp src/card_profile.cpp tests/blocked_platform.cpp)
   target_compile_definitions(test_native_transaction_gate PRIVATE
     PRISM2_REQUIRE_BACKUP=1 PRISM2_NATIVE_TRANSACTION_TEST=1)
   target_link_libraries(test_native_transaction_gate PRIVATE prism2_backup prism2_bootstrap)
