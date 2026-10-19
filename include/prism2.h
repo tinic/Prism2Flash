@@ -108,6 +108,9 @@ public:
   [[nodiscard]] WriteReport write_verified(uint32_t address,
                                            std::span<const uint8_t> data);
   [[nodiscard]] CardStatus initialize();
+  [[nodiscard]] CardStatus record(uint16_t rid, std::span<uint16_t> words);
+  [[nodiscard]] CardStatus download(unsigned mode, uint32_t address,
+                                    uint16_t bytes, uint32_t timeout_us);
   [[nodiscard]] CardResult<Identity> identity(uint16_t rid);
   [[nodiscard]] CardResult<uint32_t>
   read_pda(std::span<uint8_t, P2_PDA_SIZE> data);
@@ -123,7 +126,9 @@ private:
   [[nodiscard]] CardStatus interrupted() const;
   [[nodiscard]] CardStatus wait_mask(uint16_t reg, uint16_t mask,
                                      uint16_t expected, uint32_t timeout);
-  [[nodiscard]] CardStatus command(uint16_t cmd, uint16_t param);
+  [[nodiscard]] CardStatus command(uint16_t cmd, uint16_t param,
+                                   uint16_t param1 = 0, uint16_t param2 = 0,
+                                   uint32_t timeout = 500000);
   [[nodiscard]] CardStatus transfer(uint32_t address, std::span<uint8_t> read,
                                     std::span<const uint8_t> write,
                                     uint16_t space,

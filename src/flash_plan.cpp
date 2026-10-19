@@ -14,11 +14,15 @@ CardResult<Plan> Plan::create(std::span<const uint8_t> before,
     return std::unexpected{P2_E_IO};
   std::copy(before.begin(), before.end(), plan.before_.bytes().begin());
   std::copy(before.begin(), before.end(), plan.desired_.bytes().begin());
+  plan.base_address_ = prepared.segments()[0].address & ~uint32_t(Bytes - 1);
+  if (plan.base_address_ != 0x7e0000 && plan.base_address_ != 0x3e0000)
+    return std::unexpected{P2_E_ARGUMENT};
   for (const auto &segment : prepared.segments()) {
-    if (segment.address < 0x7e0000 || segment.address >= 0x800000 ||
-        segment.data.size() > 0x800000 - segment.address)
+    if (segment.address < plan.base_address_ ||
+        segment.address >= plan.base_address_ + Bytes ||
+        segment.data.size() > plan.base_address_ + Bytes - segment.address)
       return std::unexpected{P2_E_ARGUMENT};
-    const auto offset = segment.address - 0x7e0000;
+    const auto offset = segment.address - plan.base_address_;
     std::copy(segment.data.bytes().begin(), segment.data.bytes().end(),
               plan.desired_.bytes().begin() + offset);
   }

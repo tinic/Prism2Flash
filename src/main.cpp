@@ -285,13 +285,12 @@ int main(int argc, char **argv) {
         inspect_work, &work_options, options->offset_east);
   }
 #endif
-  // Refuse before opening the slot. An existing file or force option must
-  // never bypass the unverified physical-flash profile/backup approval gate.
+  // Active commands need an output drawer for fresh automatic backups.
   if (options->command != Options::Command::Info) {
-    p2_fprintf(stderr, "Operation blocked: a verified timestamped full-flash "
-                       "backup is required.\n"
-                       "Physical profile and native transaction are not "
-                       "approved; no card access was attempted.\n");
+    p2_fprintf(stderr,
+               "Full-flash backup storage is required. Supply an output "
+               "drawer for automatic backups; no card access was "
+               "attempted.\n");
     return 20;
   }
 #endif

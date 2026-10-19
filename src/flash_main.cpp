@@ -64,8 +64,7 @@ std::optional<Options> parse(int argc, char **argv) {
   if ((bool(options.directory) == bool(options.backup_parent)) ||
       (options.firmware_directory
            ? bool(options.primary || options.station || options.initial)
-           : (!options.primary || !options.station ||
-              (!options.verify && !options.initial))))
+           : (!options.station || (options.initial && !options.primary))))
     return {};
   if (options.east == 10000)
     options.east = preflight::LocalTime;
@@ -110,6 +109,7 @@ struct Context {
   const char *primary_name = nullptr, *station_name = nullptr;
   const char *expected_plan = nullptr;
   profile::Observation hardware{};
+  Identity running_primary{};
   BoundedVector<std::array<char, 384>, 128> firmware_paths;
   std::array<std::string_view, 128> firmware_views{};
   bool recovery_required = false;
@@ -154,34 +154,7 @@ CardStatus catalog(Context &context, const char *directory) {
     context.firmware_views[i] = context.firmware_paths[i].data();
   return {};
 }
-CardStatus select_initial(Context &context, unsigned bits) {
-  const auto codes = firmware::initial_codes(context.hardware.nic.id, bits);
-  for (char code : codes) {
-    std::optional<std::string_view> best;
-    for (auto path : std::span{context.firmware_views}.first(
-             context.firmware_paths.size())) {
-      auto name = basename(path);
-      if (name.size() != 12 || (name[0] != 'I' && name[0] != 'i') ||
-          (name[1] != code && name[1] != char(code + ('a' - 'A'))))
-        continue;
-      if (!best || name > basename(*best))
-        best = path;
-    }
-    if (best) {
-      context.initial = load<firmware::InitialImage>(best->data(), {});
-      if (context.initial) {
-        p2_printf("Initial: %s\n", basename(*best).data());
-        return {};
-      }
-    }
-  }
-  p2_fprintf(
-      stderr,
-      "Add the I%.*s initial firmware for this card to the firmware drawer.\n",
-      int(codes.size()), codes.data());
-  return std::unexpected{P2_E_UNSUPPORTED};
-}
-CardStatus prepare(Context &context) {
+CardStatus prepare(Context &context, Card *card = nullptr) {
   auto saved = File::open("before-read-1.bin", "rb");
   auto before = ByteBuffer::allocate(flash::Bytes);
   if (!saved || !before ||
@@ -195,9 +168,25 @@ CardStatus prepare(Context &context) {
   if (!hardware)
     return std::unexpected{hardware.error()};
   context.hardware = *hardware;
-  const auto snapshot = firmware::CardSnapshot::from_pda(pda);
+  auto snapshot = firmware::CardSnapshot::from_pda(pda);
   if (!snapshot)
     return std::unexpected{P2_E_PDA};
+  if (card) {
+    if (auto r = card->initialize(); !r)
+      return r;
+    auto nic = card->identity(P2_RID_NICID);
+    auto pri = card->identity(P2_RID_PRIID);
+    if (!nic || !pri || *nic != snapshot->nic)
+      return std::unexpected{P2_E_VERIFY};
+    context.running_primary = *pri;
+    std::array<uint16_t, 5> words{};
+    if (auto r = card->record(0xfd03, words); !r)
+      return r;
+    if (words[0] || words[1] != 3 || words[3] > words[4])
+      return std::unexpected{P2_E_VERIFY};
+    snapshot->suppliers[2] = firmware::InterfaceRange{
+        words[0], words[1], words[2], words[3], words[4]};
+  }
   if (!context.firmware_paths.empty()) {
     auto chosen = firmware::select(
         std::span{context.firmware_views}.first(context.firmware_paths.size()),
@@ -206,15 +195,21 @@ CardStatus prepare(Context &context) {
       p2_fprintf(stderr, "%s\n", chosen.error().message);
       return std::unexpected{P2_E_VERIFY};
     }
-    context.primary_name = context.firmware_views[chosen->primary_index].data();
+    context.primary_name =
+        chosen->primary ? context.firmware_views[chosen->primary_index].data()
+                        : nullptr;
     context.station_name = context.firmware_views[chosen->station_index].data();
     context.primary = std::move(chosen->primary);
     context.station = std::move(chosen->station);
-    p2_printf("Selected: %s + %s\n", basename(context.primary_name).data(),
+    p2_printf("Selected: %s + %s\n",
+              context.primary_name ? basename(context.primary_name).data()
+                                   : "current primary",
               basename(context.station_name).data());
   }
   const auto primary =
-      firmware::ImageSource{*context.primary, basename(context.primary_name)};
+      context.primary ? std::optional{firmware::ImageSource{
+                            *context.primary, basename(context.primary_name)}}
+                      : std::nullopt;
   auto prepared = firmware::PreparedImage::create(
       {*context.station, basename(context.station_name)}, firmware::Mode::Flash,
       *snapshot, pda, primary, firmware::PlugPolicy::DosOptionalDefaults);
@@ -247,7 +242,9 @@ CardStatus prepare(Context &context) {
   if (p2_fprintf(
           manifest.get(),
           "Prism2 flash plan 1\nsource=%s\nprimary=%s\nstation=%s\nimage=%s\n",
-          P2_SOURCE_REVISION, context.primary->source_sha256().data(),
+          P2_SOURCE_REVISION,
+          context.primary ? context.primary->source_sha256().data()
+                          : "unchanged",
           context.station->source_sha256().data(), hash.hex().data()) < 0)
     return std::unexpected{P2_E_IO};
   if (context.initial &&
@@ -273,53 +270,34 @@ CardStatus prepare(Context &context) {
 }
 CardStatus program(Card &card, void *opaque) {
   auto &context = *static_cast<Context *>(opaque);
-  if (auto r = prepare(context); !r)
+  if (auto r = prepare(context, context.initial ? nullptr : &card); !r)
     return r;
-  if (!context.initial) {
-    unsigned bits = context.hardware.sram_width_inference;
-    if (!bits) {
-      auto entry = card.enter_genesis(8);
-      context.recovery_required = entry.reset_started;
-      if (entry.error == P2_E_VERIFY)
-        entry = card.enter_genesis(16);
-      if (entry.error)
-        return std::unexpected{entry.error};
-      bits = entry.sram_bits;
-      context.hardware.sram_width_inference = bits;
+  if (context.initial) {
+    const auto loaded =
+        bootstrap::load(card, card.transport(), *context.initial,
+                        context.hardware.sram_width_inference);
+    if (loaded.error || !loaded.byte_writes_verified ||
+        !loaded.initial_started) {
+      context.recovery_required = loaded.recovery_required;
+      return std::unexpected{loaded.error ? loaded.error : P2_E_VERIFY};
     }
-    if (auto r = select_initial(context, bits); !r)
-      return r;
   }
-  if (!context.firmware_paths.empty()) {
-    auto record = File::open("initial-sha256.txt", "w+b");
-    if (!record ||
-        p2_fprintf(record.get(), "%s\n",
-                   context.initial->source_sha256().data()) < 0 ||
-        fflush(record.get()) || !record.close())
-      return std::unexpected{P2_E_IO};
-  }
-  const auto loaded = bootstrap::load(card, card.transport(), *context.initial,
-                                      context.hardware.sram_width_inference);
-  p2_printf("Initial code: error=%d byte-lanes=%u verified=%lu started=%u\n",
-            loaded.error, loaded.byte_writes_verified,
-            static_cast<unsigned long>(loaded.bytes_verified),
-            loaded.initial_started);
-  if (loaded.error || !loaded.byte_writes_verified || !loaded.initial_started) {
-    context.recovery_required = loaded.recovery_required;
-    return std::unexpected{loaded.error ? loaded.error : P2_E_VERIFY};
-  }
-  const auto result = flash::program_parallel(
-      card, card.transport(), context.plan->before(), context.plan->desired());
+  const auto result =
+      context.initial ? flash::program_parallel(card, card.transport(),
+                                                context.plan->before(),
+                                                context.plan->desired())
+                      : flash::program_firmware(card, card.transport(),
+                                                context.plan->before(),
+                                                context.plan->desired(),
+                                                context.plan->base_address());
   context.recovery_required = result.recovery_required;
-  context.flash_changed = result.erase_command_attempted;
-  p2_printf("Flash: error=%d manufacturer=%02x device=%02x erase_attempted=%u "
-            "erase_command_completed=%u "
-            "programmed=%lu verified=%lu recovery=%u\n",
-            result.error, result.manufacturer, result.device,
-            result.erase_command_attempted, result.erase_started,
-            static_cast<unsigned long>(result.programmed_bytes),
-            static_cast<unsigned long>(result.verified_bytes),
-            result.recovery_required);
+  context.flash_changed =
+      result.erase_command_attempted || result.program_command_attempted;
+  p2_printf(
+      "Firmware update: error=%d programmed=%lu verified=%lu recovery=%u\n",
+      result.error, static_cast<unsigned long>(result.programmed_bytes),
+      static_cast<unsigned long>(result.verified_bytes),
+      result.recovery_required);
   return result.error ? CardStatus{std::unexpected{result.error}}
                       : CardStatus{};
 }
@@ -345,16 +323,16 @@ CardStatus compare(const char *, const char *path, void *opaque) {
 }
 CardStatus verify(Card &card, void *opaque) {
   auto &context = *static_cast<Context *>(opaque);
-  if (auto r = prepare(context); !r)
+  if (auto r = prepare(context, &card); !r)
     return r;
   if (!std::equal(context.plan->before().begin(), context.plan->before().end(),
                   context.plan->desired().begin()))
     return std::unexpected{P2_E_VERIFY};
-  if (auto r = card.initialize(); !r)
-    return r;
   for (const auto &[rid, expected] :
        std::array{std::pair{P2_RID_NICID, context.hardware.nic},
-                  std::pair{P2_RID_PRIID, context.primary->component()},
+                  std::pair{P2_RID_PRIID, context.primary
+                                              ? context.primary->component()
+                                              : context.running_primary},
                   std::pair{P2_RID_STAID, context.station->component()}}) {
     auto observed = card.identity(rid);
     if (!observed)
@@ -392,6 +370,10 @@ int main(int argc, char **argv) {
          "Work:P2Backups\n"
          "  Prism2Flash verify --firmware-dir Firmware --backup-dir "
          "Work:P2Backups\n"
+         "  Prism2Flash program --primary pk010101.hex --station sf010704.hex\n"
+         "    --backup-dir EXISTING_DRAWER\n"
+         "  Prism2Flash program --station s1010701.hex --backup-dir "
+         "EXISTING_DRAWER\n"
          "  Prism2Flash program --initial ID010001.HEX --primary pk010101.hex "
          "--station sf010704.hex\n"
          "    --backup-dir EXISTING_DRAWER\n"
@@ -416,9 +398,10 @@ int main(int argc, char **argv) {
     if (!catalog(*context, options->firmware_directory))
       return 20;
   } else {
-    context->primary = load<firmware::Image>(options->primary, {});
+    if (options->primary)
+      context->primary = load<firmware::Image>(options->primary, {});
     context->station = load<firmware::Image>(options->station, {});
-    if (!context->primary || !context->station)
+    if ((options->primary && !context->primary) || !context->station)
       return 20;
   }
   std::array<char, 17> generated_utc{};
@@ -474,7 +457,8 @@ int main(int argc, char **argv) {
       return 20;
   }
   const auto result = operation::run_native(
-      options->directory, options->utc, "flash-parallel", program,
+      options->directory, options->utc,
+      options->initial ? "flash-parallel" : "flash-firmware", program,
       context.get(), options->east, {compare, context.get()},
       {[](void *c, const operation::Report &r) {
          const auto &ctx = *static_cast<Context *>(c);

@@ -33,7 +33,8 @@ public:
     if (native_) {
 #ifdef PRISM2_AMIGA
       // Fresh same-claim captures and runtime bootstrap/JEDEC checks.
-      const bool flash = !std::strcmp(operation_, "flash-parallel");
+      const bool flash = !std::strcmp(operation_, "flash-parallel") ||
+                         !std::strcmp(operation_, "flash-firmware");
       if ((std::strcmp(operation_, "probe-x16") &&
            std::strcmp(operation_, "probe-x8") &&
            std::strcmp(operation_, "bootstrap") &&
@@ -410,8 +411,8 @@ int run_native(const char *directory, const char *utc, const char *operation,
       result.journal_error = record.error();
   if (result.preparation_error) {
     p2_fprintf(stderr,
-               "Operation blocked: a verified timestamped full-flash backup is "
-               "required. Native preparation failed (%d); "
+               "Full-flash backup storage is required. "
+               "Native preparation failed (%d); "
                "no card access was attempted.\n",
                result.preparation_error);
     return 20;

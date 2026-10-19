@@ -115,7 +115,7 @@ def main():
         'source_archive_sha256': sha(source.read_bytes()),
         'hardware_tested': False,
         'hardware_test_scope': 'Exact MA401 Genesis/bootstrap/program/readback hardware builds and results are recorded in docs/HARDWARE-TESTING.md; this flag does not claim every release binary or card is hardware-tested',
-        'scope': 'Native Prism2 PC Card x8/x16 Genesis/bootstrap and DOS AMD/ST/SST/Atmel parallel-flash programming with full before/after captures; offline firmware validation/preparation',
+        'scope': 'Native Prism2 PC Card resident-firmware DOWNLOAD, station-only updates, x8/x16 Genesis/bootstrap and DOS AMD/ST/SST/Atmel parallel-flash programming with full before/after captures; offline firmware validation/preparation',
     }
     info_bytes = (json.dumps(info, indent=2) + '\n').encode()
     (output / 'build-info.json').write_bytes(info_bytes)

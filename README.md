@@ -1,253 +1,75 @@
 # Prism2Flash
 
-Flash a Prism2 wireless card directly on an Amiga A600/A1200.
+Update a Prism2 wireless card directly on an Amiga A600/A1200.
 
-## Setup once
+## Setup
 
-1. Extract the [Amiga release](https://github.com/tinic/Prism2Flash/releases).
-   Copy its `Libs/pccard.library` to `LIBS:` if you do not already have version 2.2 or newer.
-2. Put your firmware `.HEX` files in a drawer named `Firmware` beside `C`.
-   Keep their original filenames. The tool chooses the matching files automatically.
-3. Stop WirelessManager and disconnect the card from your network stack.
-4. Open a Shell in the extracted drawer:
+Extract the [Amiga release](https://github.com/tinic/Prism2Flash/releases).
+Copy its `Libs/pccard.library` to `LIBS:` if version 2.2 or newer is absent.
+Stop WirelessManager and disconnect the card from your network stack.
+Open a Shell in the extracted drawer:
 
 ```text
 Stack 16384
 MakeDir Work:P2Backups
 ```
 
-Keep 20 MiB free for automatic backups. No clock setup is needed.
+Keep 20 MiB free. Backups and checksums are automatic. No clock setup is needed.
 
-**Netgear MA401 V2.5 firmware:** download
-[ID010001.HEX](https://junsun.net/linux/intersil-prism/dos-resurrection/ID010001.HEX),
-[pk010101.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex) and
-[sf010704.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex)
-into `Firmware`.
+## Netgear MA401 V2.5 / MA401RA
 
-## Copy the command for your card
+Download [pk010101.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex)
+and [sf010704.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex)
+into the extracted drawer, then run:
 
-The command is the same for each card. The tool reads its actual hardware identity
-and selects compatible firmware; you do not need a platform table.
+```text
+C/Prism2Flash program --primary pk010101.hex --station sf010704.hex --backup-dir Work:P2Backups
+```
 
-<details>
-<summary>Netgear MA401 / MA401RA</summary>
+## Linksys WPC11 v3 / BroMax WL300
+
+Download [pf010100.hex](https://junsun.net/linux/intersil-prism/firmware/1.4.9/pf010100.hex)
+and [sf010704.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex)
+into the extracted drawer, then run:
+
+```text
+C/Prism2Flash program --primary pf010100.hex --station sf010704.hex --backup-dir Work:P2Backups
+```
+
+## Earlier Prism2 cards
+
+For early MA401, DWL-650, SMC2632W, Compaq WL100 and U.S. Robotics 2410
+versions using the original Prism2 chipset: download
+[s1010701.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.1/s1010701.hex)
+into the extracted drawer. Keep the installed primary firmware:
+
+```text
+C/Prism2Flash program --station s1010701.hex --backup-dir Work:P2Backups
+```
+
+## Other models or an unknown hardware revision
+
+For Linksys WCF12, Buffalo, Pretec, Canon, Allied Telesyn, Addtron, ZoomAir,
+Corega, Level-One, Belkin, ASUS, Airvast, EMTAC, Fulbond and Intersil cards,
+let the tool select files using the card's actual identity.
+
+Create a `Firmware` drawer and download these four files into it:
+
+- [pk010101.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/pk010101.hex)
+- [pf010100.hex](https://junsun.net/linux/intersil-prism/firmware/1.4.9/pf010100.hex)
+- [sf010704.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.4/sf010704.hex)
+- [s1010701.hex](https://junsun.net/linux/intersil-prism/firmware/1.7.1/s1010701.hex)
 
 ```text
 C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
 ```
 
-</details>
+You can also put your own compatible firmware files in that drawer.
 
-<details>
-<summary>Linksys WPC11 (Prism2 versions)</summary>
+## When it finishes
 
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
+Keep the backup drawer. After `SUCCESS`, reconnect the card to your network stack.
+If it reports `Recovery required`, leave power on and keep the files.
 
-</details>
-
-<details>
-<summary>Linksys WCF12</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>D-Link DWL-650 (Prism2 versions)</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>SMC2632W (Prism2 version)</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Compaq WL100</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Buffalo WLI-CF-S11G</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Pretec CompactWLAN</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Canon K30225</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>U.S. Robotics 2410</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Allied Telesyn AT-WCL452</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Addtron AWP-100</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>BroMax Freeport / WL300</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>ZoomAir 11Mbps</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Corega WL PCCL-11</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Level-One WPC-0100</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Belkin 802.11b Prism2</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>ASUS WL-100</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Airvast WL100</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>EMTAC A2424i</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Fulbond Airbond XI-300B</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-<details>
-<summary>Intersil Prism2 reference cards</summary>
-
-```text
-C/Prism2Flash program --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-</details>
-
-## After it reports SUCCESS
-
-Power-cycle the card/Amiga, then run:
-
-```text
-C/Prism2Flash verify --firmware-dir Firmware --backup-dir Work:P2Backups
-```
-
-Backups and checksum verification are automatic. Keep the backup drawer.
-If it says **Recovery required**, leave power on and keep the backup files.
-
-## Help and reference
-
-```text
-C/Prism2Flash --help
-```
-
-- [Download binaries and source](https://github.com/tinic/Prism2Flash/releases)
-- [Explicit firmware filenames and recovery](docs/NATIVE-FLASH.md)
-- [Hardware results](docs/HARDWARE-TESTING.md)
-- [Technical compatibility reference](docs/COMPATIBILITY.md)
-- [Build and contribution instructions](CONTRIBUTING.md)
-
-C++23 · AmigaPorts GCC16.2-rc17 · GPL-2.0-only. Firmware is supplied separately.
+[Help and recovery](docs/NATIVE-FLASH.md) · [Hardware results](docs/HARDWARE-TESTING.md) ·
+[Build from source](CONTRIBUTING.md)

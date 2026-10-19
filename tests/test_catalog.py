@@ -2,19 +2,20 @@
 """Select complete compatible pairs from mixed, renamed and malformed firmware."""
 from pathlib import Path
 import subprocess
+import os
 import sys
 import tempfile
 from firmware_fixtures import pda, firmware, info, words
 binary = Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory(dir=binary.parent, prefix='catalog-') as temp:
     folder = Path(temp)
-    def run(files, expected, nic=0x800c):
+    def run(files, expected, nic=0x800c, resident=False):
         (folder/'pda.bin').write_bytes(pda(nic=nic, variant=1))
         names=[]
         for name,text in files.items():
             (folder/name).write_text(text)
             names.append(name)
-        result = subprocess.run([str(binary),'pda.bin',*names],cwd=folder,text=True,capture_output=True)
+        result = subprocess.run([str(binary),'pda.bin',*names],cwd=folder,text=True,capture_output=True, env=dict(os.environ, **({"P2_CATALOG_RESIDENT":"1"} if resident else {})))
         if expected is None:
             assert result.returncode == 20, result
         else:
@@ -33,4 +34,6 @@ with tempfile.TemporaryDirectory(dir=binary.parent, prefix='catalog-') as temp:
     run({'p.hex':pri,'bad-interface.hex':firmware(nic=0x800c,actor_variant=9)},None)
     run({'p.hex':pri,'wrong-platform.hex':firmware(nic=0x800b)},None)
     run({'s.hex':sta},None)
+    run({'s.hex':sta},'1 0',resident=True)
+    run({'bad-interface.hex':firmware(nic=0x800c,actor_variant=9)},None,resident=True)
 print('Automatic firmware selection: all PC Card platforms, metadata, pairs and faults passed')
