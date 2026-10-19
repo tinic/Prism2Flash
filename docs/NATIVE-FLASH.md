@@ -73,8 +73,9 @@ primary supplies its interface range (FD03), download buffer (FD01) and maximum
 load time (FD00). The utility reserves each chunk with command `0222`, stages
 and verifies its bytes in RAM, commits with `0322` and checks NV readback. It
 programs the complete preserved image, verifies it again and ends DOWNLOAD with
-`0022`, then closes AUX if it remains enabled. The after-capture opens and
-closes its own AUX session. Chunk sizes and polling times are bounded.
+`0022`, waits the DOS 100 ms settling interval, then closes AUX only if this
+operation enabled it. Pre-enabled AUX is left alone; it is never forced back on
+after restart. The after-capture owns its own AUX session. Chunk sizes and polling times are bounded.
 
 For Genesis recovery, add `--initial FILE` with the matching original initial
 RAM image and supply both primary and station files:

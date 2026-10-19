@@ -12,11 +12,11 @@ struct Model {
   std::vector<uint8_t> before, desired;
   uint16_t page = 0x60, offset = 0, size = 4096, maximum = 5000;
   unsigned enables = 0, commits = 0, finishes = 0, fail_commit = 0;
-  uint32_t destination = 0;
+  uint32_t destination = 0, finished_at = 0;
   uint16_t count = 0;
   bool bad_record = false, bad_program = false, drop_commit_event = false,
        cancel_after_commit = false, keep_aux_on_finish = false,
-       stick_aux_after_finish = false;
+       stick_aux_after_finish = false, transient_control_after_finish = false;
   Model() : before(p2::flash::Bytes), desired(p2::flash::Bytes) {
     assert(!p2_mock_init(&mock, 16));
     original = mock.bus;
@@ -32,6 +32,9 @@ struct Model {
     mock.bus.ctx = this;
     mock.bus.read16 = [](void *ctx, uint16_t reg) -> uint16_t {
       auto &m = *static_cast<Model *>(ctx);
+      if (reg == P2_CONTROL && m.finishes && m.transient_control_after_finish &&
+          uint32_t(m.mock.clock - m.finished_at) < 100000)
+        return 0x4000; // Restart has not settled; not a usable CONTROL value.
       if (reg == P2_DATA0) {
         const auto rid = m.mock.regs[P2_SELECT0 / 2];
         if (rid == 0xfd01 || rid == 0xfd00) {
@@ -77,6 +80,7 @@ struct Model {
       }
       if (reg == P2_CMD && value == 0x22) {
         ++m.finishes;
+        m.finished_at = m.mock.clock;
         if (!m.keep_aux_on_finish)
           m.mock.regs[P2_CONTROL / 2] = 0;
         if (m.stick_aux_after_finish)
@@ -114,6 +118,30 @@ int main() {
     const auto r = m.run();
     assert(!r.error && !r.recovery_required && m.finishes == 1);
     assert(m.mock.regs[P2_CONTROL / 2] == 0 && m.mock.aux_enables == 1);
+  }
+  {
+    Model m;
+    m.keep_aux_on_finish = m.transient_control_after_finish = true;
+    const auto r = m.run();
+    assert(!r.error && !r.recovery_required && m.finishes == 1);
+    assert(m.mock.regs[P2_CONTROL / 2] == 0);
+  }
+  for (bool keep_aux : {false, true}) {
+    Model m;
+    m.mock.regs[P2_CONTROL / 2] = 0xc000;
+    m.keep_aux_on_finish = keep_aux;
+    const auto r = m.run();
+    assert(!r.error && !r.recovery_required && m.finishes == 1);
+    assert(m.mock.regs[P2_CONTROL / 2] == (keep_aux ? 0xc000 : 0));
+    assert(!m.mock.aux_enables && !m.mock.aux_disabled_by_host);
+  }
+  {
+    Model m;
+    m.mock.regs[P2_CONTROL / 2] = 0xc000;
+    m.desired = m.before;
+    const auto r = m.run();
+    assert(!r.error && !m.commits && !m.finishes);
+    assert(m.mock.regs[P2_CONTROL / 2] == 0xc000 && !m.mock.aux_enables);
   }
   {
     Model m;
