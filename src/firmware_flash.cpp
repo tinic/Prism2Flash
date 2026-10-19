@@ -29,10 +29,9 @@ Report program_firmware(Card &card, p2_bus &bus,
     const uint32_t address = (uint32_t(buffer[0]) << 7) + buffer[1];
     const uint32_t size = std::min<uint32_t>(buffer[2], 4096);
     if (buffer[1] >= 128 || (address & 1) || !size || (size & 1) ||
-        address >= 0x800000 || size > 0x800000 - address || !maximum[0])
+        address >= 0x800000 || size > 0x800000 - address)
       return std::unexpected{P2_E_UNSUPPORTED};
-    const uint32_t timeout =
-        std::clamp<uint32_t>(maximum[0], 5000, 60000) * 1000;
+    const uint32_t timeout = std::max<uint32_t>(maximum[0], 5000) * 1000;
     if (auto r = card.ensure_aux_enabled(); !r)
       return r;
     std::array<uint8_t, 128> readback{};

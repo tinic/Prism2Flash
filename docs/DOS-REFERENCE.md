@@ -30,6 +30,21 @@ Amiga configuration base and I/O window come from CIS; these locate the
 registers. They do not alter the DOS literal values written to COR. Socket
 power control remains card.resource/Gayle-specific.
 
+## Normal firmware DOWNLOAD
+
+Without `-hf`, ILHOPFW routes flash images to `0a22:1a79` mode 2. Its
+`1aeb`/`1b29` calls read FD01 (download buffer: page, offset, length) and FD00
+(maximum load time). At `1b65` it raises the timeout to at least 5000 ms;
+there is no extra 60000 ms cap on an advertised 16-bit value.
+
+For each chunk, `1dde` issues `0222` with destination low/high and byte count,
+then writes the advertised EXTDS staging buffer. `0322` commits the staged
+bytes; final `0022` ends DOWNLOAD. The native implementation stages each chunk
+once, checks RAM and NV readback, preserves the complete old image around
+validated image segments and ends DOWNLOAD only after the whole image agrees.
+The same full before/after capture transaction surrounds both programming paths.
+Explicit `--initial` selects the Genesis host path instead.
+
 ## Initial image
 
 The original `ID010001.HEX` is 10372 bytes; SHA-256

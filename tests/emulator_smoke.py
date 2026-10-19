@@ -93,7 +93,7 @@ def valid_output(name, text, suite="genesis"):
                 or "Cannot create a NEW backup directory" in text)
     if name in ("inspect", "probe8", "probe16", "inspect_again",
                 "inspect_transaction", "probe_transaction", "probe_transaction_ram"):
-        return ("Operation blocked: a verified timestamped full-flash backup is required." in text
+        return ("Full-flash backup storage is required." in text
                 and "no card access was attempted" in text)
     active = name in ("info", "info_again")
     if active:

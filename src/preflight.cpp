@@ -91,8 +91,7 @@ int run_command(const char *directory, const char *utc, const char *offset) {
       "Native storage preflight passed: %s\n"
       "Backup labels only: AmigaDOS clock as set, optional offset east=%d "
       "minutes.\n"
-      "Physical profile unapproved; no operation authorized; no card "
-      "access was attempted.\n",
+      "Storage check only; no card access was attempted.\n",
       (*evidence)->resolved_directory.data(), east);
   return 0;
 }

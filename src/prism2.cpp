@@ -388,7 +388,8 @@ CardStatus Card::download(unsigned mode, uint32_t address, uint16_t bytes,
                           uint32_t timeout_us) {
   if ((mode != 0 && mode != 2 && mode != 3) || address >= 0x800000 ||
       bytes > 8192 || (bytes & 1) || (address & 1) || !timeout_us ||
-      timeout_us > 60000000 || (mode == 2 ? !bytes : (bytes || address)))
+      timeout_us > 65535000 || bytes > 0x800000 - address ||
+      (mode == 2 ? !bytes : (bytes || address)))
     return std::unexpected{P2_E_ARGUMENT};
   return command(uint16_t(0x22 | (mode << 8)), uint16_t(address),
                  uint16_t(address >> 16), bytes, timeout_us);

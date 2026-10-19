@@ -122,11 +122,10 @@ int main() {
     assert(m.run().error == P2_E_UNSUPPORTED);
     assert(!m.enables);
   }
-  {
+  for (uint16_t maximum : {uint16_t(0), uint16_t(65535)}) {
     Model m;
-    m.maximum = 0;
-    assert(m.run().error == P2_E_UNSUPPORTED);
-    assert(!m.enables);
+    m.maximum = maximum;
+    assert(!m.run().error && m.finishes == 1);
   }
   {
     Model m;
