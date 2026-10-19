@@ -9,6 +9,7 @@ The short [user guide](QUICKSTART.md) is first in the README.
 - Documented Prism2 PC Card detection from prism2.device and Host AP.
 - Card-specific PDA identity and x8/x16 SRAM configuration; runtime RAM detection.
 - Original DOS Genesis double latch, initial-code loading and RAM verification.
+- Resident-primary DOWNLOAD programming, including station-only updates.
 - DOS AMD, ST, SST and Atmel parallel-flash programming and complete image checks.
 - PRI/STA compatibility validation, PDA calibration plugging and CIS preservation.
 - Automatic full before/after backups, saved-file checksums and unique output names.
@@ -32,6 +33,5 @@ recorded in each release's metadata.
 
 ## Future extensions
 
-- Running-primary DOWNLOAD programming as an alternative to host programming.
 - Explicit restoration and damaged-CIS recovery commands.
 - Further physical-card coverage and capture-throughput improvements.

@@ -1,9 +1,10 @@
 # Card and firmware selection
 
 1. Use a 16-bit Prism2 PC Card in the A600/A1200 PCMCIA slot.
-2. Select initial, primary and station images for its NIC platform using the
+2. Select primary and station images for its NIC platform using the
    [Intersil platform table](https://junsun.net/linux/intersil-prism/IDtable.html).
-3. Pass those three files to `Prism2Flash program`. The utility reads this card's
+3. Pass the files to `Prism2Flash program`, or use `--firmware-dir Firmware`
+   to select compatible files automatically. The utility reads this card's
    PDA and validates PRI/STA platform, interface, calibration and address records.
 
 ## Card detection
@@ -18,7 +19,15 @@ The complete ID/string tables are in [compatibility.h](../include/compatibility.
 Sources: [prism2.device 2.9](https://aminet.net/package/driver/net/prism2v2.lha),
 [Host AP PC Card table](https://github.com/torvalds/linux/blob/v4.4/drivers/net/wireless/hostap/hostap_cs.c).
 
-## SRAM and flash commands
+## Normal updates
+
+The resident primary firmware handles flash programming using the DOS DOWNLOAD
+commands. Its FD01 download buffer and FD00 load-time records determine the RAM
+staging address, chunk size and timeout. No Genesis initial code or host JEDEC
+algorithm is required. Station-only updates validate against the running
+primary's FD03 interface range and preserve the installed primary bytes.
+
+## Genesis and host flash commands
 
 PDA PDR `0400` bit 1 selects x16 or x8 SRAM, following Host AP `prism2_srec`.
 When absent, the loader uses Host AP's RAM readback detection. A RAM-size PDR

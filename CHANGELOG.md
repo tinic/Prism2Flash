@@ -2,16 +2,6 @@
 
 Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
-## Unreleased
-
-### Documentation
-
-- Record the first real A1200 read-only baseline: 15 CLI/CIS-only/offline
-  synthetic checks passed with the published 0.2.1-alpha.1 binaries. Preserve
-  the full-backup gate; no active card operations or flash access were tested.
-- Record the observed 000b:7300 ID, its Linux Host AP/MA401RA source mapping,
-  outstanding card-profile/backup work and legacy Version date-display issue.
-
 ## [0.9.0-alpha.1] - 2026-10-18
 
 - Implement the DOS normal DOWNLOAD path using resident firmware, RID FD01/FD00,

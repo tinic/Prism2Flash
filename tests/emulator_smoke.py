@@ -59,7 +59,7 @@ def valid_output(name, text, suite="genesis"):
             return text.strip() == f"Prism2Flash {VERSION}"
         if name in ("auto_missing_drawer", "auto_verify_missing_drawer"):
             return "Cannot open firmware drawer:" in text
-        if name in ("program_missing_files", "verify_missing_files", "program_local_missing_files", "verify_local_missing_files"):
+        if name in ("program_missing_files", "verify_missing_files", "program_local_missing_files", "verify_local_missing_files", "station_missing_file", "pair_missing_files"):
             return "Cannot open firmware file:" in text
         return f"Prism2Flash {VERSION}" in text and "Fresh full before/after captures" in text
     if suite == "firmware":
@@ -226,6 +226,8 @@ def main():
         CASES = [
             ("help", "--help", 0), ("version", "--version", 0),
             ("missing_args", "program", 20),
+            ("station_missing_file", "program --station missing-station.hex --backup-dir Work:P2Backups", 20),
+            ("pair_missing_files", "program --primary missing-primary.hex --station missing-station.hex --backup-dir Work:P2Backups", 20),
             ("auto_missing_drawer", "program --firmware-dir MissingFirmware --backup-dir Work:P2Backups", 20),
             ("auto_verify_missing_drawer", "verify --firmware-dir MissingFirmware --backup-dir Work:P2Backups", 20),
             ("program_missing_files", "program --initial missing-initial.hex" + options, 20),
