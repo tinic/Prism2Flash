@@ -92,10 +92,20 @@ private:
 // behavior to known optional configuration fields; identity, regulatory and
 // RF calibration records remain mandatory and byte-exact.
 bool optional_default(uint32_t pdr, PlugPolicy policy) {
-  constexpr std::array<uint32_t, 12> optional{
-      1, 3, 5, 0x402, 0x403, 0x404, 0x408, 0x405, 0x406, 0x302, 0x303, 0x412};
+  constexpr std::array<uint32_t, 14> optional{1,     3,     5,     0x402, 0x403,
+                                              0x404, 0x408, 0x405, 0x406, 0x302,
+                                              0x303, 0x412, 0x413, 0x414};
   return policy == PlugPolicy::DosOptionalDefaults &&
          std::find(optional.begin(), optional.end(), pdr) != optional.end();
+}
+bool absent_plug(const Image &image, const Plug &plug, const PdaView &pda,
+                 PlugPolicy policy) {
+  // Host AP plug_pdr_entries and DOS skip an absent PDA record with no image
+  // destination. Later STA images include these descriptors (e.g. 0413).
+  // Never create a payload region or ignore an actual PDA write.
+  return policy == PlugPolicy::DosOptionalDefaults && plug.pdr != UINT32_MAX &&
+         !pda.find(static_cast<uint16_t>(plug.pdr)) &&
+         !image.contains(plug.address, plug.length);
 }
 Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
                    const PdaView &pda, PlugPolicy policy) {
@@ -137,6 +147,8 @@ Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
     return fail(Errc::Incompatible, "Image has no actor compatibility records");
   for (std::size_t i = 0; i < image.plugs().size(); ++i) {
     const auto &plug = image.plugs()[i];
+    if (absent_plug(image, plug, pda, policy))
+      continue;
     if (!image.contains(plug.address, plug.length))
       return fail(Errc::Incompatible,
                   "PDA plug destination is outside image payload");
@@ -148,7 +160,7 @@ Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
     if (inactive(plug))
       continue; // A retained image default performs no destination write.
     for (const auto &other : image.plugs().first(i)) {
-      if (inactive(other))
+      if (inactive(other) || absent_plug(image, other, pda, policy))
         continue;
       if (plug.address < other.address + other.length &&
           other.address < plug.address + plug.length)
@@ -183,7 +195,8 @@ Status check_image(const Image &image, Mode mode, const CardSnapshot &card,
         return fail(Errc::Incompatible,
                     "Signature region does not begin at a payload segment");
       for (const auto &plug : image.plugs())
-        if (plug.address < signature.start &&
+        if (!absent_plug(image, plug, pda, policy) &&
+            plug.address < signature.start &&
             plug.address + plug.length > signature.start - 2)
           return fail(Errc::Incompatible,
                       "Signature stamp would overwrite a PDA plug");
@@ -371,6 +384,11 @@ Result<PreparedImage> PreparedImage::create(ImageSource target, Mode mode,
         std::any_of(source.basename.begin(), source.basename.end(),
                     [](unsigned char c) { return c < 32 || c > 126; }))
       return fail(Errc::Format, "A bounded ASCII source basename is required");
+    for (const auto &plug : source.image.plugs())
+      if (absent_plug(source.image, plug, *pda, policy) &&
+          !prepared.fallbacks_.push_back(
+              PlugFallback{plug.pdr, plug.length, 0, true, true}))
+        return fail(Errc::Memory, "Out of memory recording ignored plugs");
     for (const auto &segment : source.image.segments()) {
       const auto stamps =
           std::count_if(source.image.signatures().begin(),

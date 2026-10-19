@@ -2,6 +2,14 @@
 
 Versions use Semantic Versioning. Pre-1.0 APIs and card profiles may change.
 
+## [0.9.3-alpha.1] - 2026-10-18
+
+- Handle later station-image plug descriptors absent from both PDA and payload,
+  following DOS and Host AP without creating a payload region.
+- Retain optional 0413/0414 configuration defaults when absent in the PDA.
+  Keep strict mode and required calibration checks; record ignored descriptors.
+- Cover absent targets, present PDA values, filename plugs and untouched bytes.
+
 ## [0.9.2-alpha.1] - 2026-10-18
 
 - Match the DOS 100 ms DOWNLOAD settling delay and close only AUX access

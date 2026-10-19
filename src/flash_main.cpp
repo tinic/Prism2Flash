@@ -258,7 +258,8 @@ CardStatus prepare(Context &context, Card *card = nullptr) {
     return std::unexpected{P2_E_IO};
   for (const auto &fallback : prepared->fallbacks())
     if (p2_fprintf(manifest.get(),
-                   "DOS-default PDR=%04lx expected=%lu actual=%lu missing=%u\n",
+                   "%s PDR=%04lx expected=%lu actual=%lu missing=%u\n",
+                   fallback.target_absent ? "DOS-ignored" : "DOS-default",
                    static_cast<unsigned long>(fallback.pdr),
                    static_cast<unsigned long>(fallback.expected_bytes),
                    static_cast<unsigned long>(fallback.actual_bytes),
